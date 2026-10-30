@@ -1,59 +1,185 @@
-<p align="center"><a href="https://laravel.com" target="_blank"><img src="https://raw.githubusercontent.com/laravel/art/master/logo-lockup/5%20SVG/2%20CMYK/1%20Full%20Color/laravel-logolockup-cmyk-red.svg" width="400" alt="Laravel Logo"></a></p>
+# Sistema de gestión académica
 
-<p align="center">
-<a href="https://github.com/laravel/framework/actions"><img src="https://github.com/laravel/framework/workflows/tests/badge.svg" alt="Build Status"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/dt/laravel/framework" alt="Total Downloads"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/v/laravel/framework" alt="Latest Stable Version"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/l/laravel/framework" alt="License"></a>
-</p>
+Aplicación web desarrollada con Laravel para administrar información académica e institucional. Incluye módulos para usuarios y roles, personal, carreras, materias, gestiones académicas, grupos, actividades, postulaciones, inscripciones y pagos.
 
-## About Laravel
+Esta guía explica cómo preparar el entorno local en Windows, instalar las dependencias, configurar la base de datos, cargar datos de demostración y ejecutar el sistema.
 
-Laravel is a web application framework with expressive, elegant syntax. We believe development must be an enjoyable and creative experience to be truly fulfilling. Laravel takes the pain out of development by easing common tasks used in many web projects, such as:
+## Requisitos
 
-- [Simple, fast routing engine](https://laravel.com/docs/routing).
-- [Powerful dependency injection container](https://laravel.com/docs/container).
-- Multiple back-ends for [session](https://laravel.com/docs/session) and [cache](https://laravel.com/docs/cache) storage.
-- Expressive, intuitive [database ORM](https://laravel.com/docs/eloquent).
-- Database agnostic [schema migrations](https://laravel.com/docs/migrations).
-- [Robust background job processing](https://laravel.com/docs/queues).
-- [Real-time event broadcasting](https://laravel.com/docs/broadcasting).
+Instala estas herramientas antes de comenzar:
 
-Laravel is accessible, powerful, and provides tools required for large, robust applications.
+| Herramienta | Requisito | Para qué se utiliza |
+|---|---|---|
+| Git | Versión reciente | Descargar el proyecto y administrar cambios. |
+| PHP | 8.2 o superior | Ejecutar Laravel. |
+| Extensiones de PHP | `pdo_mysql`, `mbstring`, `openssl`, `fileinfo`, `xml`, `dom`, `gd` y `zip`, como mínimo | Conexión a MySQL, manejo de archivos, imágenes, PDF y hojas de cálculo. |
+| Composer | Composer 2 | Instalar dependencias de PHP. |
+| MySQL | MySQL 8 recomendado | Guardar los datos del sistema. |
+| Node.js | 22.12 o superior (incluye npm) | Instalar y compilar los recursos del frontend con Vite 7. |
 
-## Learning Laravel
+Puedes instalar PHP y MySQL por separado o utilizar un entorno local como **Laragon** o **XAMPP**, siempre que la versión de PHP sea 8.2 o superior y tenga habilitadas las extensiones requeridas. Instala Composer y Node.js por separado si tu entorno no los incluye. Para ejecutar las pruebas automatizadas también se necesita habilitar `pdo_sqlite`, ya que la configuración de pruebas utiliza SQLite en memoria.
 
-Laravel has the most extensive and thorough [documentation](https://laravel.com/docs) and video tutorial library of all modern web application frameworks, making it a breeze to get started with the framework. You can also check out [Laravel Learn](https://laravel.com/learn), where you will be guided through building a modern Laravel application.
+**Opcionales:** Visual Studio Code para editar el proyecto y MySQL Workbench para administrar la base de datos gráficamente.
 
-If you don't feel like reading, [Laracasts](https://laracasts.com) can help. Laracasts contains thousands of video tutorials on a range of topics including Laravel, modern PHP, unit testing, and JavaScript. Boost your skills by digging into our comprehensive video library.
+Comprueba que Windows reconoce los comandos desde PowerShell:
 
-## Laravel Sponsors
+```powershell
+php -v
+composer --version
+node --version
+npm --version
+git --version
+```
 
-We would like to extend our thanks to the following sponsors for funding Laravel development. If you are interested in becoming a sponsor, please visit the [Laravel Partners program](https://partners.laravel.com).
+Si un comando no se reconoce, revisa la instalación y que su carpeta esté agregada a `PATH`. Para verificar las extensiones de PHP, ejecuta `php -m`; también puedes ejecutar `composer check-platform-reqs` después de instalar las dependencias.
 
-### Premium Partners
+## Descargar el proyecto
 
-- **[Vehikl](https://vehikl.com)**
-- **[Tighten Co.](https://tighten.co)**
-- **[Kirschbaum Development Group](https://kirschbaumdevelopment.com)**
-- **[64 Robots](https://64robots.com)**
-- **[Curotec](https://www.curotec.com/services/technologies/laravel)**
-- **[DevSquad](https://devsquad.com/hire-laravel-developers)**
-- **[Redberry](https://redberry.international/laravel-development)**
-- **[Active Logic](https://activelogic.com)**
+Si todavía no tienes una copia local, abre PowerShell en la carpeta donde quieras guardarlo y ejecuta:
 
-## Contributing
+```powershell
+git clone <URL_DEL_REPOSITORIO>
+cd <NOMBRE_DE_LA_CARPETA>
+```
 
-Thank you for considering contributing to the Laravel framework! The contribution guide can be found in the [Laravel documentation](https://laravel.com/docs/contributions).
+Reemplaza `<URL_DEL_REPOSITORIO>` con la dirección que te comparta tu compañero. Si ya tienes el proyecto, abre PowerShell en su carpeta y continúa con el siguiente paso.
 
-## Code of Conduct
+## Instalar dependencias y configurar `.env`
 
-In order to ensure that the Laravel community is welcoming to all, please review and abide by the [Code of Conduct](https://laravel.com/docs/contributions#code-of-conduct).
+Desde la carpeta raíz del proyecto:
 
-## Security Vulnerabilities
+```powershell
+composer install
+npm install
 
-If you discover a security vulnerability within Laravel, please send an e-mail to Taylor Otwell via [taylor@laravel.com](mailto:taylor@laravel.com). All security vulnerabilities will be promptly addressed.
+if (-not (Test-Path .env)) {
+    Copy-Item .env.example .env
+}
 
-## License
+php artisan key:generate
+```
 
-The Laravel framework is open-sourced software licensed under the [MIT license](https://opensource.org/licenses/MIT).
+`composer install` instala las bibliotecas PHP indicadas por `composer.lock`, y `npm install` instala las herramientas JavaScript indicadas por `package-lock.json`. El archivo `.env` contiene la configuración local y no se debe compartir ni subir al repositorio.
+
+## Configurar MySQL
+
+Inicia el servicio MySQL y crea una base vacía llamada `itsa`. Por ejemplo, desde el cliente de MySQL:
+
+```sql
+CREATE DATABASE itsa CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+```
+
+Abre el archivo `.env` y confirma que la configuración coincida con tu instalación:
+
+```dotenv
+APP_NAME="Sistema de gestion academica"
+APP_ENV=local
+APP_DEBUG=true
+APP_URL=http://127.0.0.1:8000
+
+DB_CONNECTION=mysql
+DB_HOST=127.0.0.1
+DB_PORT=3306
+DB_DATABASE=itsa
+DB_USERNAME=root
+DB_PASSWORD=
+```
+
+El `.env.example` usa `root` sin contraseña. Si MySQL está configurado con otro usuario, contraseña, puerto o nombre de base de datos, modifica esos valores. `APP_DEBUG=true` es apropiado únicamente para desarrollo local.
+
+## Crear las tablas y cargar datos
+
+Para instalar el esquema y los datos de demostración:
+
+```powershell
+php artisan migrate --seed
+```
+
+Si las tablas ya existen y solo quieres volver a ejecutar los datos iniciales:
+
+```powershell
+php artisan db:seed
+```
+
+El seeder principal agrega registros de demostración, como carreras, materias, un administrador y postulaciones de prueba. **No contiene la base real de tu compañero**. Si necesitas continuar con datos reales, pídele un respaldo de la base de datos y las instrucciones para restaurarlo.
+
+> **Atención:** `php artisan migrate:fresh --seed` elimina todas las tablas y sus datos antes de crearlas nuevamente. Úsalo solo en una base local descartable, nunca en una base con información que quieras conservar.
+
+## Ejecutar la aplicación
+
+En una terminal, desde la raíz del proyecto:
+
+```powershell
+composer run dev
+```
+
+Este comando inicia el servidor local de Laravel, Vite y los procesos de desarrollo configurados por el proyecto. Deja la terminal abierta y visita:
+
+```text
+http://127.0.0.1:8000
+```
+
+Detén los procesos con `Ctrl+C`.
+
+Para compilar los recursos del frontend sin iniciar el modo de desarrollo:
+
+```powershell
+npm run build
+```
+
+Si prefieres iniciar los procesos por separado, usa terminales distintas:
+
+```powershell
+php artisan serve
+```
+
+```powershell
+npm run dev
+```
+
+## Acceso de demostración
+
+Después de ejecutar `php artisan migrate --seed`, el seeder incluye esta cuenta local:
+
+| Usuario | Contraseña | Rol |
+|---|---|---|
+| `20260001` | `adminroot` | Administrador |
+
+Son credenciales públicas de demostración definidas en el código. Úsalas únicamente en desarrollo y cámbialas antes de cualquier despliegue o uso con información real. El formulario de acceso solicita el usuario y la contraseña.
+
+## Comandos útiles
+
+Ejecuta estos comandos desde la carpeta raíz:
+
+| Comando | Función |
+|---|---|
+| `php artisan migrate:status` | Ver el estado de las migraciones. |
+| `php artisan migrate` | Aplicar migraciones pendientes sin borrar los datos existentes. |
+| `php artisan db:seed` | Ejecutar el seeder principal. |
+| `php artisan route:list` | Mostrar las rutas registradas. |
+| `php artisan optimize:clear` | Limpiar cachés de configuración, rutas y vistas. |
+| `php artisan test` | Ejecutar las pruebas automatizadas. |
+| `npm run dev` | Ejecutar Vite en modo desarrollo. |
+| `npm run build` | Compilar los recursos frontend. |
+
+Para servir archivos cargados mediante el disco público de Laravel, crea el enlace de almacenamiento una sola vez:
+
+```powershell
+php artisan storage:link
+```
+
+## Solución de problemas
+
+- **`php`, `composer`, `node` o `npm` no se reconoce:** instala la herramienta correspondiente y reinicia PowerShell para actualizar `PATH`.
+- **Composer indica que falta una extensión PHP:** habilita la extensión indicada en la configuración de PHP usada por la terminal, reinicia PowerShell y comprueba con `php -m`.
+- **Error de conexión a MySQL:** confirma que el servicio esté iniciado, que la base `itsa` exista y que `DB_HOST`, `DB_PORT`, `DB_USERNAME` y `DB_PASSWORD` en `.env` sean correctos.
+- **Cambiaste `.env` y Laravel sigue usando valores anteriores:** ejecuta `php artisan optimize:clear`.
+- **El puerto 8000 está ocupado:** inicia Laravel con `php artisan serve --port=8001` y abre `http://127.0.0.1:8001`.
+- **No aparecen los estilos o scripts durante el desarrollo:** confirma que `npm install` terminó y que `composer run dev` o `npm run dev` sigue activo.
+
+## Notas para el equipo
+
+- No compartas ni subas `.env`, contraseñas o respaldos con datos personales.
+- Usa datos ficticios en las instalaciones locales de prueba.
+- Antes de actualizar dependencias, revisa los cambios en `composer.json`/`composer.lock` y `package.json`/`package-lock.json`.
+- Para saber qué cambió en el proyecto o qué configuración usa una instalación existente, consulta a quien te entregó el repositorio.
