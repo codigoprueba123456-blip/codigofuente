@@ -1,0 +1,284 @@
+/* Identidad institucional ITSA */
+:root {
+    --itsa-green-dark: #003B01;
+    --itsa-green: #015001;
+    --itsa-green-hover: #176B1C;
+    --itsa-navbar: #E8F1E6;
+    --itsa-page-bg: #F4F6F9;
+    --itsa-border: #E2E8F0;
+    --itsa-text: #26382C;
+    --itsa-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+}
+
+/* Sidebar */
+.main-sidebar {
+    background-color: var(--itsa-green-dark) !important;
+}
+
+.main-sidebar .brand-link,
+.main-sidebar .brand-text,
+.main-sidebar .nav-header,
+.main-sidebar .nav-sidebar .nav-link,
+.main-sidebar .nav-sidebar .nav-icon {
+    color: #F4F7F4 !important;
+    transition: background-color 0.3s ease, color 0.3s ease;
+}
+
+.main-sidebar .nav-sidebar .nav-link:hover,
+.main-sidebar .nav-sidebar .nav-link.active,
+.main-sidebar .nav-sidebar .nav-item.menu-open > .nav-link,
+.main-sidebar .nav-treeview > .nav-item > .nav-link:hover,
+.main-sidebar .nav-treeview > .nav-item > .nav-link.active {
+    color: #FFFFFF !important;
+    background-color: var(--itsa-green-hover) !important;
+}
+
+.main-sidebar .nav-sidebar .nav-link:focus-visible {
+    outline: 2px solid rgba(255, 255, 255, 0.9);
+    outline-offset: -2px;
+}
+
+.main-sidebar .brand-link .brand-image {
+    float: none;
+    width: 42px;
+    height: auto;
+    max-height: 34px;
+    object-fit: contain;
+    filter: brightness(0) invert(1);
+}
+
+/* Navbar */
+.main-header.navbar {
+    background-color: var(--itsa-navbar) !important;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+}
+
+.main-header .nav-link,
+.main-header .navbar-nav .nav-link {
+    color: #315C34 !important;
+    transition: background-color 0.3s ease, color 0.3s ease;
+}
+
+.main-header .nav-link:hover {
+    color: var(--itsa-green-dark) !important;
+    background-color: #D6E8D2;
+}
+
+/* Área de trabajo */
+.content-wrapper {
+    background-color: var(--itsa-page-bg) !important;
+}
+
+.content-wrapper > .content {
+    margin: 16px;
+    padding: 20px;
+    background-color: #FFFFFF;
+    border-radius: 14px;
+    box-shadow: var(--itsa-shadow);
+}
+
+.content-wrapper .card {
+    border: 0;
+    border-radius: 14px;
+    box-shadow: var(--itsa-shadow);
+}
+
+.content-wrapper .card-header:first-child {
+    border-radius: 14px 14px 0 0;
+}
+
+/* Componentes del panel con el estilo institucional de admisiones */
+.content-header h1,
+.content-header h2,
+.content-header h3 {
+    color: var(--itsa-green-dark);
+    font-weight: 700;
+}
+
+.content-wrapper .card {
+    border: 1px solid var(--itsa-border);
+    overflow: hidden;
+}
+
+.content-wrapper .card > .card-header {
+    padding: 1rem 1.25rem;
+    background: linear-gradient(135deg, var(--itsa-green-dark), var(--itsa-green)) !important;
+    border-bottom: 0;
+    color: #FFFFFF;
+}
+
+.content-wrapper .card > .card-header .card-title,
+.content-wrapper .card > .card-header h1,
+.content-wrapper .card > .card-header h2,
+.content-wrapper .card > .card-header h3,
+.content-wrapper .card > .card-header label,
+.content-wrapper .card > .card-header .text-muted {
+    color: #FFFFFF !important;
+}
+
+.content-wrapper .card > .card-header .form-control,
+.content-wrapper .card > .card-header .custom-select,
+.content-wrapper .card > .card-header .form-select {
+    background-color: #FFFFFF;
+}
+
+.content-wrapper .card-body {
+    color: var(--itsa-text);
+}
+
+.content-wrapper .card-footer {
+    background-color: #F8FAFC;
+    border-top: 1px solid var(--itsa-border);
+}
+
+.content-wrapper label,
+.content-wrapper .form-label {
+    color: #203B29;
+    font-weight: 600;
+}
+
+.content-wrapper .form-control,
+.content-wrapper .custom-select,
+.content-wrapper .form-select {
+    min-height: 40px;
+    border: 1px solid #C8D6C9;
+    border-radius: 8px;
+    color: #24382A;
+    box-shadow: none;
+}
+
+.content-wrapper textarea.form-control {
+    min-height: 100px;
+}
+
+.content-wrapper .form-control::placeholder {
+    color: #718075;
+    opacity: 1;
+}
+
+.content-wrapper .form-control:focus,
+.content-wrapper .custom-select:focus,
+.content-wrapper .form-select:focus {
+    border-color: #087332;
+    box-shadow: 0 0 0 3px rgba(8, 115, 50, 0.14);
+}
+
+.content-wrapper .input-group-text {
+    border-color: #C8D6C9;
+    color: #47624D;
+}
+
+.content-wrapper .btn {
+    border-radius: 8px;
+    font-weight: 600;
+}
+
+.content-wrapper .btn-primary,
+.content-wrapper .btn-success,
+.content-wrapper .bg-primary,
+.content-wrapper .badge-primary {
+    background-color: var(--itsa-green) !important;
+    border-color: var(--itsa-green) !important;
+    color: #FFFFFF !important;
+}
+
+.content-wrapper .btn-primary:hover,
+.content-wrapper .btn-success:hover {
+    background-color: var(--itsa-green-dark) !important;
+    border-color: var(--itsa-green-dark) !important;
+}
+
+.content-wrapper .btn-outline-primary {
+    color: var(--itsa-green);
+    border-color: var(--itsa-green);
+}
+
+.content-wrapper .btn-outline-primary:hover {
+    background-color: var(--itsa-green);
+    border-color: var(--itsa-green);
+    color: #FFFFFF;
+}
+
+.content-wrapper .btn-default,
+.content-wrapper .btn-light {
+    border-color: var(--itsa-border);
+}
+
+.content-wrapper .table-responsive {
+    border-color: var(--itsa-border) !important;
+}
+
+.content-wrapper .table {
+    color: var(--itsa-text);
+}
+
+.content-wrapper .table thead th {
+    background-color: #EAF3E9 !important;
+    border-color: #DCE7DC;
+    color: var(--itsa-green-dark) !important;
+    font-size: 0.82rem;
+    font-weight: 700;
+    vertical-align: middle;
+}
+
+.content-wrapper .table tbody td {
+    border-color: #E8EEE8;
+    vertical-align: middle;
+}
+
+.content-wrapper .table-hover tbody tr:hover {
+    background-color: #F4F8F3;
+}
+
+.content-wrapper .alert {
+    border-radius: 8px;
+}
+
+.content-wrapper .pagination .page-link {
+    color: var(--itsa-green);
+}
+
+.content-wrapper .pagination .page-item.active .page-link {
+    background-color: var(--itsa-green);
+    border-color: var(--itsa-green);
+    color: #FFFFFF;
+}
+
+/* Mantener la semántica de color de cada acción */
+.content-wrapper .btn:not(:disabled),
+.main-header .btn:not(:disabled) {
+    transition: filter 0.2s ease, box-shadow 0.2s ease;
+}
+
+.content-wrapper .btn:not(:disabled):hover,
+.main-header .btn:not(:disabled):hover {
+    filter: brightness(0.94);
+}
+
+.content-wrapper .btn:not(:disabled):active,
+.main-header .btn:not(:disabled):active {
+    filter: brightness(0.88);
+}
+
+/* Preloader */
+.preloader {
+    background-color: var(--itsa-green-dark) !important;
+}
+
+.preloader img {
+    width: auto !important;
+    height: auto !important;
+    max-width: 180px;
+    max-height: 120px;
+    object-fit: contain;
+    border-radius: 0 !important;
+    filter: brightness(0) invert(1);
+}
+
+@media (max-width: 767.98px) {
+    .content-wrapper > .content {
+        margin: 10px;
+        padding: 14px;
+        border-radius: 10px;
+    }
+}

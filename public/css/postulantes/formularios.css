@@ -1,0 +1,19 @@
+.postulantes-logo {
+    width: 72px;
+    height: auto;
+    max-height: 50px;
+    object-fit: contain;
+    filter: brightness(0) invert(1);
+}
+
+.postulantes-logo-inicio {
+    width: 68px;
+    max-height: 48px;
+}
+
+.tutorial-box {
+    display: none;
+    position: absolute;
+    max-width: 360px;
+    z-index: 100000;
+}

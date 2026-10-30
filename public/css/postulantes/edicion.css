@@ -1,0 +1,219 @@
+    .itsa-postulante-public {
+        min-height: 100vh;
+        background: #f2f6f1;
+        color: #183323;
+        font-family: "Segoe UI", sans-serif;
+    }
+
+    .public-hero {
+        background: linear-gradient(115deg, #003b01 0%, #015001 72%, #176b2b 100%);
+        border-bottom: 3px solid #d8ad46;
+        box-shadow: 0 5px 18px rgba(15, 45, 24, 0.18);
+    }
+
+    .institution-name {
+        font-size: 1rem;
+    }
+
+    .itsa-postulante-public .btn-back {
+        color: #064315;
+        border: 1px solid rgba(255, 255, 255, 0.7);
+        border-radius: 8px;
+        padding: 0.55rem 1rem;
+        transition: background-color 0.18s ease, transform 0.18s ease;
+    }
+
+    .itsa-postulante-public .btn-back:hover {
+        background: #eaf3e9;
+        color: #003b01;
+        transform: translateY(-1px);
+    }
+
+    .itsa-postulante-public .container {
+        max-width: 1240px;
+    }
+
+    .itsa-postulante-public .card {
+        border: 1px solid #dce7dc;
+        border-radius: 12px;
+        box-shadow: 0 8px 22px rgba(15, 45, 24, 0.08);
+        overflow: hidden;
+        background: #fff;
+    }
+
+    .itsa-postulante-public .card-header {
+        background: #015001 !important;
+        border: 0 !important;
+        color: #fff !important;
+        padding: 1rem 1.25rem;
+    }
+
+    .itsa-postulante-public .card-header .card-title,
+    .itsa-postulante-public .card-header h3 {
+        color: #fff !important;
+        margin: 0;
+    }
+
+    .itsa-postulante-public .card-body {
+        padding: 1.5rem;
+        color: #26382c;
+    }
+
+    .itsa-postulante-public label {
+        display: inline-block;
+        margin-bottom: 0.45rem;
+        color: #203b29;
+        font-size: 0.94rem;
+    }
+
+    .itsa-postulante-public .form-control,
+    .itsa-postulante-public .custom-select {
+        border-radius: 8px;
+        border: 1px solid #c8d6c9;
+        background: #fff;
+        min-height: 44px;
+        box-shadow: none;
+        color: #24382a;
+    }
+
+    .itsa-postulante-public .form-control::placeholder {
+        color: #718075;
+        opacity: 1;
+    }
+
+    .itsa-postulante-public .form-control:focus,
+    .itsa-postulante-public .custom-select:focus {
+        border-color: #087332;
+        box-shadow: 0 0 0 3px rgba(8, 115, 50, 0.14);
+    }
+
+    .itsa-postulante-public .btn-primary {
+        background: #015001;
+        border: none;
+        border-radius: 8px;
+        font-weight: 700;
+        padding: 0.7rem 1.1rem;
+        box-shadow: 0 4px 10px rgba(20, 83, 45, 0.16);
+    }
+
+    .itsa-postulante-public .btn-secondary,
+    .itsa-postulante-public .btn-outline-secondary,
+    .itsa-postulante-public .btn-outline-primary {
+        border-radius: 8px;
+    }
+
+    .itsa-postulante-public .btn-success {
+        border-radius: 8px;
+        background: #003b01;
+        border: none;
+    }
+
+    .itsa-postulante-public .alert {
+        border-radius: 8px;
+        border: 1px solid transparent;
+        line-height: 1.55;
+    }
+
+    .itsa-postulante-public .alert-warning {
+        color: #654d12;
+        background: #fff8df;
+        border-color: #ead99c;
+    }
+
+    .itsa-postulante-public .alert-info {
+        color: #174b54;
+        background: #eaf6f5;
+        border-color: #c5e2df;
+    }
+
+    .itsa-postulante-public .photo-preview-box {
+        width: 100%;
+        height: 220px;
+        border: 2px dashed #a9c3ac;
+        background: #f8fafc;
+        border-radius: 12px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-direction: column;
+        gap: 10px;
+        overflow: hidden;
+        color: #47624d;
+        font-weight: 700;
+    }
+
+    .itsa-postulante-public .photo-preview-box img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+    }
+
+    .itsa-postulante-public .intro-copy h2 {
+        color: #064315;
+        font-weight: 800;
+        margin-bottom: 0.65rem;
+    }
+
+    .itsa-postulante-public .intro-copy .text-info {
+        color: #47704f !important;
+    }
+
+    .itsa-postulante-public .text-muted,
+    .itsa-postulante-public small,
+    .itsa-postulante-public .text-secondary {
+        color: #586b5d;
+    }
+
+    .itsa-postulante-public .custom-file-label {
+        border-color: #c8d6c9;
+        border-radius: 8px;
+        color: #46584a;
+    }
+
+    .itsa-postulante-public .btn-select-photo {
+        background: #fff;
+        color: #075c25;
+        border: 1px solid #16723a;
+        border-radius: 8px;
+        padding: 0.65rem 0.9rem;
+        transition: background-color 0.18s ease;
+    }
+
+    .itsa-postulante-public .btn-select-photo:hover {
+        background: #edf5ed;
+        color: #003b01;
+    }
+
+    .itsa-postulante-public .card-footer {
+        padding: 1rem 1.5rem;
+        border-top: 1px solid #e1e9e1;
+    }
+
+    @media (max-width: 575.98px) {
+        .itsa-postulante-public .card-body {
+            padding: 1.1rem;
+        }
+
+        .itsa-postulante-public .card-header {
+            padding: 0.9rem 1.1rem;
+        }
+
+        .itsa-postulante-public .intro-copy h2 {
+            font-size: 1.45rem;
+        }
+
+        .itsa-postulante-public .photo-preview-box {
+            height: 200px;
+        }
+
+        .itsa-postulante-public .card-footer {
+            display: flex;
+            flex-direction: column;
+            gap: 0.6rem;
+        }
+
+        .itsa-postulante-public .card-footer .btn {
+            width: 100%;
+            margin: 0 !important;
+        }
+    }

@@ -1,0 +1,11 @@
+        /* Subtle background overlay and script accent styling */
+        .hero-bg-overlay {
+            background: radial-gradient(circle at 75% 45%, rgba(13, 94, 43, 0.45) 0%, rgba(1, 56, 19, 0.95) 75%),
+                linear-gradient(180deg, #013813 0%, #01471d 55%, #055023 100%);
+        }
+
+        .custom-script-text {
+            font-family: 'Caveat', cursive;
+            letter-spacing: 0.5px;
+        }
+    

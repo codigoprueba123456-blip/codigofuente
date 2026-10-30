@@ -1,0 +1,646 @@
+    :root {
+        --primary-itsa: #015001;
+        --dark-itsa: #003b01;
+        --light-itsa: #f0fdf4;
+        --bg-slate: #f8fafc;
+        --border-color: #e2e8f0;
+    }
+
+
+    /* ========================================================
+       BASE
+    ========================================================= */
+
+    .itsa-postulante-public {
+        min-height: 100vh;
+        background: var(--bg-slate);
+        color: #1e293b;
+        font-family:
+            -apple-system,
+            BlinkMacSystemFont,
+            "Segoe UI",
+            Roboto,
+            "Helvetica Neue",
+            Arial,
+            sans-serif;
+    }
+
+
+    .itsa-postulante-public .container {
+        max-width: 1240px;
+    }
+
+
+    /* ========================================================
+       HEADER
+    ========================================================= */
+
+    .public-hero {
+        background:
+            linear-gradient(135deg,
+                var(--dark-itsa) 0%,
+                var(--primary-itsa) 100%);
+
+        border-bottom: 2px solid rgba(255, 255, 255, 0.15);
+
+        box-shadow:
+            0 4px 15px rgba(0, 59, 1, 0.15);
+    }
+
+
+    .institution-name {
+        letter-spacing: 0.04em;
+    }
+
+
+    /* ========================================================
+       STEPPER
+    ========================================================= */
+
+    .stepper-wrapper {
+        position: relative;
+        margin-bottom: 0;
+        padding: 0 10px;
+    }
+
+
+    .stepper-line {
+        position: absolute;
+
+        top: 22px;
+
+        left: 7%;
+        right: 7%;
+
+        height: 3px;
+
+        background-color: #cbd5e1;
+
+        z-index: 1;
+    }
+
+
+    .step-item {
+        position: relative;
+        z-index: 2;
+
+        text-align: center;
+
+        cursor: pointer;
+
+        flex: 1;
+    }
+
+
+    .step-circle {
+        width: 44px;
+        height: 44px;
+
+        border-radius: 50%;
+
+        background-color: #ffffff;
+
+        border: 2px solid #cbd5e1;
+
+        color: #64748b;
+
+        font-weight: 700;
+
+        display: flex;
+
+        align-items: center;
+        justify-content: center;
+
+        margin: 0 auto;
+
+        transition: all 0.3s ease;
+
+        font-size: 1rem;
+    }
+
+
+    .step-label {
+        font-size: 0.78rem;
+
+        font-weight: 600;
+
+        color: #64748b;
+
+        margin-top: 0.5rem;
+
+        transition: color 0.3s ease;
+
+        white-space: nowrap;
+    }
+
+
+    .step-item.active .step-circle {
+        background-color: var(--primary-itsa);
+
+        border-color: var(--primary-itsa);
+
+        color: #ffffff;
+
+        box-shadow:
+            0 0 0 4px rgba(1, 80, 1, 0.15);
+
+        transform: scale(1.08);
+    }
+
+
+    .step-item.active .step-label {
+        color: var(--primary-itsa);
+
+        font-weight: 700;
+    }
+
+
+    .step-item.completed .step-circle {
+        background-color: var(--light-itsa);
+
+        border-color: var(--primary-itsa);
+
+        color: var(--primary-itsa);
+    }
+
+
+    .step-item.completed .step-circle::before {
+        content: "✓";
+    }
+
+
+    .step-item.completed .step-circle {
+        font-size: 0;
+    }
+
+
+    .step-item.completed .step-circle::before {
+        font-size: 1rem;
+    }
+
+
+    /* ========================================================
+       CARDS
+    ========================================================= */
+
+    .card-custom {
+        border: 1px solid var(--border-color);
+
+        border-radius: 14px;
+
+        background: #ffffff;
+
+        box-shadow:
+            0 4px 14px rgba(0, 0, 0, 0.04);
+
+        overflow: hidden;
+    }
+
+
+    .card-custom-header {
+        background-color: #ffffff;
+
+        border-bottom: 1px solid var(--border-color);
+
+        padding: 1.1rem 1.4rem;
+    }
+
+
+    .step-number-badge {
+        background-color: var(--primary-itsa);
+
+        color: #ffffff;
+
+        font-size: 0.75rem;
+
+        font-weight: 800;
+
+        padding: 5px 9px;
+
+        border-radius: 6px;
+
+        margin-right: 0.6rem;
+    }
+
+
+    /* ========================================================
+       FOTO
+    ========================================================= */
+
+    .photo-preview-box {
+        width: 100%;
+
+        max-width: 220px;
+
+        height: 220px;
+
+        background-color: #f8fafc;
+
+        border: 2px dashed #94a3b8;
+
+        border-radius: 12px;
+
+        display: flex;
+
+        flex-direction: column;
+
+        align-items: center;
+
+        justify-content: center;
+
+        margin: 0 auto;
+
+        overflow: hidden;
+
+        transition: border-color 0.2s ease;
+    }
+
+
+    .photo-preview-box:hover {
+        border-color: var(--primary-itsa);
+    }
+
+
+    .avatar-icon-circle {
+        width: 80px;
+        height: 80px;
+
+        border-radius: 50%;
+
+        background-color: #e2e8f0;
+
+        display: flex;
+
+        align-items: center;
+        justify-content: center;
+
+        font-size: 2.5rem;
+
+        color: #64748b;
+
+        margin-bottom: 0.5rem;
+    }
+
+
+    .photo-preview-box img {
+        width: 100%;
+        height: 100%;
+
+        object-fit: cover;
+    }
+
+
+    /* ========================================================
+       FORMULARIOS
+    ========================================================= */
+
+    .itsa-postulante-public .form-control,
+    .itsa-postulante-public .form-select {
+        border-radius: 8px;
+
+        border: 1px solid #cbd5e1;
+
+        padding: 0.6rem 0.85rem;
+
+        font-size: 0.93rem;
+
+        min-height: 44px;
+    }
+
+
+    .itsa-postulante-public .form-control:focus,
+    .itsa-postulante-public .form-select:focus {
+        border-color: var(--primary-itsa);
+
+        box-shadow:
+            0 0 0 3px rgba(1, 80, 1, 0.15);
+    }
+
+
+    .itsa-postulante-public .form-label {
+        font-size: 0.85rem;
+
+        font-weight: 600;
+
+        color: #475569;
+
+        margin-bottom: 0.35rem;
+    }
+
+
+    /* ========================================================
+       BOTONES
+    ========================================================= */
+
+    .btn-itsa-primary {
+        background-color: var(--primary-itsa);
+
+        border-color: var(--primary-itsa);
+
+        color: #ffffff;
+
+        font-weight: 600;
+
+        border-radius: 8px;
+
+        padding: 0.55rem 1.4rem;
+
+        transition: all 0.2s ease;
+    }
+
+
+    .btn-itsa-primary:hover {
+        background-color: var(--dark-itsa);
+
+        border-color: var(--dark-itsa);
+
+        color: #ffffff;
+
+        box-shadow:
+            0 4px 12px rgba(1, 80, 1, 0.25);
+    }
+
+
+    /* ========================================================
+       DOCUMENTOS
+    ========================================================= */
+
+    .doc-upload-box {
+        border: 1px solid #cbd5e1;
+
+        border-radius: 10px;
+
+        background-color: #f8fafc;
+
+        padding: 1.2rem;
+
+        height: 100%;
+
+        transition: all 0.2s ease;
+    }
+
+
+    .doc-upload-box:hover {
+        background-color: #ffffff;
+
+        box-shadow:
+            0 4px 12px rgba(0, 0, 0, 0.05);
+    }
+
+
+    .voucher-box {
+        border-color: #f59e0b;
+
+        background: rgba(255, 193, 7, 0.06);
+    }
+
+
+    .document-preview {
+        border-radius: 10px;
+
+        border: 1px solid #cbd5e1;
+
+        background: #ffffff;
+
+        padding: 10px;
+    }
+
+
+    .document-preview img {
+        max-height: 220px;
+
+        width: auto;
+
+        max-width: 100%;
+
+        object-fit: contain;
+    }
+
+
+    .custom-file {
+        position: relative;
+    }
+
+
+    .custom-file-input {
+        position: relative;
+
+        z-index: 2;
+
+        width: 100%;
+
+        height: calc(1.5em + 0.75rem + 2px);
+
+        margin: 0;
+
+        opacity: 0;
+    }
+
+
+    .custom-file-label {
+        position: absolute;
+
+        top: 0;
+        right: 0;
+        left: 0;
+
+        z-index: 1;
+
+        height: calc(1.5em + 0.75rem + 2px);
+
+        padding: 0.375rem 0.75rem;
+
+        overflow: hidden;
+
+        font-weight: 400;
+
+        line-height: 1.5;
+
+        color: #495057;
+
+        background-color: #fff;
+
+        border: 1px solid #ced4da;
+
+        border-radius: 0.25rem;
+    }
+
+
+    .custom-file-label::after {
+        position: absolute;
+
+        top: 0;
+        right: 0;
+
+        bottom: 0;
+
+        z-index: 3;
+
+        display: block;
+
+        height: calc(1.5em + 0.75rem);
+
+        padding: 0.375rem 0.75rem;
+
+        line-height: 1.5;
+
+        color: #495057;
+
+        content: "Elegir";
+
+        background-color: #e9ecef;
+
+        border-left: inherit;
+
+        border-radius: 0 0.25rem 0.25rem 0;
+    }
+
+
+    /* ========================================================
+       ALERTAS
+    ========================================================= */
+
+    .itsa-postulante-public .alert {
+        border-radius: 12px;
+    }
+
+
+    /* ========================================================
+       TUTORIAL
+    ========================================================= */
+
+    #tutorial-overlay {
+        position: fixed;
+
+        top: 0;
+        left: 0;
+
+        width: 100vw;
+        height: 100vh;
+
+        background-color: rgba(15, 23, 42, 0.75);
+
+        z-index: 99998;
+
+        display: none;
+
+        pointer-events: none;
+    }
+
+    #tutorialBox {
+        border-color: #015001 !important;
+    }
+
+    #tutorialBox .card-header {
+        background-color: #015001 !important;
+        border-color: #015001 !important;
+    }
+
+    #tutorialClose {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 32px;
+        height: 32px;
+        padding: 0;
+        border: 1px solid rgba(255, 255, 255, 0.75);
+        border-radius: 6px;
+        background: transparent !important;
+        color: #FFFFFF !important;
+        font-size: 1.5rem;
+        line-height: 1;
+        opacity: 1 !important;
+        text-shadow: none;
+    }
+
+    #tutorialClose:hover,
+    #tutorialClose:focus-visible {
+        background-color: rgba(255, 255, 255, 0.18) !important;
+    }
+
+    #tutorialBox .text-primary {
+        color: #015001 !important;
+    }
+
+    #tutorialNext {
+        background-color: #015001 !important;
+        border-color: #015001 !important;
+    }
+
+    #tutorialNext:hover,
+    #tutorialNext:focus {
+        background-color: #003B01 !important;
+        border-color: #003B01 !important;
+    }
+
+
+    .tutorial-highlight {
+        position: relative !important;
+
+        z-index: 99999 !important;
+
+        outline: 3px solid #015001 !important;
+
+        outline-offset: 2px !important;
+
+        border-radius: 6px !important;
+
+        box-shadow:
+            0 0 20px rgba(1, 80, 1, 0.45) !important;
+    }
+
+
+    /* ========================================================
+       RESPONSIVE
+    ========================================================= */
+
+    @media (max-width: 991.98px) {
+
+        .step-label {
+            font-size: 0.70rem;
+        }
+
+        .stepper-wrapper {
+            margin-top: 10px;
+        }
+
+    }
+
+
+    @media (max-width: 575.98px) {
+
+        .institution-name {
+            font-size: 0.82rem !important;
+        }
+
+        .public-hero .btn {
+            font-size: 0.75rem;
+            padding-left: 0.6rem !important;
+            padding-right: 0.6rem !important;
+        }
+
+        .step-circle {
+            width: 36px;
+            height: 36px;
+            font-size: 0.85rem;
+        }
+
+        .stepper-line {
+            top: 18px;
+        }
+
+        .step-label {
+            font-size: 0.62rem;
+            white-space: normal;
+        }
+
+        .card-custom-header {
+            padding: 1rem;
+        }
+
+        .photo-preview-box {
+            max-width: 190px;
+            height: 190px;
+        }
+
+    }

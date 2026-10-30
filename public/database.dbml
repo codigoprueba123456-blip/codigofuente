@@ -1,0 +1,232 @@
+Table instituto {
+  id_instituto int [pk, increment]
+  actividadeconomica varchar
+  caracter integer //corregir a varchar
+  nombreinstituto varchar
+  telefono integer
+  logo varchar
+  nit varchar
+  nombreimpuestos varchar
+  nombreregulador varchar
+  preciocredito integer
+  resolucionministerial varchar
+  ubicacion varchar
+  abreviatura varchar
+  token varchar
+  id_directoracademico int [ref: > empleado.id_persona] //revisar
+  id_rector int [ref: > empleado.id_persona] //revisar
+}
+
+Table empleado {
+  id_persona int [pk, increment]
+  abreviaturaprofesion varchar
+  codigo varchar
+}
+
+Table persona{
+  id_persona int [pk, increment]
+  tipo varchar
+  celular integer
+  direccion varchar
+  dni varchar
+  email varchar
+  fechanacimiento date
+  foto varchar
+  lugarexpedicion integer //corregir a varchar
+  lugarnacimiento varchar
+  nacionalidad varchar
+  nombre varchar
+  primerapellido varchar
+  segundoapellido varchar
+  sexo integer //corregir a varchar
+  telefono integer
+}
+
+Table rol {
+  id_rol int [pk, increment]
+  nombre varchar
+}
+
+Table cuenta {
+  id_persona int [ref: > persona.id_persona]
+  id_rol int [ref: > rol.id_rol]
+}
+
+Table recurso {
+  id_recurso int [pk, increment]
+  nombre varchar
+  urlpattern varchar
+}
+
+Table privilegio {
+    id_recurso int [ref: > recurso.id_recurso]
+    id_rol int [ref: > rol.id_rol]
+}
+
+Table usuario {
+  id_persona int [ref: > persona.id_persona]
+  contrasena varchar
+  usuario varchar //ak
+}
+
+Table gestionacademica {
+  id_gestionacademica int [pk, increment]
+  fin date
+  gestion integer //ak
+  inicio date
+  periodo integer //ak
+  regimen integer //ak
+  vigente bit
+  modalidadevaluacion integer 
+}
+
+Table actividad {
+  id_actividad int [pk, increment]
+  descripcion varchar
+  fin timestamp
+  funcionalidad integer //revisar
+  inicio timestamp
+  nombre varchar
+}
+
+Table grupo {
+  id_grupo int [pk, increment]
+  abierto bit
+  capacidad integer
+  codigo varchar //ak
+  turno integer //ak
+  id_persona int [ref: > persona.id_persona]
+  id_gestionacademica int [ref: > gestionacademica.id_gestionacademica]
+  id_materia int [ref: > materia.id_materia]
+}
+
+Table inscrito {
+  id_inscrito int [pk, increment]
+  codigo bigint //ak
+  fecha date
+  numero integer
+  tipo integer //revisar
+  id_carrera int [ref: > carrera.id_carrera]
+  id_persona int [ref: > persona.id_persona]
+  id_gestionacademica int [ref: > gestionacademica.id_gestionacademica]
+  becado bit
+}
+
+Table postulante {
+  id_postulante int [pk, increment]
+  caractercolegio integer //corregir a varchar
+  celular integer
+  celularcontacto integer 
+  ci varchar
+  codigo varchar
+  deposito varchar
+  diplomabachiller bit
+  direccion varchar
+  egresocolegio integer
+  email varchar
+  fecha timestamp
+  fechanacimiento date
+  foto varchar
+  lugarexpedicion integer //corregir a varchar
+  lugarnacimiento varchar
+  nacionalidad varchar
+  nombre varchar
+  nombrecolegio varchar
+  nombrecontacto varchar
+  parentescocontacto varchar
+  primerapellido varchar
+  segundoapellido varchar
+  sexo integer //corregir a varchar
+  telefono integer
+  id_carrera int [ref: > carrera.id_carrera]
+  id_gestionacademica int [ref: > gestionacademica.id_gestionacademica]
+}
+
+Table estudiante {
+  id_persona int [pk, increment]
+  fecha date
+  matricula integer //ak
+  diplomabachiller bit
+  nombrecontacto varchar
+  celularcontacto integer
+  id_gestionacademica int [ref: > gestionacademica.id_gestionacademica]
+  parentescocontacto varchar
+  nombrecolegio varchar
+  caractercolegio integer //corregir a varchar
+  egresocolegio integer
+  id_postulante int [ref: > postulante.id_postulante]
+}
+
+Table carrera {
+  id_carrera int [pk, increment]
+  codigo varchar //ak
+  creditajeadmision integer
+  creditajematricula integer
+  nivelacademico integer
+  nombre varchar
+  regimen integer
+  resolucionministerial1 varchar
+  resolucionministerial2 varchar
+  resolucionministerial3 varchar
+  version integer
+  id_instituto int [ref: > instituto.id_instituto]
+  id_jefecarrera int [ref: > empleado.id_persona]
+}
+
+Table cursa {
+  id_persona int [ref: > persona.id_persona]
+  id_carrera int [ref: > carrera.id_carrera]
+  nivelinicio integer
+}
+
+Table materia {
+  id_materia int [pk, increment]
+  codigo varchar //ak
+  creditajemateria integer
+  curricular bit
+  horas integer
+  nivel integer
+  nombre varchar
+  numero integer
+  id_carrera int [ref: > carrera.id_carrera]
+}
+
+Table prerequisito {
+  id_prerequisito int [pk, increment]
+  id_materia int [ref: > materia.id_materia]
+  id_prerequisito int [ref: > materia.id_materia]
+}
+
+Table comprobante {
+  id_comprobante int [pk, increment]
+  codigo integer //ak
+  deposito varchar
+  fecha timestamp
+  valido bit
+  id_inscrito int [ref: > inscrito.id_inscrito]
+  id_postulante int [ref: > postulante.id_postulante]
+  id_usuario int [ref: > usuario.id_persona]
+  id_estudiante int [ref: > estudiante.id_persona]
+  id_carrera int [ref: > carrera.id_carrera]
+  id_gestionacademica int [ref: > gestionacademica.id_gestionacademica]
+}
+
+Table pago {
+  id_pago int [pk, increment]
+  concepto integer //ak revisar
+  monto integer
+  pagado bit
+  estado boolean
+  id_inscrito int [ref: > inscrito.id_inscrito]
+  id_postulante int [ref: > postulante.id_postulante]
+}
+
+Table detalle {
+  id_detalle int [pk, increment]
+  concepto integer //revisar
+  codigo varchar
+  nombre varchar
+  monto integer
+  id_comprobante int [ref: > comprobante.id_comprobante]
+  id_pago int [ref: > pago.id_pago]
+}
