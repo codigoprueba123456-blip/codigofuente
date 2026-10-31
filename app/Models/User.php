@@ -6,6 +6,7 @@ use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Support\Collection;
 
 class User extends Authenticatable
 {
@@ -80,16 +81,11 @@ class User extends Authenticatable
     {
         $urlNormalizada = trim((string) $url, '/');
 
-        if ($urlNormalizada === '') {
+        if ($urlNormalizada === '' || $this->isAdministrator()) {
             return true;
         }
 
-        $roleNames = $this->cuentas()
-            ->with('rol:id_rol,nombre')
-            ->get()
-            ->pluck('rol.nombre')
-            ->filter()
-            ->map(fn (string $name): string => $this->normalizeRole($name));
+        $roleNames = $this->roleNames();
         $personaType = $this->normalizeRole((string) $this->persona?->tipo);
         $isStudentIdentity = $roleNames->contains('estudiante') || $personaType === 'estudiante';
         $isStudentPortalPath = str_starts_with($urlNormalizada, 'estudiantes/');
@@ -107,19 +103,35 @@ class User extends Authenticatable
             return false;
         }
 
-        if ($roleNames->isEmpty()) {
-            return in_array($personaType, ['admin', 'administrador'], true)
-                || (int) $this->id_persona === 1
-                || $this->usuario === '20260001';
-        }
+        return $this->cuentas()
+            ->whereHas('rol.recursos', fn ($query) => $query->where('urlpattern', $urlNormalizada))
+            ->exists();
+    }
 
+    public function isAdministrator(): bool
+    {
+        $roleNames = $this->roleNames();
         if ($roleNames->contains('administrador')) {
             return true;
         }
 
+        if ($roleNames->isNotEmpty()) {
+            return false;
+        }
+
+        return in_array($this->normalizeRole((string) $this->persona?->tipo), ['admin', 'administrador'], true)
+            || (int) $this->id_persona === 1
+            || $this->usuario === '20260001';
+    }
+
+    private function roleNames(): Collection
+    {
         return $this->cuentas()
-            ->whereHas('rol.recursos', fn ($query) => $query->where('urlpattern', $urlNormalizada))
-            ->exists();
+            ->with('rol:id_rol,nombre')
+            ->get()
+            ->pluck('rol.nombre')
+            ->filter()
+            ->map(fn (string $name): string => $this->normalizeRole($name));
     }
 
     public function canAccess($path)

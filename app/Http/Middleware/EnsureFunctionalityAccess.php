@@ -23,6 +23,10 @@ class EnsureFunctionalityAccess
             return redirect()->guest(route('login'));
         }
 
+        if ($request->user()->isAdministrator()) {
+            return $next($request);
+        }
+
         $resource = Recurso::where('urlpattern', $resourcePath)->first();
         if (!$resource) {
             MenuResourceSync::sync();

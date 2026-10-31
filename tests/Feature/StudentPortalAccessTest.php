@@ -62,19 +62,19 @@ class StudentPortalAccessTest extends TestCase
             ->assertOk();
     }
 
-    public function test_administrators_and_teachers_cannot_open_student_portal(): void
+    public function test_administrators_can_open_student_portal_but_teachers_cannot(): void
     {
         $admin = $this->createUser('admin', 'Administrador', true);
         $teacher = $this->createUser('docente', 'Docente', true);
 
         $this->actingAs($admin)
             ->get(route('estudiantes.estado_inscripcion'))
-            ->assertForbidden();
+            ->assertOk();
 
         $this->get('/home')
             ->assertOk()
             ->assertSee('Administración')
-            ->assertDontSee('Estado Inscripcion');
+            ->assertSee('Estado Inscripcion');
 
         $this->actingAs($teacher)
             ->get(route('estudiantes.estado_inscripcion'))
@@ -90,15 +90,15 @@ class StudentPortalAccessTest extends TestCase
             ->assertForbidden();
     }
 
-    public function test_an_account_with_student_and_non_student_roles_is_denied(): void
+    public function test_an_account_with_student_and_non_admin_roles_is_denied(): void
     {
         $student = $this->createUser('multiple_roles', 'Estudiante', true);
-        $adminRole = Rol::create(['nombre' => 'Administrador']);
+        $otherRole = Rol::create(['nombre' => 'Docente']);
 
         Cuenta::create([
             'id_persona' => $student->id_persona,
-            'id_rol' => $adminRole->id_rol,
-            'usuario' => 'multiple_roles_admin',
+            'id_rol' => $otherRole->id_rol,
+            'usuario' => 'multiple_roles_docente',
             'password' => $student->password,
         ]);
 

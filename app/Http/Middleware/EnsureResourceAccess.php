@@ -15,6 +15,10 @@ class EnsureResourceAccess
             return redirect()->route('login');
         }
 
+        if ($request->user()->isAdministrator()) {
+            return $next($request);
+        }
+
         if ($roles !== []) {
             $user = $request->user();
             $allowedRoles = array_map(

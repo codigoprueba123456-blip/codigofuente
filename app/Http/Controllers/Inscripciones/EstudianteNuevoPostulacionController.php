@@ -3,10 +3,16 @@
 namespace App\Http\Controllers\Inscripciones;
 
 use App\Http\Controllers\Controller;
+use App\Models\Cuenta;
 use App\Models\GestionAcademica;
 use App\Models\Postulante;
+use App\Models\Rol;
+use App\Models\User;
+use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 
 class EstudianteNuevoPostulacionController extends Controller
@@ -113,7 +119,7 @@ class EstudianteNuevoPostulacionController extends Controller
         }
 
         try {
-            DB::transaction(function () use ($validated): void {
+            $resultado = DB::transaction(function () use ($validated): array {
                 $gestionId = (int) $validated['id_gestionacademica'];
                 $enviadas = collect($validated['postulaciones'])
                     ->keyBy(fn (array $postulacion): int => (int) $postulacion['id_postulante']);
@@ -254,6 +260,51 @@ class EstudianteNuevoPostulacionController extends Controller
                     ]);
                 }
 
+                $credenciales = null;
+                $usuario = User::where('id_persona', $idPersona)->lockForUpdate()->first();
+                $rolEstudiante = Rol::firstOrCreate(['nombre' => 'Estudiante']);
+
+                if (! $usuario) {
+                    $anio = now()->format('Y');
+                    $ultimoUsuario = User::where('usuario', 'LIKE', $anio.'%')
+                        ->orderByDesc('usuario')
+                        ->lockForUpdate()
+                        ->first();
+                    $contador = $ultimoUsuario
+                        ? ((int) substr($ultimoUsuario->usuario, 4)) + 1
+                        : 1;
+                    $nombreUsuario = $anio.str_pad($contador, 4, '0', STR_PAD_LEFT);
+                    $contrasena = Str::password(10, letters: true, numbers: true, symbols: false, spaces: false);
+                    $contrasenaHash = Hash::make($contrasena);
+
+                    $usuario = User::create([
+                        'id_persona' => $idPersona,
+                        'usuario' => $nombreUsuario,
+                        'password' => $contrasenaHash,
+                    ]);
+
+                    $credenciales = [
+                        'usuario' => $usuario,
+                        'contrasena' => $contrasena,
+                        'rol' => $rolEstudiante,
+                        'persona' => DB::table('personas')->where('id_persona', $idPersona)->first(),
+                        'carrera' => DB::table('carreras')
+                            ->where('id_carrera', $primeraPostulacion->id_carrera)
+                            ->value('nombre'),
+                    ];
+                }
+
+                if ($usuario && ! Cuenta::where('id_persona', $idPersona)
+                    ->where('id_rol', $rolEstudiante->id_rol)
+                    ->exists()) {
+                    Cuenta::create([
+                        'id_persona' => $idPersona,
+                        'id_rol' => $rolEstudiante->id_rol,
+                        'usuario' => $usuario->usuario,
+                        'password' => $usuario->password,
+                    ]);
+                }
+
                 foreach ($postulaciones as $id => $postulante) {
                     $inscripcionesPrevias = DB::table('inscrito')
                         ->where('id_persona', $idPersona)
@@ -330,17 +381,44 @@ class EstudianteNuevoPostulacionController extends Controller
                             'updated_at' => $ahora,
                         ]);
                 }
+                return ['credenciales' => $credenciales];
             });
-
-            return redirect()->route('estudiante_nuevo_postulacion.index', [
-                'id_gestionacademica' => $validated['id_gestionacademica'],
-            ])->with('success', 'Inscripciones registradas correctamente.');
         } catch (ValidationException $exception) {
             throw $exception;
-        } catch (\Throwable) {
+        } catch (\Throwable $exception) {
+            report($exception);
+
             return redirect()->back()->withInput()->withErrors([
                 'error' => 'No se pudo completar el lote. Las postulaciones siguen disponibles para corregir o reintentar.',
             ]);
         }
+
+        if ($resultado['credenciales']) {
+            $credenciales = $resultado['credenciales'];
+            $datosPdf = [
+                'titulo' => 'COMPROBANTE DE CREDENCIALES DE ACCESO',
+                'user' => (object) [
+                    'name' => trim(implode(' ', array_filter([
+                        $credenciales['persona']->nombre,
+                        $credenciales['persona']->primerapellido,
+                        $credenciales['persona']->segundoapellido,
+                    ]))),
+                    'ci' => $credenciales['persona']->ci,
+                    'role' => $credenciales['rol']->nombre,
+                    'carrera' => $credenciales['carrera'] ?? '-',
+                    'email' => $credenciales['persona']->email,
+                    'username' => $credenciales['usuario']->usuario,
+                ],
+                'plainPassword' => $credenciales['contrasena'],
+                'fecha' => now()->format('d/m/Y H:i'),
+            ];
+
+            return Pdf::loadView('pdf.credenciales', $datosPdf)
+                ->stream('credenciales_'.$credenciales['usuario']->usuario.'.pdf');
+        }
+
+        return redirect()->route('estudiante_nuevo_postulacion.index', [
+            'id_gestionacademica' => $validated['id_gestionacademica'],
+        ])->with('success', 'Inscripciones registradas correctamente.');
     }
 }

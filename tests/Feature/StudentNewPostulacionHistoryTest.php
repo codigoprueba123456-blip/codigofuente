@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Http\Middleware\EnsureFunctionalityAccess;
 use App\Models\Carrera;
+use App\Models\Cuenta;
 use App\Models\GestionAcademica;
 use App\Models\Instituto;
 use App\Models\Persona;
@@ -74,7 +75,7 @@ class StudentNewPostulacionHistoryTest extends TestCase
             ->assertSee('postulaciones[${index}][id_postulante]', false)
             ->assertSee('postulaciones[${index}][deposito]', false);
 
-        $this->post(route('estudiante_nuevo_postulacion.store'), [
+        $response = $this->post(route('estudiante_nuevo_postulacion.store'), [
             'postulaciones' => [[
                 'id_postulante' => $postulante->id_postulante,
                 'deposito' => 'POST-VOUCHER-001',
@@ -101,10 +102,10 @@ class StudentNewPostulacionHistoryTest extends TestCase
             'fecha' => now()->toDateString(),
             'diplomabachiller' => 1,
             'id_gestionacademica' => $gestion->id_gestionacademica,
-        ])
-            ->assertRedirect(route('estudiante_nuevo_postulacion.index', [
-                'id_gestionacademica' => $gestion->id_gestionacademica,
-            ]));
+        ]);
+        $response->assertOk()
+            ->assertHeader('content-type', 'application/pdf');
+        $this->assertStringStartsWith('%PDF-', $response->getContent());
 
         $this->assertDatabaseHas('postulante', [
             'id_postulante' => $postulante->id_postulante,
@@ -120,6 +121,13 @@ class StudentNewPostulacionHistoryTest extends TestCase
             'id_gestionacademica' => $gestion->id_gestionacademica,
             'nivelinicio' => 1,
         ]);
+        $idPersona = Persona::where('ci', 'POSTULANTE-001')->value('id_persona');
+        $usuario = User::where('id_persona', $idPersona)->firstOrFail();
+        $cuenta = Cuenta::where('id_persona', $idPersona)->firstOrFail();
+        $this->assertMatchesRegularExpression('/^'.now()->format('Y').'\d{4}$/', $usuario->usuario);
+        $this->assertSame($usuario->usuario, $cuenta->usuario);
+        $this->assertSame($usuario->password, $cuenta->password);
+        $this->assertSame('Estudiante', $cuenta->rol->nombre);
 
         $this->get(route('estudiante_nuevo_postulacion.index'))
             ->assertOk()

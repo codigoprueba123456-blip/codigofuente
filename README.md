@@ -158,19 +158,19 @@ El `.env.example` usa `root` sin contraseña. Si MySQL está configurado con otr
 
 ## Crear las tablas y cargar datos
 
-Para instalar el esquema y los datos de demostración:
+Para una base nueva y descartable, instala el esquema y los datos de demostración:
 
 ```powershell
 php artisan migrate --seed
 ```
 
-Si las tablas ya existen y solo quieres volver a ejecutar los datos iniciales:
+Si la base ya contiene información que quieras conservar, aplica únicamente las migraciones:
 
 ```powershell
-php artisan db:seed
+php artisan migrate
 ```
 
-El seeder principal ejecuta los módulos de administración, institución, portal de estudiantes, área académica, inscripciones y pagos, en el orden necesario para crear sus relaciones. Agrega cuentas, carreras, materias, grupos, actividades, postulaciones y pagos ficticios. Los seeders pueden volver a ejecutarse para actualizar esos registros de demostración sin duplicarlos. **No contiene la base real de tu compañero**. Si necesitas continuar con datos reales, pídele un respaldo de la base de datos y las instrucciones para restaurarlo.
+El seeder principal ejecuta los módulos de administración, institución, portal de estudiantes, área académica, inscripciones y pagos, en el orden necesario para crear sus relaciones. Agrega cuentas, carreras, materias, grupos, actividades, postulaciones y pagos ficticios. Algunos seeders insertan filas directamente y no son seguros para volver a ejecutarse sobre una base ya poblada: hazlo solo en una base local descartable o después de revisar y respaldar los datos. **No contiene la base real de tu compañero**. Si necesitas continuar con datos reales, pídele un respaldo de la base de datos y las instrucciones para restaurarlo.
 
 También puedes ejecutar un módulo por separado cuando sus registros previos ya existan. Por ejemplo:
 
@@ -191,13 +191,15 @@ En una terminal, desde la raíz del proyecto:
 composer run dev
 ```
 
-Este comando inicia el servidor local de Laravel, Vite y los procesos de desarrollo configurados por el proyecto. Deja la terminal abierta y visita:
+Este comando inicia el servidor local de Laravel, la cola y Vite. Deja la terminal abierta y visita:
 
 ```text
 http://127.0.0.1:8000
 ```
 
-Detén los procesos con `Ctrl+C`.
+Detén los procesos con `Ctrl+C`. El visor de logs `php artisan pail` requiere `pcntl`, extensión que no está disponible en PHP para Windows; consulta `storage/logs/laravel.log` en ese entorno.
+
+El rol Administrador puede acceder a todos los módulos y rutas aunque su funcionalidad no esté habilitada en el calendario. Las validaciones de datos y de integridad se mantienen.
 
 Para compilar los recursos del frontend sin iniciar el modo de desarrollo:
 

@@ -126,7 +126,8 @@ class FunctionalityAccessTest extends TestCase
 
     public function test_future_menu_module_is_write_protected_without_module_specific_middleware(): void
     {
-        $user = $this->createUser();
+        $this->createUser();
+        $user = $this->createUser('teacher');
         $menu = config('functionality.menu', []);
         $menu[] = ['text' => 'Inscripciones', 'url' => 'planes/inscripciones'];
         config(['functionality.menu' => $menu]);
@@ -142,6 +143,7 @@ class FunctionalityAccessTest extends TestCase
 
     public function test_audience_and_dates_are_checked_before_enabling_module_writes(): void
     {
+        $this->createUser();
         $user = $this->createUser('owner');
         $otherUser = $this->createUser('other');
         $menu = config('functionality.menu', []);
@@ -165,13 +167,41 @@ class FunctionalityAccessTest extends TestCase
             ->assertForbidden();
     }
 
+    public function test_administrators_bypass_calendar_and_role_restrictions(): void
+    {
+        $admin = $this->createUser();
+        $menu = config('functionality.menu', []);
+        $menu[] = ['text' => 'Inscripciones', 'url' => 'planes/inscripciones'];
+        config(['functionality.menu' => $menu]);
+
+        Route::middleware('web')
+            ->post('/planes/inscripciones', fn () => response('write reached'));
+        Route::middleware(['web', 'role:estudiante'])
+            ->get('/estudiantes/restriccion-admin', fn () => response('student route reached'));
+
+        MenuResourceSync::sync();
+        $resource = Recurso::where('urlpattern', 'planes/inscripciones')->firstOrFail();
+        $this->createActivity($resource->id_recurso, $this->createUser('other'), now()->addDay(), now()->addDays(2));
+
+        $this->actingAs($admin)
+            ->post('/planes/inscripciones')
+            ->assertOk()
+            ->assertSee('write reached');
+
+        $this->get('/estudiantes/restriccion-admin')
+            ->assertOk()
+            ->assertSee('student route reached');
+
+        $this->assertTrue($admin->canAccess('estudiantes/restriccion-admin'));
+    }
+
     private function createUser(string $suffix = 'admin'): User
     {
         $persona = Persona::create([
             'nombre' => ucfirst($suffix),
             'primerapellido' => 'Prueba',
             'dni' => $suffix === 'admin' ? '11111111' : (string) random_int(20000000, 99999999),
-            'tipo' => 'admin',
+            'tipo' => $suffix === 'admin' ? 'admin' : 'empleado',
         ]);
 
         return User::create([
