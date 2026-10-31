@@ -128,7 +128,7 @@
                             <div class="col-md-4 mb-3"><label class="font-weight-bold">Nombre: <span class="text-danger">*</span></label><input type="text" name="nombre" id="nombre" class="form-control" value="{{ old('nombre') }}" required></div>
                             <div class="col-md-4 mb-3"><label class="font-weight-bold">Primer apellido: <span class="text-danger">*</span></label><input type="text" name="primerapellido" id="primerapellido" class="form-control" value="{{ old('primerapellido') }}" required></div>
                             <div class="col-md-4 mb-3"><label class="font-weight-bold">Segundo apellido:</label><input type="text" name="segundoapellido" id="segundoapellido" class="form-control" value="{{ old('segundoapellido') }}"></div>
-                            <div class="col-md-4 mb-3"><label class="font-weight-bold">C.I. / DNI: <span class="text-danger">*</span></label><input type="text" name="ci" id="ci" class="form-control" value="{{ old('ci') }}" required></div>
+                            <div class="col-md-4 mb-3"><label class="font-weight-bold">Carnet de identidad (CI): <span class="text-danger">*</span></label><input type="text" name="ci" id="ci" class="form-control" value="{{ old('ci') }}" required></div>
                             <div class="col-md-4 mb-3"><label class="font-weight-bold">Lugar expedición:</label>
                                 <select name="lugarexpedicion" id="lugarexpedicion" class="form-control custom-select">
                                     <option value="">-- Seleccionar --</option>

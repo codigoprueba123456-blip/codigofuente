@@ -57,15 +57,12 @@
             </div>
         </div>
 
+        <div class="alert alert-info">
+            Los creditajes de admisión y matrícula se calculan automáticamente como 10 veces el precio del crédito configurado en el instituto.
+            El creditaje total de matrícula se distribuye entre las materias curriculares de esta carrera.
+        </div>
+
         <div class="row">
-            <div class="col-md-3 form-group">
-                <label for="creditajeadmision">Créditos de admisión</label>
-                <input type="number" name="creditajeadmision" id="creditajeadmision" class="form-control" min="0" value="{{ old('creditajeadmision', $carrera->creditajeadmision ?? '') }}">
-            </div>
-            <div class="col-md-3 form-group">
-                <label for="creditajematricula">Créditos de matrícula</label>
-                <input type="number" name="creditajematricula" id="creditajematricula" class="form-control" min="0" value="{{ old('creditajematricula', $carrera->creditajematricula ?? '') }}">
-            </div>
             <div class="col-md-3 form-group">
                 <label for="regimen">Régimen</label>
                 <input type="number" name="regimen" id="regimen" class="form-control" min="0" value="{{ old('regimen', $carrera->regimen ?? '') }}">

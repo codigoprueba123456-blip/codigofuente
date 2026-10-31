@@ -27,7 +27,7 @@ class AsignacionDocenteController extends Controller
             ->orderBy('codigo')
             ->get();
 
-        return view('gestiones.horarios.index', compact(
+        return view('gestiones.asignacion-docente.index', compact(
             'gestiones', 'carreras', 'grupos', 'docentes'
         ));
     }
@@ -38,7 +38,7 @@ class AsignacionDocenteController extends Controller
         $this->ensureEnabled($grupo->id_gestionacademica);
         $docentes = $this->docentes();
 
-        return view('gestiones.horarios.create', compact('grupo', 'docentes'));
+        return view('gestiones.asignacion-docente.create', compact('grupo', 'docentes'));
     }
 
     public function edit($id)
@@ -47,7 +47,7 @@ class AsignacionDocenteController extends Controller
         $this->ensureEnabled($grupo->id_gestionacademica);
         $docentes = $this->docentes();
 
-        return view('gestiones.horarios.edit', compact('grupo', 'docentes'));
+        return view('gestiones.asignacion-docente.edit', compact('grupo', 'docentes'));
     }
 
     public function asignar(Request $request, $id)

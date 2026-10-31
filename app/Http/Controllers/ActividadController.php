@@ -118,9 +118,7 @@ class ActividadController extends Controller
 
     private function isAdministrator(?User $user): bool
     {
-        $role = strtolower((string) ($user?->cuenta?->rol?->nombre ?? ''));
-
-        return $user && ((int) $user->id_persona === 1 || $user->usuario === '20260001' || str_contains($role, 'admin'));
+        return $user?->isAdministrator() ?? false;
     }
 
     private function ensureEnabled(int $idGestion): void

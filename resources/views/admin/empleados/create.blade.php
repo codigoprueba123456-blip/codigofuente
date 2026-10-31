@@ -20,9 +20,9 @@
                 <div class="row">
                     @foreach(range(1, 4) as $slot)
                         <div class="col-md-3 form-group">
-                            <label for="documento_{{ $slot }}">Imagen de documento {{ $slot }}</label>
+                            <label for="documento_{{ $slot }}">{{ \App\Models\EmpleadoDocumento::nombreParaSlot($slot) }}</label>
                             <input type="file" name="documentos[{{ $slot }}]" id="documento_{{ $slot }}" class="form-control @error('documentos.' . $slot) is-invalid @enderror" accept=".jpg,.jpeg,.png,.webp" data-image-preview="documento-preview-{{ $slot }}">
-                            @include('partials.image-preview', ['id' => 'documento-preview-' . $slot, 'alt' => 'Previsualización del documento ' . $slot])
+                            @include('partials.image-preview', ['id' => 'documento-preview-' . $slot, 'alt' => 'Previsualización: ' . \App\Models\EmpleadoDocumento::nombreParaSlot($slot)])
                             @error('documentos.' . $slot)
                                 <div class="invalid-feedback">{{ $message }}</div>
                             @enderror
@@ -50,8 +50,8 @@
 
                 <div class="row">
                     <div class="col-md-4 form-group">
-                        <label>DNI *</label>
-                        <input type="text" name="dni" class="form-control" value="{{ old('dni') }}" maxlength="50" required>
+                        <label>CI *</label>
+                        <input type="text" name="ci" class="form-control" value="{{ old('ci') }}" maxlength="50" required>
                     </div>
                     <div class="col-md-4 form-group">
                         <label>Lugar Expedición *</label>

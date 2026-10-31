@@ -14,7 +14,7 @@ document.addEventListener('DOMContentLoaded', function () {
     const maxTotalFileBytes = 1750 * 1024;
     const previewUrls = new Map();
     const submitButton = form.querySelector('button[type="submit"]');
-    const dniInput = document.getElementById('dni');
+    const ciInput = document.getElementById('ci');
     const existingStudentMessage = document.getElementById('estudianteExistenteMensaje');
     const personalFieldIds = [
         'nombre', 'primerapellido', 'segundoapellido', 'lugarexpedicion',
@@ -46,7 +46,7 @@ document.addEventListener('DOMContentLoaded', function () {
             }
         });
 
-        ciFichaEncontrada = estudiante.dni;
+        ciFichaEncontrada = estudiante.ci;
         existingStudentMessage.textContent = 'Estudiante existente: se reutilizará su ficha y documentos. Puede adjuntar o reemplazar el certificado BTH opcional.';
         existingStudentMessage.classList.remove('d-none');
     }
@@ -76,17 +76,17 @@ document.addEventListener('DOMContentLoaded', function () {
     }
 
     async function buscarFichaExistente() {
-        const ci = dniInput.value.trim().replace(/[^A-Za-z0-9-]/g, '');
+        const ci = ciInput.value.trim().replace(/[^A-Za-z0-9-]/g, '');
         if (!ci || ci === ciFichaEncontrada) return;
 
         consultaCiPendiente = true;
         try {
             const url = new URL(form.dataset.studentLookupUrl, window.location.origin);
-            url.searchParams.set('dni', ci);
+            url.searchParams.set('ci', ci);
             const response = await fetch(url, { headers: { Accept: 'application/json' } });
             if (!response.ok) throw new Error('No se pudo comprobar el CI en el sistema.');
             const result = await response.json();
-            if (dniInput.value.trim().replace(/[^A-Za-z0-9-]/g, '') !== ci) return;
+            if (ciInput.value.trim().replace(/[^A-Za-z0-9-]/g, '') !== ci) return;
             if (result.estudiante) aplicarFichaExistente(result.estudiante);
         } catch (error) {
             existingStudentMessage.textContent = error.message || 'No se pudo comprobar el CI en el sistema.';
@@ -96,12 +96,12 @@ document.addEventListener('DOMContentLoaded', function () {
         }
     }
 
-    dniInput.addEventListener('input', () => {
-        const ci = dniInput.value.trim().replace(/[^A-Za-z0-9-]/g, '');
+    ciInput.addEventListener('input', () => {
+        const ci = ciInput.value.trim().replace(/[^A-Za-z0-9-]/g, '');
         if (ciFichaEncontrada && ci !== ciFichaEncontrada) restaurarFormularioNuevo();
     });
-    dniInput.addEventListener('blur', buscarFichaExistente);
-    if (dniInput.value.trim()) buscarFichaExistente();
+    ciInput.addEventListener('blur', buscarFichaExistente);
+    if (ciInput.value.trim()) buscarFichaExistente();
 
     function canvasBlob(canvas, quality) {
         return new Promise((resolve, reject) => {

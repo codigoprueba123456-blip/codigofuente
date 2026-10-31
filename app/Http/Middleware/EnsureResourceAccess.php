@@ -2,6 +2,7 @@
 
 namespace App\Http\Middleware;
 
+use App\Models\Recurso;
 use Closure;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -75,17 +76,42 @@ class EnsureResourceAccess
             return $next($request);
         }
 
-        $requestedPath = trim((string) $request->path(), '/');
-        if ($requestedPath === '' || $requestedPath === 'home') {
-            return $next($request);
+        $resourcePath = $this->resourcePath($request);
+        if ($resourcePath === null) {
+            $requestedPath = trim((string) $request->path(), '/');
+            if ($requestedPath === '' || $requestedPath === 'home') {
+                return $next($request);
+            }
+
+            abort(403, 'No tienes permisos para acceder a esta sección.');
         }
 
-        $user = auth()->user();
-
-        if (!$user || !$user->canAccess($requestedPath)) {
+        if (! $request->user()->canAccess($resourcePath)) {
             abort(403, 'No tienes permisos para acceder a esta sección.');
         }
 
         return $next($request);
+    }
+
+    private function resourcePath(Request $request): ?string
+    {
+        if (in_array($request->route()?->getName(), ['inscripcion.create', 'inscripcion.store'], true)) {
+            return 'inscripciones/estudiante_nuevo';
+        }
+
+        $requestedPath = trim((string) $request->path(), '/');
+        if ($requestedPath === '' || $requestedPath === 'home') {
+            return null;
+        }
+
+        return Recurso::query()
+            ->whereNotNull('urlpattern')
+            ->pluck('urlpattern')
+            ->filter(fn ($path): bool => is_string($path)
+                && $path !== ''
+                && ($requestedPath === $path
+                    || str_starts_with($requestedPath, $path.'/')))
+            ->sortByDesc(static fn (string $path): int => strlen($path))
+            ->first();
     }
 }

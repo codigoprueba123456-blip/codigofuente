@@ -45,11 +45,6 @@
 
                 <div class="row">
                     <div class="col-md-3 form-group">
-                        <label for="creditajemateria">Créditos</label>
-                        <input type="number" name="creditajemateria" id="creditajemateria" class="form-control" value="{{ old('creditajemateria') }}" min="0">
-                    </div>
-
-                    <div class="col-md-3 form-group">
                         <label for="horas">Horas</label>
                         <input type="number" name="horas" id="horas" class="form-control" value="{{ old('horas') }}" min="0">
                     </div>
@@ -64,6 +59,8 @@
                         <input type="number" name="numero" id="numero" class="form-control" value="{{ old('numero') }}" min="0">
                     </div>
                 </div>
+
+                <p class="text-muted">El creditaje se distribuye automáticamente entre las materias curriculares de la carrera.</p>
 
                 <div class="form-group">
                     <div class="custom-control custom-checkbox">

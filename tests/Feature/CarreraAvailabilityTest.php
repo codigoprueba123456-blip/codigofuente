@@ -109,7 +109,7 @@ class CarreraAvailabilityTest extends TestCase
         $persona = Persona::create([
             'nombre' => 'Admin',
             'primerapellido' => 'Prueba',
-            'dni' => '12345678',
+            'ci' => '12345678',
             'tipo' => 'admin',
         ]);
 

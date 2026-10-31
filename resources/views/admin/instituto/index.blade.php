@@ -130,15 +130,6 @@
                 </div>
             </div>
 
-            <div class="row">
-                <div class="col-md-4">
-                    <div class="form-group">
-                        <label>Token</label>
-                        <input type="text" name="token" class="form-control @error('token') is-invalid @enderror" value="{{ old('token', $instituto->token) }}" maxlength="255">
-                        @error('token')<span class="invalid-feedback">{{ $message }}</span>@enderror
-                    </div>
-                </div>
-            </div>
         </div>
         <div class="card-footer">
             <button type="submit" class="btn btn-primary">Guardar</button>

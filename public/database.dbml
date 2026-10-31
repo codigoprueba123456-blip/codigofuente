@@ -28,7 +28,7 @@ Table persona{
   tipo varchar
   celular integer
   direccion varchar
-  dni varchar
+  ci varchar
   email varchar
   fechanacimiento date
   foto varchar

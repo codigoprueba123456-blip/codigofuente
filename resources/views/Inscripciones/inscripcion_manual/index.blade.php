@@ -43,7 +43,7 @@
             <div id="mensajeBusqueda" class="small text-muted mb-3"></div>
 
             @if ($inscripcionSeleccionada)
-                <p class="text-muted mb-2">{{ trim($inscripcionSeleccionada->nombre.' '.$inscripcionSeleccionada->primerapellido.' '.$inscripcionSeleccionada->segundoapellido) }} · CI {{ $inscripcionSeleccionada->dni }} · {{ $inscripcionSeleccionada->nivelinicio }}° año</p>
+                <p class="text-muted mb-2">{{ trim($inscripcionSeleccionada->nombre.' '.$inscripcionSeleccionada->primerapellido.' '.$inscripcionSeleccionada->segundoapellido) }} · CI {{ $inscripcionSeleccionada->ci }} · {{ $inscripcionSeleccionada->nivelinicio }}° año</p>
                 <div class="alert alert-info py-2">
                     Carrera seleccionada: <strong>{{ $inscripcionSeleccionada->carrera }}</strong>
                     · Gestión {{ $gestionActual->gestion }} / Periodo {{ $gestionActual->periodo }}
@@ -142,13 +142,13 @@
                 opcion.textContent = `${inscripcion.carrera} · ${inscripcion.nivel}° año`;
                 selector.append(opcion);
             });
-            entrada.value = `${estudiante.nombre} · CI ${estudiante.dni || 'sin CI'}`;
+            entrada.value = `${estudiante.nombre} · CI ${estudiante.ci || 'sin CI'}`;
             sugerencias.replaceChildren();
             selector.disabled = false;
             selectorContenedor.hidden = false;
             idInscrito.value = '';
             resumen.hidden = false;
-            resumen.textContent = `Estudiante seleccionado: ${estudiante.nombre} · CI ${estudiante.dni || 'sin CI'}. Seleccione la carrera que desea gestionar.`;
+            resumen.textContent = `Estudiante seleccionado: ${estudiante.nombre} · CI ${estudiante.ci || 'sin CI'}. Seleccione la carrera que desea gestionar.`;
             if (mensaje) mensaje.textContent = 'Seleccione una carrera para cargar sus materias.';
         };
 
@@ -173,7 +173,7 @@
                     const opcion = document.createElement('button');
                     opcion.type = 'button';
                     opcion.className = 'list-group-item list-group-item-action';
-                    opcion.textContent = `${estudiante.nombre} · CI ${estudiante.dni || 'sin CI'}`;
+                    opcion.textContent = `${estudiante.nombre} · CI ${estudiante.ci || 'sin CI'}`;
                     opcion.addEventListener('click', () => mostrarCarreras(estudiante));
                     sugerencias.append(opcion);
                 });

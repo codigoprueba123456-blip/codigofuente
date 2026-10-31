@@ -18,7 +18,7 @@ class LoginUsernameTest extends TestCase
             'nombre' => 'Maria',
             'primerapellido' => 'Flores',
             'segundoapellido' => 'Lopez',
-            'dni' => '12345678',
+            'ci' => '12345678',
             'tipo' => 'empleado',
         ]);
 

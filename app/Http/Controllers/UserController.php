@@ -85,7 +85,7 @@ class UserController extends Controller
             'titulo'        => 'REGENERACIÓN DE CREDENCIALES DE ACCESO',
             'user'          => (object) [
                 'name'     => trim($persona->nombre . ' ' . $persona->primerapellido . ' ' . ($persona->segundoapellido ?? '')),
-                'ci'       => $persona->dni,
+                'ci'       => $persona->ci,
                 'role'     => $usuario->cuenta?->rol?->nombre ?? '-',
                 'carrera'  => '-',
                 'email'    => $persona->email,

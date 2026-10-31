@@ -21,7 +21,7 @@ class ImagePreviewTest extends TestCase
         $adminPersona = Persona::create([
             'nombre' => 'Admin',
             'primerapellido' => 'Sistema',
-            'dni' => '11111111',
+            'ci' => '11111111',
             'tipo' => 'admin',
         ]);
         $admin = User::create([
@@ -38,7 +38,7 @@ class ImagePreviewTest extends TestCase
         $empleadoPersona = Persona::create([
             'nombre' => 'Docente',
             'primerapellido' => 'Prueba',
-            'dni' => '22222222',
+            'ci' => '22222222',
             'tipo' => 'empleado',
             'foto' => 'personas/foto-prueba.png',
         ]);
@@ -48,7 +48,7 @@ class ImagePreviewTest extends TestCase
         ]);
         EmpleadoDocumento::create([
             'id_persona' => $empleado->id_persona,
-            'slot' => 1,
+            'tipo' => EmpleadoDocumento::tipoParaSlot(1),
             'ruta' => 'empleados/documentos/documento-prueba.png',
         ]);
 
@@ -85,7 +85,7 @@ class ImagePreviewTest extends TestCase
         $adminPersona = Persona::create([
             'nombre' => 'Admin',
             'primerapellido' => 'Sistema',
-            'dni' => '33333333',
+            'ci' => '33333333',
             'tipo' => 'admin',
         ]);
         $admin = User::create([
@@ -96,14 +96,14 @@ class ImagePreviewTest extends TestCase
         $employeePersona = Persona::create([
             'nombre' => 'Eva',
             'primerapellido' => 'Prueba',
-            'dni' => '44444444',
+            'ci' => '44444444',
             'tipo' => 'empleado',
             'foto' => 'personas/foto-eliminar.png',
         ]);
         $employee = Empleado::create(['id_persona' => $employeePersona->id_persona]);
         EmpleadoDocumento::create([
             'id_persona' => $employee->id_persona,
-            'slot' => 1,
+            'tipo' => EmpleadoDocumento::tipoParaSlot(1),
             'ruta' => 'empleados/documentos/ci-eliminar.png',
         ]);
 
@@ -130,7 +130,7 @@ class ImagePreviewTest extends TestCase
         $persona = Persona::create([
             'nombre' => 'Admin',
             'primerapellido' => 'Sistema',
-            'dni' => '55555555',
+            'ci' => '55555555',
             'tipo' => 'admin',
         ]);
         $admin = User::create([

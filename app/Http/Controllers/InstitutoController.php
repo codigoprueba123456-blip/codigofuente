@@ -3,7 +3,9 @@
 namespace App\Http\Controllers;
 
 use App\Models\Instituto;
+use App\Support\CareerCreditageService;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 
 class InstitutoController extends Controller
@@ -15,7 +17,7 @@ class InstitutoController extends Controller
         return view('admin.instituto.index', compact('instituto'));
     }
 
-    public function update(Request $request)
+    public function update(Request $request, CareerCreditageService $creditage)
     {
         $validated = $request->validate([
             'nombreinstituto' => ['required', 'string', 'max:255'],
@@ -28,7 +30,6 @@ class InstitutoController extends Controller
             'preciocredito' => ['required', 'integer', 'min:0'],
             'resolucionministerial' => ['required', 'string', 'max:255'],
             'abreviatura' => ['required', 'string', 'max:255'],
-            'token' => ['nullable', 'string', 'max:255'],
             'logo' => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp', 'max:2048'],
             'eliminar_logo' => ['sometimes', 'boolean'],
         ]);
@@ -41,7 +42,10 @@ class InstitutoController extends Controller
             $validated['logo'] = null;
         }
         $instituto->fill($validated);
-        $instituto->save();
+        DB::transaction(function () use ($instituto, $creditage): void {
+            $instituto->save();
+            $creditage->syncInstitute($instituto);
+        });
 
         if ($logoAnterior && ($request->hasFile('logo') || $request->boolean('eliminar_logo'))) {
             Storage::disk('public')->delete($logoAnterior);

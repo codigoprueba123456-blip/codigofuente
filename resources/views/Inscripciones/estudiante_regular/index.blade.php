@@ -183,7 +183,7 @@
     function mostrarCarreras(estudiante) {
         estudianteId.value = estudiante.id;
         document.getElementById('nombreEstudianteSeleccionado').textContent = estudiante.nombre;
-        document.getElementById('ciEstudianteSeleccionado').textContent = `C.I.: ${estudiante.dni || 'Sin C.I.'}`;
+        document.getElementById('ciEstudianteSeleccionado').textContent = `C.I.: ${estudiante.ci || 'Sin C.I.'}`;
         document.getElementById('traspaso_convalidacion').value = estudiante.traspaso_convalidacion ? '1' : '0';
         document.getElementById('estudianteSeleccionado').classList.remove('d-none');
         resultados.replaceChildren();
@@ -286,7 +286,7 @@
     }
 
     function seleccionarEstudiante(estudiante) {
-        estudianteInput.value = `${estudiante.nombre} - C.I.: ${estudiante.dni || 'Sin C.I.'}`;
+        estudianteInput.value = `${estudiante.nombre} - C.I.: ${estudiante.ci || 'Sin C.I.'}`;
         mostrarCarreras(estudiante);
     }
 
@@ -317,7 +317,7 @@
                     nombre.textContent = estudiante.nombre;
                     const ci = document.createElement('span');
                     ci.className = 'estudiante-ci small';
-                    ci.textContent = `C.I.: ${estudiante.dni || 'Sin C.I.'}`;
+                    ci.textContent = `C.I.: ${estudiante.ci || 'Sin C.I.'}`;
                     opcion.append(nombre, ci);
                     opcion.addEventListener('click', () => seleccionarEstudiante(estudiante));
                     resultados.appendChild(opcion);

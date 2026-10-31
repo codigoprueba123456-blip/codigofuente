@@ -37,7 +37,7 @@ class EmpleadoController extends Controller
 
         $resultado = DB::transaction(function () use ($request, $validated) {
             $personaData = collect($validated)->only([
-                'nombre', 'primerapellido', 'segundoapellido', 'dni', 'fechanacimiento',
+                'nombre', 'primerapellido', 'segundoapellido', 'ci', 'fechanacimiento',
                 'lugarnacimiento', 'nacionalidad', 'sexo', 'lugarexpedicion', 'direccion',
                 'telefono', 'celular', 'email',
             ])->all();
@@ -56,7 +56,7 @@ class EmpleadoController extends Controller
             foreach ($request->file('documentos', []) as $slot => $documento) {
                 EmpleadoDocumento::create([
                     'id_persona' => $empleado->id_persona,
-                    'slot' => $slot,
+                    'tipo' => EmpleadoDocumento::tipoParaSlot((int) $slot),
                     'ruta' => $documento->store('empleados/documentos', 'public'),
                 ]);
             }
@@ -99,7 +99,7 @@ class EmpleadoController extends Controller
             'titulo' => 'COMPROBANTE DE CREDENCIALES DE ACCESO',
             'user' => (object) [
                 'name' => trim($persona->nombre.' '.$persona->primerapellido.' '.($persona->segundoapellido ?? '')),
-                'ci' => $persona->dni,
+                'ci' => $persona->ci,
                 'role' => $rol->nombre,
                 'carrera' => '-',
                 'email' => $persona->email,
@@ -111,7 +111,7 @@ class EmpleadoController extends Controller
 
         $pdf = Pdf::loadView('pdf.credenciales', $datosPdf);
 
-        return $pdf->stream('credenciales_'.$persona->dni.'.pdf');
+        return $pdf->stream('credenciales_'.$persona->ci.'.pdf');
     }
 
     public function edit($id)
@@ -133,7 +133,7 @@ class EmpleadoController extends Controller
 
         // Actualizar persona
         $persona->update(collect($validated)->only([
-            'nombre', 'primerapellido', 'segundoapellido', 'dni',
+            'nombre', 'primerapellido', 'segundoapellido', 'ci',
             'fechanacimiento', 'lugarnacimiento', 'nacionalidad',
             'sexo', 'lugarexpedicion', 'direccion', 'telefono',
             'celular', 'email',
@@ -151,12 +151,15 @@ class EmpleadoController extends Controller
 
         foreach ($request->file('documentos', []) as $slot => $documento) {
             $registro = EmpleadoDocumento::where('id_persona', $empleado->id_persona)
-                ->where('slot', $slot)
+                ->where('tipo', EmpleadoDocumento::tipoParaSlot((int) $slot))
                 ->first();
             $rutaAnterior = $registro?->ruta;
             $nuevoPath = $documento->store('empleados/documentos', 'public');
             EmpleadoDocumento::updateOrCreate(
-                ['id_persona' => $empleado->id_persona, 'slot' => $slot],
+                [
+                    'id_persona' => $empleado->id_persona,
+                    'tipo' => EmpleadoDocumento::tipoParaSlot((int) $slot),
+                ],
                 ['ruta' => $nuevoPath]
             );
 
@@ -204,7 +207,7 @@ class EmpleadoController extends Controller
             'nombre' => ['required', 'string', 'max:255'],
             'primerapellido' => ['required', 'string', 'max:255'],
             'segundoapellido' => ['nullable', 'string', 'max:255'],
-            'dni' => ['required', 'string', 'max:50', Rule::unique('personas', 'dni')->ignore($personaId, 'id_persona')],
+            'ci' => ['required', 'string', 'max:50', Rule::unique('personas', 'ci')->ignore($personaId, 'id_persona')],
             'fechanacimiento' => ['nullable', 'date', 'before:today'],
             'lugarnacimiento' => ['nullable', 'string', 'max:255'],
             'nacionalidad' => ['nullable', 'string', 'max:100'],

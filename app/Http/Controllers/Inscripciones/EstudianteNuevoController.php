@@ -30,7 +30,7 @@ class EstudianteNuevoController extends Controller
 
     public function buscar(Request $request)
     {
-        $ci = preg_replace('/[^A-Za-z0-9-]/', '', (string) $request->query('dni', ''));
+        $ci = preg_replace('/[^A-Za-z0-9-]/', '', (string) $request->query('ci', ''));
         if ($ci === '') {
             return response()->json(['estudiante' => null]);
         }
@@ -43,7 +43,7 @@ class EstudianteNuevoController extends Controller
                 'p.nombre',
                 'p.primerapellido',
                 'p.segundoapellido',
-                'p.ci as dni',
+                'p.ci',
                 'p.lugarexpedicion',
                 'p.fechanacimiento',
                 'p.lugarnacimiento',
@@ -70,8 +70,8 @@ class EstudianteNuevoController extends Controller
      */
     public function store(Request $request)
     {
-        $ci = preg_replace('/[^A-Za-z0-9-]/', '', (string) $request->input('dni', ''));
-        $request->merge(['dni' => $ci]);
+        $ci = preg_replace('/[^A-Za-z0-9-]/', '', (string) $request->input('ci', ''));
+        $request->merge(['ci' => $ci]);
         $personaExistente = $ci !== '' ? DB::table('personas')->where('ci', $ci)->first() : null;
         $estudianteExistente = $personaExistente && DB::table('estudiante')
             ->where('id_persona', $personaExistente->id_persona)
@@ -79,7 +79,7 @@ class EstudianteNuevoController extends Controller
 
         if ($personaExistente && ! $estudianteExistente) {
             return back()->withInput()->withErrors([
-                'dni' => 'Este CI ya pertenece a otra persona del sistema y no está vinculada a una ficha de estudiante.',
+                'ci' => 'Este CI ya pertenece a otra persona del sistema y no está vinculada a una ficha de estudiante.',
             ]);
         }
 
@@ -103,7 +103,7 @@ class EstudianteNuevoController extends Controller
                 'nombre' => 'required|string|max:255',
                 'primerapellido' => 'required|string|max:255',
                 'segundoapellido' => 'nullable|string|max:255',
-                'dni' => 'required|string|max:30|unique:personas,ci',
+                'ci' => 'required|string|max:30|unique:personas,ci',
                 'lugarexpedicion' => 'nullable|string|max:20',
                 'fechanacimiento' => 'required|date',
                 'lugarnacimiento' => 'required|string|max:255',
@@ -126,14 +126,14 @@ class EstudianteNuevoController extends Controller
                 'path_diploma' => 'required|image|mimes:jpg,jpeg,png,webp|max:350',
             ];
         } else {
-            $rules['dni'] = 'required|string|max:30|in:'.$personaExistente->ci;
+            $rules['ci'] = 'required|string|max:30|in:'.$personaExistente->ci;
         }
 
         $validated = $request->validate($rules, [
             'nombre.required' => 'Te faltó ingresar tu nombre.',
             'primerapellido.required' => 'Te faltó ingresar tu primer apellido.',
-            'dni.required' => 'Te faltó ingresar tu CI.',
-            'dni.unique' => 'Este CI ya está registrado en el sistema.',
+            'ci.required' => 'Te faltó ingresar tu CI.',
+            'ci.unique' => 'Este CI ya está registrado en el sistema.',
             'fechanacimiento.required' => 'Te faltó indicar tu fecha de nacimiento.',
             'lugarnacimiento.required' => 'Te faltó ingresar tu lugar de nacimiento.',
             'nacionalidad.required' => 'Te faltó ingresar tu nacionalidad.',
@@ -211,7 +211,7 @@ class EstudianteNuevoController extends Controller
 
             DB::transaction(function () use ($validated, $archivosGuardados, $estudianteExistente): void {
                 $ahora = now();
-                $idPersona = DB::table('personas')->where('ci', $validated['dni'])->lockForUpdate()->value('id_persona');
+                $idPersona = DB::table('personas')->where('ci', $validated['ci'])->lockForUpdate()->value('id_persona');
                 if ($idPersona && DB::table('inscrito')
                     ->where('id_persona', $idPersona)
                     ->where('id_carrera', $validated['id_carrera'])
@@ -243,7 +243,7 @@ class EstudianteNuevoController extends Controller
                     'nombre' => $validated['nombre'],
                     'primerapellido' => $validated['primerapellido'],
                     'segundoapellido' => $validated['segundoapellido'] ?? null,
-                    'ci' => $validated['dni'],
+                    'ci' => $validated['ci'],
                     'lugarexpedicion' => $validated['lugarexpedicion'] ?? null,
                     'fechanacimiento' => $validated['fechanacimiento'],
                     'lugarnacimiento' => $validated['lugarnacimiento'],

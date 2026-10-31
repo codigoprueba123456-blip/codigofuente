@@ -77,10 +77,10 @@
                         </div>
 
                         <div class="col-md-4 mb-3">
-                            <label for="dni" class="font-weight-bold">DNI / CI: <span class="text-danger">*</span></label>
-                            <input type="text" name="dni" id="dni" class="form-control @error('dni') is-invalid @enderror" value="{{ old('dni') }}" required>
+                            <label for="ci" class="font-weight-bold">Carnet de identidad (CI): <span class="text-danger">*</span></label>
+                            <input type="text" name="ci" id="ci" class="form-control @error('ci') is-invalid @enderror" value="{{ old('ci') }}" required>
                             <small id="estudianteExistenteMensaje" class="form-text text-info d-none"></small>
-                            @error('dni')
+                            @error('ci')
                                 <div class="invalid-feedback">{{ $message }}</div>
                             @enderror
                         </div>

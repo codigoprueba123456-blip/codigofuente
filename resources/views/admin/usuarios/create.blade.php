@@ -16,8 +16,8 @@
     </div>
     <div class="row">
         <div class="col-md-4 form-group">
-            <label>DNI *</label>
-            <input type="text" name="dni" class="form-control" required>
+            <label>CI *</label>
+            <input type="text" name="ci" class="form-control" required>
         </div>
         <div class="col-md-4 form-group">
             <label>Lugar Expedición</label>

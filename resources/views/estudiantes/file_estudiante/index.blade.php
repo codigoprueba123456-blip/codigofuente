@@ -49,8 +49,8 @@
 
                 <div class="row">
                     <div class="col-md-4 form-group">
-                        <label for="dni">CI:</label>
-                        <input type="text" id="dni" class="form-control" value="{{ $persona->dni }}" readonly>
+                        <label for="ci">CI:</label>
+                        <input type="text" id="ci" class="form-control" value="{{ $persona->ci }}" readonly>
                     </div>
                     <div class="col-md-4 form-group">
                         <label for="lugarexpedicion">Lugar de expedición:</label>

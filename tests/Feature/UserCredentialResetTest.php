@@ -21,7 +21,7 @@ class UserCredentialResetTest extends TestCase
         $adminPersona = Persona::create([
             'nombre' => 'Admin',
             'primerapellido' => 'Sistema',
-            'dni' => '11111111',
+            'ci' => '11111111',
             'tipo' => 'admin',
         ]);
         $admin = User::create([
@@ -33,7 +33,7 @@ class UserCredentialResetTest extends TestCase
         $targetPersona = Persona::create([
             'nombre' => 'Ana',
             'primerapellido' => 'Pérez',
-            'dni' => '22222222',
+            'ci' => '22222222',
             'email' => 'ana@example.com',
             'tipo' => 'empleado',
         ]);
@@ -69,7 +69,7 @@ class UserCredentialResetTest extends TestCase
         $persona = Persona::create([
             'nombre' => 'Usuario',
             'primerapellido' => 'Prueba',
-            'dni' => '33333333',
+            'ci' => '33333333',
             'tipo' => 'empleado',
         ]);
         $user = User::create([

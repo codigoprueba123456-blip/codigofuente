@@ -34,7 +34,7 @@ class EstudianteRegularController extends Controller
 
         $personasQuery = DB::table('personas as p')
             ->join('estudiante as e', 'e.id_persona', '=', 'p.id_persona')
-            ->select('p.id_persona', 'p.nombre', 'p.primerapellido', 'p.segundoapellido', 'p.ci as dni', 'e.id_carrera', 'e.traspaso_convalidacion')
+            ->select('p.id_persona', 'p.nombre', 'p.primerapellido', 'p.segundoapellido', 'p.ci', 'e.id_carrera', 'e.traspaso_convalidacion')
             ->orderBy('p.primerapellido')
             ->orderBy('p.nombre');
 
@@ -90,7 +90,7 @@ class EstudianteRegularController extends Controller
             return [
                 'id' => $persona->id_persona,
                 'nombre' => $nombre,
-                'dni' => $persona->dni,
+                'ci' => $persona->ci,
                 'traspaso_convalidacion' => (bool) $persona->traspaso_convalidacion,
                 'carreras' => $carreras->map(function ($carrera) use ($historialPersona, $gestionActual): array {
                     $registrosCarrera = $historialPersona

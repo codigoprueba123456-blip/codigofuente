@@ -44,7 +44,7 @@ class InscripcionManualController extends Controller
                     'p.nombre',
                     'p.primerapellido',
                     'p.segundoapellido',
-                    'p.ci as dni',
+                    'p.ci',
                     'c.nombre as carrera',
                 ]);
         }
@@ -138,7 +138,7 @@ class InscripcionManualController extends Controller
                 'p.nombre',
                 'p.primerapellido',
                 'p.segundoapellido',
-                'p.ci as dni',
+                'p.ci',
                 'c.nombre as carrera',
                 'cu.nivelinicio',
             ]);
@@ -153,7 +153,7 @@ class InscripcionManualController extends Controller
                     $persona->primerapellido,
                     $persona->segundoapellido,
                 ]))),
-                'dni' => $persona->dni,
+                'ci' => $persona->ci,
                 'inscripciones' => $registros->map(fn ($registro): array => [
                     'id_inscrito' => (int) $registro->id_inscrito,
                     'id_carrera' => (int) $registro->id_carrera,
@@ -412,7 +412,7 @@ class InscripcionManualController extends Controller
                 'p.nombre',
                 'p.primerapellido',
                 'p.segundoapellido',
-                'p.ci as dni',
+                'p.ci',
                 'c.nombre as carrera',
             ]);
         abort_unless($inscripcion, 404);

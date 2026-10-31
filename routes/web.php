@@ -27,6 +27,7 @@ Route::get('/', function () {
 Auth::routes();
 
 Route::get('/home', [App\Http\Controllers\HomeController::class, 'index'])->name('home');
+Route::middleware(['auth', 'resource.access'])->group(function () {
 //Configuracion de instituto 
 Route::get('/admin/instituto', [InstitutoController::class, 'index'])->name('admin.instituto.index')->middleware('auth');
 Route::put('/admin/instituto', [InstitutoController::class, 'update'])->name('admin.instituto.update')->middleware('auth');
@@ -91,15 +92,12 @@ Route::post('/planes/grupos', [GrupoController::class, 'store'])->name('admin.gr
 Route::get('/planes/grupos/{id}/edit', [GrupoController::class, 'edit'])->name('admin.grupos.edit')->middleware('auth');
 Route::put('/planes/grupos/{id}', [GrupoController::class, 'update'])->name('admin.grupos.update')->middleware('auth');
 Route::delete('/planes/grupos/{id}', [GrupoController::class, 'destroy'])->name('admin.grupos.destroy')->middleware('auth');
-//rutas para asignación docente (horarios)
-Route::get('/planes/horarios', [AsignacionDocenteController::class, 'index'])->name('admin.asignacion-docente.index')->middleware('auth');
-Route::get('/planes/horarios/create', [AsignacionDocenteController::class, 'create'])->name('admin.asignacion-docente.create')->middleware('auth');
-Route::get('/planes/horarios/{id}/edit', [AsignacionDocenteController::class, 'edit'])->name('admin.asignacion-docente.edit')->middleware('auth');
-Route::put('/planes/horarios/{id}', [AsignacionDocenteController::class, 'asignar'])->name('admin.asignacion-docente.asignar')->middleware('auth');
-
-// Configuración de instituto
-Route::get('/admin/instituto', [InstitutoController::class, 'index'])->name('admin.instituto.index')->middleware(['auth', 'role:admin']);
-Route::put('/admin/instituto', [InstitutoController::class, 'update'])->name('admin.instituto.update')->middleware(['auth', 'role:admin']);
+// Rutas para la asignación docente
+Route::get('/planes/asignacion-docente', [AsignacionDocenteController::class, 'index'])->name('admin.asignacion-docente.index')->middleware('auth');
+Route::get('/planes/asignacion-docente/create', [AsignacionDocenteController::class, 'create'])->name('admin.asignacion-docente.create')->middleware('auth');
+Route::get('/planes/asignacion-docente/{id}/edit', [AsignacionDocenteController::class, 'edit'])->name('admin.asignacion-docente.edit')->middleware('auth');
+Route::put('/planes/asignacion-docente/{id}', [AsignacionDocenteController::class, 'asignar'])->name('admin.asignacion-docente.asignar')->middleware('auth');
+});
 
 Route::prefix('postulantes')->name('postulantes.')->group(function () {
     Route::get('/', [PostulanteController::class, 'bienvenida'])->name('bienvenida');
@@ -114,7 +112,7 @@ Route::prefix('postulantes')->name('postulantes.')->group(function () {
     Route::delete('/{id}', [PostulanteController::class, 'destroy'])->whereNumber('id')->name('destroy');
 });
 
-Route::middleware(['auth', 'role:admin'])->prefix('admisiones/postulantes')->name('admisiones.postulantes.')->group(function () {
+Route::middleware(['auth', 'resource.access'])->prefix('admisiones/postulantes')->name('admisiones.postulantes.')->group(function () {
     Route::get('/', [AdmisionesController::class, 'index'])->name('index');
 
     Route::get('/excel', [AdmisionesController::class, 'excel'])->name('excel');
@@ -122,36 +120,36 @@ Route::middleware(['auth', 'role:admin'])->prefix('admisiones/postulantes')->nam
 });
 
 // Rutas para el Módulo de Estudiante Nuevo
-Route::get('/inscripciones/estudiante_nuevo', [EstudianteNuevoController::class, 'index'])->name('estudiante_nuevo.index')->middleware(['auth', 'role:admin']);
-Route::get('/inscripciones/estudiante_nuevo/buscar', [EstudianteNuevoController::class, 'buscar'])->name('estudiante_nuevo.buscar')->middleware(['auth', 'role:admin']);
-Route::post('/inscripciones/estudiante_nuevo', [EstudianteNuevoController::class, 'store'])->name('estudiante_nuevo.store')->middleware(['auth', 'role:admin']);
+Route::get('/inscripciones/estudiante_nuevo', [EstudianteNuevoController::class, 'index'])->name('estudiante_nuevo.index')->middleware(['auth', 'resource.access']);
+Route::get('/inscripciones/estudiante_nuevo/buscar', [EstudianteNuevoController::class, 'buscar'])->name('estudiante_nuevo.buscar')->middleware(['auth', 'resource.access']);
+Route::post('/inscripciones/estudiante_nuevo', [EstudianteNuevoController::class, 'store'])->name('estudiante_nuevo.store')->middleware(['auth', 'resource.access']);
 
 // Rutas para la inscripción desde postulante
-Route::get('/inscripciones/estudiante_nuevo_postulacion', [EstudianteNuevoPostulacionController::class, 'index'])->name('estudiante_nuevo_postulacion.index')->middleware(['auth', 'role:admin']);
-Route::post('/inscripciones/estudiante_nuevo_postulacion', [EstudianteNuevoPostulacionController::class, 'store'])->name('estudiante_nuevo_postulacion.store')->middleware(['auth', 'role:admin']);
+Route::get('/inscripciones/estudiante_nuevo_postulacion', [EstudianteNuevoPostulacionController::class, 'index'])->name('estudiante_nuevo_postulacion.index')->middleware(['auth', 'resource.access']);
+Route::post('/inscripciones/estudiante_nuevo_postulacion', [EstudianteNuevoPostulacionController::class, 'store'])->name('estudiante_nuevo_postulacion.store')->middleware(['auth', 'resource.access']);
 
 // Ruta para estudiante regular
-Route::get('/inscripciones/estudiante_regular', [EstudianteRegularController::class, 'index'])->name('estudiante_regular.index')->middleware(['auth', 'role:admin']);
-Route::get('/inscripciones/estudiante_regular/buscar', [EstudianteRegularController::class, 'buscar'])->name('estudiante_regular.buscar')->middleware(['auth', 'role:admin']);
-Route::post('/inscripciones/estudiante_regular', [EstudianteRegularController::class, 'store'])->name('estudiante_regular.store')->middleware(['auth', 'role:admin']);
+Route::get('/inscripciones/estudiante_regular', [EstudianteRegularController::class, 'index'])->name('estudiante_regular.index')->middleware(['auth', 'resource.access']);
+Route::get('/inscripciones/estudiante_regular/buscar', [EstudianteRegularController::class, 'buscar'])->name('estudiante_regular.buscar')->middleware(['auth', 'resource.access']);
+Route::post('/inscripciones/estudiante_regular', [EstudianteRegularController::class, 'store'])->name('estudiante_regular.store')->middleware(['auth', 'resource.access']);
 
 // Ruta para inscritos
-Route::get('/inscripciones/inscriptos', [InscritosController::class, 'index'])->name('inscriptos.index')->middleware(['auth', 'role:admin']);
+Route::get('/inscripciones/inscriptos', [InscritosController::class, 'index'])->name('inscriptos.index')->middleware(['auth', 'resource.access']);
 
-Route::get('/inscripcion/nuevo', [EstudianteNuevoController::class, 'index'])->name('inscripcion.create')->middleware(['auth', 'role:admin']);
-Route::post('/inscripcion/nuevo', [EstudianteNuevoController::class, 'store'])->name('inscripcion.store')->middleware(['auth', 'role:admin']);
+Route::get('/inscripcion/nuevo', [EstudianteNuevoController::class, 'index'])->name('inscripcion.create')->middleware(['auth', 'resource.access']);
+Route::post('/inscripcion/nuevo', [EstudianteNuevoController::class, 'store'])->name('inscripcion.store')->middleware(['auth', 'resource.access']);
 
 // Cambio de carrera
 Route::get('/inscripciones/cambio_carrera', [CambioCarreraController::class, 'index'])
     ->name('cambio_carrera.index')
-    ->middleware(['auth', 'role:admin']);
+    ->middleware(['auth', 'resource.access']);
 Route::get('/inscripciones/cambio_carrera/buscar', [CambioCarreraController::class, 'buscarEstudiantes'])
     ->name('cambio_carrera.buscar')
-    ->middleware(['auth', 'role:admin']);
+    ->middleware(['auth', 'resource.access']);
 Route::post('/inscripciones/cambio_carrera', [CambioCarreraController::class, 'store'])
     ->name('cambio_carrera.store')
-    ->middleware(['auth', 'role:admin']);
-Route::middleware(['auth', 'role:admin'])->prefix('inscripciones/inscripcion_manual')->name('inscripcion_manual.')->group(function () {
+    ->middleware(['auth', 'resource.access']);
+Route::middleware(['auth', 'resource.access'])->prefix('inscripciones/inscripcion_manual')->name('inscripcion_manual.')->group(function () {
     Route::get('/', [InscripcionManualController::class, 'index'])->name('index');
     Route::get('/buscar', [InscripcionManualController::class, 'buscar'])->name('buscar');
     Route::get('/{inscrito}/oferta', [InscripcionManualController::class, 'oferta'])->name('oferta');
@@ -161,7 +159,7 @@ Route::middleware(['auth', 'role:admin'])->prefix('inscripciones/inscripcion_man
 });
 Route::get('/pagos/pago', [PagosController::class, 'index'])
     ->name('pagos.index')
-    ->middleware(['auth', 'role:admin']);
+    ->middleware(['auth', 'resource.access']);
 Route::get('/estudiantes/historial_academico', function () {
     return view('estudiantes.historial_academico.index');
 })->middleware(['auth', 'role:estudiante']);

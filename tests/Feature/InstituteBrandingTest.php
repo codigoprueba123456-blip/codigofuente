@@ -36,7 +36,7 @@ class InstituteBrandingTest extends TestCase
         $persona = Persona::create([
             'nombre' => 'Admin',
             'primerapellido' => 'Prueba',
-            'dni' => '11111111',
+            'ci' => '11111111',
             'tipo' => 'admin',
         ]);
         $user = User::create([

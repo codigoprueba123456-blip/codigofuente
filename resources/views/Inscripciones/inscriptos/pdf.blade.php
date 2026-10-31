@@ -55,7 +55,7 @@
                 <th width="14%">PRIMER APELLIDO</th>
                 <th width="14%">SEGUNDO APELLIDO</th>
                 <th width="14%">NOMBRE</th>
-                <th width="11%">CI / DNI</th>
+                <th width="11%">CI</th>
                 <th width="10%">CELULAR</th>
                 <th width="13%">CARRERA</th>
             </tr>
@@ -69,7 +69,7 @@
                     <td>{{ $inscrito->primerapellido }}</td>
                     <td>{{ $inscrito->segundoapellido ?? '' }}</td>
                     <td>{{ $inscrito->nombre }}</td>
-                    <td class="text-center">{{ $inscrito->dni ?? '—' }}</td>
+                    <td class="text-center">{{ $inscrito->ci ?? '—' }}</td>
                     <td class="text-center">{{ $inscrito->celular ?? '—' }}</td>
                     <td>
                         {{ $inscrito->carrera ?? 'Sin carrera' }}

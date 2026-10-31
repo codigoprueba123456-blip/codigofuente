@@ -160,7 +160,7 @@ return [
         'nombre' => 'nombre',
         'primerapellido' => 'primer apellido',
         'segundoapellido' => 'segundo apellido',
-        'dni' => 'documento de identidad',
+        'ci' => 'carnet de identidad',
         'fechanacimiento' => 'fecha de nacimiento',
         'lugarnacimiento' => 'lugar de nacimiento',
         'lugarexpedicion' => 'lugar de expedición',

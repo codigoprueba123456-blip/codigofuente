@@ -5,7 +5,9 @@ namespace App\Http\Controllers;
 use App\Models\Carrera;
 use App\Models\Empleado;
 use App\Models\Instituto;
+use App\Support\CareerCreditageService;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
 
 class CarreraController extends Controller
@@ -21,7 +23,7 @@ class CarreraController extends Controller
         return view('planes.carreras.create', $this->formData());
     }
 
-    public function store(Request $request)
+    public function store(Request $request, CareerCreditageService $creditage)
     {
         $validated = $request->validate($this->rules());
         $instituto = Instituto::first();
@@ -31,8 +33,13 @@ class CarreraController extends Controller
                 ->withInput();
         }
 
-        $validated['id_instituto'] = $instituto->id_instituto;
-        Carrera::create($validated);
+        $carrera = DB::transaction(function () use ($validated, $instituto, $creditage): Carrera {
+            $validated['id_instituto'] = $instituto->id_instituto;
+            $carrera = Carrera::create($validated);
+            $creditage->syncCareer($carrera);
+
+            return $carrera;
+        });
 
         return redirect()->route('planes.carreras.index')->with('success', 'Carrera creada correctamente.');
     }
@@ -44,7 +51,7 @@ class CarreraController extends Controller
         return view('planes.carreras.edit', array_merge(['carrera' => $carrera], $this->formData()));
     }
 
-    public function update(Request $request, $id)
+    public function update(Request $request, $id, CareerCreditageService $creditage)
     {
         $carrera = Carrera::findOrFail($id);
         $validated = $request->validate($this->rules($carrera->id_carrera));
@@ -55,8 +62,11 @@ class CarreraController extends Controller
                 ->withInput();
         }
 
-        $validated['id_instituto'] = $instituto->id_instituto;
-        $carrera->update($validated);
+        DB::transaction(function () use ($carrera, $validated, $instituto, $creditage): void {
+            $validated['id_instituto'] = $instituto->id_instituto;
+            $carrera->update($validated);
+            $creditage->syncCareer($carrera);
+        });
 
         return redirect()->route('planes.carreras.index')->with('success', 'Carrera actualizada correctamente.');
     }
@@ -95,8 +105,6 @@ class CarreraController extends Controller
             'codigo' => ['required', 'string', 'max:255', Rule::unique('carreras', 'codigo')->ignore($id, 'id_carrera')],
             'nombre' => ['required', 'string', 'max:255'],
             'activo' => ['sometimes', 'boolean'],
-            'creditajeadmision' => ['nullable', 'integer', 'min:0'],
-            'creditajematricula' => ['nullable', 'integer', 'min:0'],
             'nivelacademico' => ['nullable', 'integer', 'min:0'],
             'regimen' => ['nullable', 'integer', 'min:0'],
             'resolucionministerial1' => ['nullable', 'string', 'max:255'],

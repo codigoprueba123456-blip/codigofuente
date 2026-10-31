@@ -11,6 +11,6 @@ class Instituto extends Model
     protected $fillable = [
         'nombreinstituto', 'nombreregulador', 'ubicacion', 'caracter', 'nombreimpuestos', 'nit',
         'actividadeconomica', 'preciocredito', 'resolucionministerial',
-        'abreviatura', 'token', 'logo', 'telefono', 'id_directoracademico', 'id_rector'
+        'abreviatura', 'logo', 'telefono', 'id_directoracademico', 'id_rector'
     ];
 }

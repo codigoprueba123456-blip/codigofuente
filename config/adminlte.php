@@ -363,8 +363,8 @@ return [
                     'url' => 'planes/grupos',
                 ],
                 [
-                    'text' => 'Horarios',
-                    'url' => 'planes/horarios',
+                    'text' => 'Asignación docente',
+                    'url' => 'planes/asignacion-docente',
                 ],
             ],
         ],

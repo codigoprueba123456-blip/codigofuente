@@ -17,7 +17,7 @@
         <table class="table table-bordered">
             <thead>
                 <tr>
-                    <th>Primer Apellido</th><th>Segundo Apellido</th><th>Nombre</th><th>DNI</th><th>Dirección</th>
+                    <th>Primer Apellido</th><th>Segundo Apellido</th><th>Nombre</th><th>CI</th><th>Dirección</th>
                     <th>Teléfono</th><th>Celular</th><th>Email</th><th>Acciones</th>
                 </tr>
             </thead>
@@ -27,7 +27,7 @@
                     <td>{{ $emp->persona->primerapellido }}</td>
                     <td>{{ $emp->persona->segundoapellido }}</td>
                     <td>{{ $emp->persona->nombre }}</td>
-                    <td>{{ $emp->persona->dni }}</td>
+                    <td>{{ $emp->persona->ci }}</td>
                     <td>{{ $emp->persona->direccion }}</td>
                     <td>{{ $emp->persona->telefono }}</td>
                     <td>{{ $emp->persona->celular }}</td>
@@ -46,7 +46,7 @@
                                 $imagenesEmpleado->push([
                                     'url' => url('storage/' . $documento->ruta),
                                     'nombre' => basename($documento->ruta),
-                                    'tipo' => 'Documento ' . $documento->slot,
+                                    'tipo' => $documento->tipo,
                                 ]);
                             }
                         @endphp

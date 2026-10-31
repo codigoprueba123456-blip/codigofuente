@@ -3,6 +3,8 @@
 namespace Tests\Feature;
 
 use App\Models\Instituto;
+use App\Models\Carrera;
+use App\Models\Materia;
 use App\Models\Persona;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -20,7 +22,7 @@ class InstitutoUpdateTest extends TestCase
         $persona = Persona::create([
             'nombre' => 'Admin',
             'primerapellido' => 'Sistema',
-            'dni' => '11111111',
+            'ci' => '11111111',
             'tipo' => 'admin',
         ]);
         $user = User::create([
@@ -41,7 +43,6 @@ class InstitutoUpdateTest extends TestCase
             'preciocredito' => 150,
             'resolucionministerial' => 'RM-123',
             'abreviatura' => 'IP',
-            'token' => 'token-prueba',
         ];
 
         $this->actingAs($user)
@@ -70,7 +71,7 @@ class InstitutoUpdateTest extends TestCase
         $persona = Persona::create([
             'nombre' => 'Admin',
             'primerapellido' => 'Sistema',
-            'dni' => '11111111',
+            'ci' => '11111111',
             'tipo' => 'admin',
         ]);
         $user = User::create([
@@ -91,5 +92,58 @@ class InstitutoUpdateTest extends TestCase
                 'resolucionministerial',
                 'abreviatura',
             ]);
+    }
+
+    public function test_changing_credit_price_recalculates_all_career_and_subject_credits(): void
+    {
+        $persona = Persona::create([
+            'nombre' => 'Admin',
+            'primerapellido' => 'Sistema',
+            'ci' => '44444444',
+            'tipo' => 'admin',
+        ]);
+        $user = User::create([
+            'id_persona' => $persona->id_persona,
+            'usuario' => 'admin_credit_update_test',
+            'password' => Hash::make('password123'),
+        ]);
+        $this->enableFunctionality('admin/instituto');
+
+        $instituto = Instituto::create([
+            'nombreinstituto' => 'Instituto de Prueba',
+            'preciocredito' => 5,
+        ]);
+        $carrera = Carrera::create([
+            'codigo' => 'INF-004',
+            'nombre' => 'Informática',
+            'id_instituto' => $instituto->id_instituto,
+            'creditajeadmision' => 50,
+            'creditajematricula' => 50,
+        ]);
+        $materia = Materia::create([
+            'nombre' => 'Programación',
+            'creditajemateria' => 50,
+            'curricular' => true,
+            'id_carrera' => $carrera->id_carrera,
+        ]);
+
+        $this->actingAs($user)
+            ->get(route('admin.instituto.index'))
+            ->assertOk();
+
+        $this->put(route('admin.instituto.update'), [
+            'nombreinstituto' => 'Instituto de Prueba',
+            'nombreregulador' => 'Ministerio de Educación',
+            'ubicacion' => 'La Paz',
+            'caracter' => 'FISCAL',
+            'preciocredito' => 6,
+            'resolucionministerial' => 'RM-123',
+            'abreviatura' => 'IP',
+        ])
+            ->assertRedirect(route('admin.instituto.index'));
+
+        $this->assertSame(60, (int) $carrera->fresh()->creditajematricula);
+        $this->assertSame(60, (int) $carrera->fresh()->creditajeadmision);
+        $this->assertSame(60, (int) $materia->fresh()->creditajemateria);
     }
 }

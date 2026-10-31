@@ -1,6 +1,6 @@
 @extends('adminlte::page')
 
-@section('title', 'Horarios')
+@section('title', 'Asignación docente')
 
 @section('content')
 <div class="container-fluid px-4 py-3">

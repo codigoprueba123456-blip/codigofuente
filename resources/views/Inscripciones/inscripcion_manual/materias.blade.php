@@ -9,7 +9,7 @@
 @section('content')
 <div class="card card-default">
     <div class="card-body">
-        <p class="mb-1"><strong>Estudiante:</strong> {{ trim($inscripcion->nombre.' '.$inscripcion->primerapellido.' '.$inscripcion->segundoapellido) }} · CI {{ $inscripcion->dni }}</p>
+        <p class="mb-1"><strong>Estudiante:</strong> {{ trim($inscripcion->nombre.' '.$inscripcion->primerapellido.' '.$inscripcion->segundoapellido) }} · CI {{ $inscripcion->ci }}</p>
         <p class="mb-3"><strong>Carrera:</strong> {{ $inscripcion->carrera }} · Gestión {{ $gestionActual->gestion }} / Periodo {{ $gestionActual->periodo }}</p>
 
         <div class="mb-3">

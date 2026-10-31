@@ -139,7 +139,7 @@ class PagosController extends Controller
                 'p.nombre as persona_nombre',
                 'p.primerapellido as persona_primerapellido',
                 'p.segundoapellido as persona_segundoapellido',
-                'p.ci as persona_dni',
+                'p.ci as persona_ci',
                 'po.nombre as postulante_nombre',
                 'po.primerapellido as postulante_primerapellido',
                 'po.segundoapellido as postulante_segundoapellido',

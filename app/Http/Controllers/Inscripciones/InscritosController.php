@@ -111,7 +111,7 @@ class InscritosController extends Controller
 
             $rows = $inscritosData->map(fn ($inscrito): array => [
                         $inscrito->codigo,
-                        $inscrito->dni,
+                        $inscrito->ci,
                         trim(implode(' ', array_filter([
                             $inscrito->nombre,
                             $inscrito->primerapellido,
@@ -199,7 +199,7 @@ class InscritosController extends Controller
                 'p.primerapellido',
                 'p.segundoapellido',
                 'p.nombre',
-                'p.ci as dni',
+                'p.ci',
                 'p.celular',
                 'p.foto',
                 'c.id_carrera',

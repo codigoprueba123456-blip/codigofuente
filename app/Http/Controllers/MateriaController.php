@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Carrera;
 use App\Models\Materia;
 use App\Support\PlanEstudiosImporter;
+use App\Support\CareerCreditageService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
@@ -39,7 +40,7 @@ class MateriaController extends Controller
         return view('planes.materias.import', compact('carrera'));
     }
 
-    public function import(Request $request, $id, PlanEstudiosImporter $importer)
+    public function import(Request $request, $id, PlanEstudiosImporter $importer, CareerCreditageService $creditage)
     {
         $carrera = Carrera::findOrFail($id);
         $validated = $request->validate([
@@ -48,14 +49,13 @@ class MateriaController extends Controller
 
         try {
             $rows = $importer->rows($validated['archivo']);
-            $imported = DB::transaction(function () use ($rows, $carrera) {
+            $imported = DB::transaction(function () use ($rows, $carrera, $creditage) {
                 $count = 0;
 
                 foreach ($rows as $index => $row) {
                     $validator = Validator::make($row, [
                         'codigo' => ['nullable', 'string', 'max:255'],
                         'nombre' => ['required', 'string', 'max:255'],
-                        'creditajemateria' => ['nullable', 'integer', 'min:0'],
                         'horas' => ['nullable', 'integer', 'min:0'],
                         'nivel' => ['nullable', 'integer', 'min:0'],
                         'numero' => ['nullable', 'integer', 'min:0'],
@@ -84,6 +84,8 @@ class MateriaController extends Controller
                     $count++;
                 }
 
+                $creditage->syncCareer($carrera);
+
                 return $count;
             });
         } catch (RuntimeException $exception) {
@@ -94,12 +96,11 @@ class MateriaController extends Controller
             ->with('success', $imported . ' materias cargadas correctamente para ' . $carrera->nombre . '.');
     }
 
-    public function store(Request $request)
+    public function store(Request $request, CareerCreditageService $creditage)
     {
         $validated = $request->validate([
             'codigo' => ['nullable', 'string', 'max:255'],
             'nombre' => ['required', 'string', 'max:255'],
-            'creditajemateria' => ['nullable', 'integer', 'min:0'],
             'curricular' => ['nullable', 'boolean'],
             'horas' => ['nullable', 'integer', 'min:0'],
             'nivel' => ['nullable', 'integer', 'min:0'],
@@ -109,20 +110,22 @@ class MateriaController extends Controller
             'prerequisitos.*' => ['exists:materia,id_materia'],
         ]);
 
-        $materia = Materia::create([
-            'codigo' => $validated['codigo'] ?? null,
-            'nombre' => $validated['nombre'],
-            'creditajemateria' => $validated['creditajemateria'] ?? null,
-            'curricular' => $request->has('curricular') ? true : false,
-            'horas' => $validated['horas'] ?? null,
-            'nivel' => $validated['nivel'] ?? null,
-            'numero' => $validated['numero'] ?? null,
-            'id_carrera' => $validated['id_carrera'],
-        ]);
+        DB::transaction(function () use ($validated, $request, $creditage): void {
+            $materia = Materia::create([
+                'codigo' => $validated['codigo'] ?? null,
+                'nombre' => $validated['nombre'],
+                'curricular' => $request->has('curricular') ? true : false,
+                'horas' => $validated['horas'] ?? null,
+                'nivel' => $validated['nivel'] ?? null,
+                'numero' => $validated['numero'] ?? null,
+                'id_carrera' => $validated['id_carrera'],
+            ]);
 
-        if (!empty($validated['prerequisitos'])) {
-            $materia->prerequisitos()->sync($validated['prerequisitos']);
-        }
+            if (!empty($validated['prerequisitos'])) {
+                $materia->prerequisitos()->sync($validated['prerequisitos']);
+            }
+            $creditage->syncCareer($materia->carrera);
+        });
 
         return redirect()->route('planes.materias.index')->with('success', 'Materia creada correctamente.');
     }
@@ -136,14 +139,13 @@ class MateriaController extends Controller
         return view('planes.materias.edit', compact('materia', 'carreras', 'materiasDisponibles'));
     }
 
-    public function update(Request $request, $id)
+    public function update(Request $request, $id, CareerCreditageService $creditage)
     {
         $materia = Materia::findOrFail($id);
 
         $validated = $request->validate([
             'codigo' => ['nullable', 'string', 'max:255'],
             'nombre' => ['required', 'string', 'max:255'],
-            'creditajemateria' => ['nullable', 'integer', 'min:0'],
             'curricular' => ['nullable', 'boolean'],
             'horas' => ['nullable', 'integer', 'min:0'],
             'nivel' => ['nullable', 'integer', 'min:0'],
@@ -153,26 +155,36 @@ class MateriaController extends Controller
             'prerequisitos.*' => ['exists:materia,id_materia'],
         ]);
 
-        $materia->update([
-            'codigo' => $validated['codigo'] ?? null,
-            'nombre' => $validated['nombre'],
-            'creditajemateria' => $validated['creditajemateria'] ?? null,
-            'curricular' => $request->has('curricular') ? true : false,
-            'horas' => $validated['horas'] ?? null,
-            'nivel' => $validated['nivel'] ?? null,
-            'numero' => $validated['numero'] ?? null,
-            'id_carrera' => $validated['id_carrera'],
-        ]);
+        DB::transaction(function () use ($materia, $validated, $request, $creditage): void {
+            $carreraAnterior = $materia->id_carrera;
+            $materia->update([
+                'codigo' => $validated['codigo'] ?? null,
+                'nombre' => $validated['nombre'],
+                'curricular' => $request->has('curricular') ? true : false,
+                'horas' => $validated['horas'] ?? null,
+                'nivel' => $validated['nivel'] ?? null,
+                'numero' => $validated['numero'] ?? null,
+                'id_carrera' => $validated['id_carrera'],
+            ]);
 
-        $materia->prerequisitos()->sync($validated['prerequisitos'] ?? []);
+            $materia->prerequisitos()->sync($validated['prerequisitos'] ?? []);
+            $creditage->syncCareer(Carrera::findOrFail($carreraAnterior));
+            if ((int) $materia->id_carrera !== (int) $carreraAnterior) {
+                $creditage->syncCareer($materia->carrera);
+            }
+        });
 
         return redirect()->route('planes.materias.index')->with('success', 'Materia actualizada correctamente.');
     }
 
-    public function destroy($id)
+    public function destroy($id, CareerCreditageService $creditage)
     {
         $materia = Materia::findOrFail($id);
-        $materia->delete();
+        DB::transaction(function () use ($materia, $creditage): void {
+            $carrera = $materia->carrera;
+            $materia->delete();
+            $creditage->syncCareer($carrera);
+        });
 
         return redirect()->route('planes.materias.index')->with('success', 'Materia eliminada correctamente.');
     }

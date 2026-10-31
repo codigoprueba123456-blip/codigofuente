@@ -174,7 +174,7 @@
                             <th>Primer Apellido</th>
                             <th>Segundo Apellido</th>
                             <th>Nombre</th>
-                            <th>CI / DNI</th>
+                            <th>CI</th>
                             <th>Celular</th>
                             <th>Carrera</th>
                             <th class="text-center">Acciones</th>
@@ -189,7 +189,7 @@
                                 <td class="font-weight-bold">{{ $inscrito->primerapellido }}</td>
                                 <td>{{ $inscrito->segundoapellido ?? '' }}</td>
                                 <td class="font-weight-bold">{{ $inscrito->nombre }}</td>
-                                <td>{{ $inscrito->dni ?? '—' }}</td>
+                                <td>{{ $inscrito->ci ?? '—' }}</td>
                                 <td>
                                     @if ($inscrito->celular)
                                         <a href="https://wa.me/{{ $inscrito->celular }}" target="_blank" rel="noopener" class="text-success">
@@ -273,7 +273,7 @@
                                         </div>
                                     @endif
                                 </div>
-                                <p><strong>DNI:</strong> {{ $inscrito->dni ?? 'No registrado' }}</p>
+                                <p><strong>CI:</strong> {{ $inscrito->ci ?? 'No registrado' }}</p>
                                 <p><strong>Código:</strong> {{ $inscrito->codigo ?? 'S/C' }}</p>
                                 <p><strong>Gestión:</strong> {{ $inscrito->gestion }} - {{ $inscrito->periodo }}</p>
                                 <p><strong>Carrera:</strong> {{ $inscrito->carrera ?? 'Sin carrera' }}</p>

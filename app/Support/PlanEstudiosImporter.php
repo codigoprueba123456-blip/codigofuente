@@ -74,7 +74,6 @@ class PlanEstudiosImporter
         return [
             'codigo' => $code,
             'nombre' => trim(implode(' ', $columns)),
-            'creditajemateria' => $numeric[0] ?? null,
             'horas' => $numeric[1] ?? null,
             'nivel' => $numeric[2] ?? null,
             'numero' => $numeric[3] ?? null,
@@ -86,7 +85,6 @@ class PlanEstudiosImporter
         $aliases = [
             'codigo' => ['codigo', 'codigomateria', 'clave'],
             'nombre' => ['nombre', 'materia', 'asignatura', 'unidaddeaprendizaje'],
-            'creditajemateria' => ['creditos', 'credito', 'creditajemateria', 'creditaje'],
             'horas' => ['horas', 'horassemana', 'cargahoraria'],
             'nivel' => ['nivel', 'semestre', 'periodo'],
             'numero' => ['numero', 'orden', 'nro'],
