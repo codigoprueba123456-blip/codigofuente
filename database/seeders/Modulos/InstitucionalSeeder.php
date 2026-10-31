@@ -2,35 +2,34 @@
 
 namespace Database\Seeders\Modulos;
 
-use Database\Seeders\Concerns\InsertsFilledRows;
+use App\Models\Empleado;
+use App\Models\Instituto;
 use Illuminate\Database\Seeder;
 
 class InstitucionalSeeder extends Seeder
 {
-    use InsertsFilledRows;
-
     public function run(): void
     {
-        // id_directoracademico e id_rector deben ser id_persona de empleados existentes.
-        $institutos = [
-            [
-                'actividadeconomica' => null,
-                'caracter' => null,
-                'logo' => null, // Ruta relativa del archivo
-                'nit' => null,
-                'nombreimpuestos' => null,
-                'nombreregulador' => null,
-                'preciocredito' => null,
-                'resolucionministerial' => null,
-                'ubicacion' => null,
-                'abreviatura' => null,
-                'nombreinstituto' => null,
-                'telefono' => null,
-                'id_directoracademico' => null,
-                'id_rector' => null,
-            ],
-        ];
+        $directorId = Empleado::query()
+            ->where('codigo', 'EMP-DEMO-001')
+            ->value('id_persona');
 
-        $this->insertFilledRows('instituto', $institutos);
+        Instituto::updateOrCreate(
+            ['nombreinstituto' => 'Instituto de Prueba'],
+            [
+                'actividadeconomica' => 'Educación superior',
+                'caracter' => 'PRIVADO',
+                'nit' => '123456789',
+                'nombreimpuestos' => 'Instituto de Prueba',
+                'nombreregulador' => 'Ministerio de Educación',
+                'preciocredito' => 100,
+                'resolucionministerial' => 'R.M. 001/2026',
+                'ubicacion' => 'La Paz, Bolivia',
+                'abreviatura' => 'ITSA-DEMO',
+                'telefono' => 2234567,
+                'id_directoracademico' => $directorId,
+                'id_rector' => $directorId,
+            ]
+        );
     }
 }

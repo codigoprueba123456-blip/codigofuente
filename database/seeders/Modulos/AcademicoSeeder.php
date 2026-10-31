@@ -2,16 +2,20 @@
 
 namespace Database\Seeders\Modulos;
 
-use Database\Seeders\Concerns\InsertsFilledRows;
+use App\Models\Actividad;
+use App\Models\Carrera;
+use App\Models\Cursa;
+use App\Models\GestionAcademica;
+use App\Models\Grupo;
+use App\Models\Instituto;
+use App\Models\Materia;
+use App\Models\User;
 use Illuminate\Database\Seeder;
 
 class AcademicoSeeder extends Seeder
 {
-    use InsertsFilledRows;
-
     public function run(): void
     {
-        // Crea primero institutos, empleados y carreras; completa sus IDs en las claves foráneas.
         $carreras = [
             [
                 'codigo' => 'COC-2023',
@@ -266,86 +270,91 @@ class AcademicoSeeder extends Seeder
                 'id_jefecarrera' => null,
             ],
         ];
-        $materias = [
-            [
-                'codigo' => null,
-                'nombre' => null,
-                'creditajemateria' => null,
-                'curricular' => null,
-                'horas' => null,
-                'nivel' => null,
-                'numero' => null,
-                'id_carrera' => null,
-            ],
-        ];
-        $prerequisitos = [
-            [
-                'id_materia' => null,
-                'id_prerequisito' => null,
-            ],
-        ];
-        $gestiones = [
-            [
-                'gestion' => null,
-                'periodo' => null,
-                'regimen' => null, // 1 = anual, 2 = semestral
-                'inicio' => null, // AAAA-MM-DD
-                'fin' => null, // AAAA-MM-DD
-                'vigente' => null,
-                'modalidadevaluacion' => null, // 1 = parciales, 2 = bimestres
-            ],
-        ];
-        $grupos = [
-            [
-                'codigo' => null,
-                'capacidad' => null,
-                'turno' => null,
-                'abierto' => null,
-                'id_persona' => null, // id_persona del docente; opcional
-                'id_gestionacademica' => null,
-                'id_materia' => null, // Opcional
-            ],
-        ];
-        $actividades = [
-            [
-                'nombre' => null,
-                'descripcion' => null,
-                'inicio' => null, // AAAA-MM-DD HH:MM:SS
-                'fin' => null, // AAAA-MM-DD HH:MM:SS
-                'funcionalidad' => null, // id_recurso; opcional
-                'id_gestionacademica' => null,
-            ],
-        ];
-        $actividadCarreras = [
-            [
-                'id_actividad' => null,
-                'id_carrera' => null,
-            ],
-        ];
-        $actividadUsuarios = [
-            [
-                'id_actividad' => null,
-                'id_persona' => null, // id_persona de users
-            ],
-        ];
-        $cursas = [
-            [
-                'id_persona' => null,
-                'id_carrera' => null,
-                'id_gestionacademica' => null,
-                'id_mencion' => null, // Opcional
-                'nivelinicio' => null,
-            ],
-        ];
+        $instituto = Instituto::firstOrCreate(
+            ['nombreinstituto' => 'Instituto de Prueba'],
+            ['abreviatura' => 'ITSA-DEMO']
+        );
 
-        $this->insertFilledRows('carreras', $carreras);
-        $this->insertFilledRows('materia', $materias);
-        $this->insertFilledRows('prerequisito', $prerequisitos);
-        $this->insertFilledRows('gestionacademica', $gestiones);
-        $this->insertFilledRows('grupo', $grupos);
-        $this->insertFilledRows('actividad', $actividades);
-        $this->insertFilledRows('actividad_carrera', $actividadCarreras, [], false);
-        $this->insertFilledRows('actividad_usuario', $actividadUsuarios, [], false);
-        $this->insertFilledRows('cursa', $cursas);
+        foreach ($carreras as $datosCarrera) {
+            $datosCarrera['nivelacademico'] = 1;
+            $datosCarrera['regimen'] = $datosCarrera['regimen'] === 'ANUAL' ? 1 : 2;
+            $datosCarrera['id_instituto'] = $instituto->id_instituto;
+
+            Carrera::updateOrCreate(
+                ['codigo' => $datosCarrera['codigo']],
+                $datosCarrera
+            );
+        }
+
+        $carrera = Carrera::where('codigo', 'SIS-2023')->firstOrFail();
+        $gestion = GestionAcademica::updateOrCreate(
+            ['gestion' => now()->year, 'periodo' => 1],
+            [
+                'regimen' => 2,
+                'inicio' => now()->startOfYear()->toDateString(),
+                'fin' => now()->endOfYear()->toDateString(),
+                'vigente' => true,
+                'modalidadevaluacion' => 1,
+            ]
+        );
+
+        $materiaInicial = Materia::updateOrCreate(
+            ['codigo' => 'SIS-2023-101', 'id_carrera' => $carrera->id_carrera],
+            [
+                'nombre' => 'Fundamentos de Sistemas (Demo)',
+                'creditajemateria' => 4,
+                'curricular' => true,
+                'horas' => 6,
+                'nivel' => 1,
+                'numero' => 1,
+            ]
+        );
+        $materiaAvanzada = Materia::updateOrCreate(
+            ['codigo' => 'SIS-2023-201', 'id_carrera' => $carrera->id_carrera],
+            [
+                'nombre' => 'Sistemas Avanzados (Demo)',
+                'creditajemateria' => 5,
+                'curricular' => true,
+                'horas' => 6,
+                'nivel' => 2,
+                'numero' => 1,
+            ]
+        );
+        $materiaAvanzada->prerequisitos()->sync([$materiaInicial->id_materia]);
+
+        Grupo::updateOrCreate(
+            ['codigo' => 'SIS-2023-201-A', 'id_gestionacademica' => $gestion->id_gestionacademica],
+            [
+                'capacidad' => 30,
+                'turno' => 1,
+                'abierto' => true,
+                'id_persona' => null,
+                'id_materia' => $materiaAvanzada->id_materia,
+            ]
+        );
+
+        $actividad = Actividad::updateOrCreate(
+            [
+                'nombre' => 'Actividad académica de demostración',
+                'id_gestionacademica' => $gestion->id_gestionacademica,
+            ],
+            [
+                'descripcion' => 'Actividad de prueba para la carrera de Sistemas.',
+                'inicio' => now()->startOfDay(),
+                'fin' => now()->addDays(30)->endOfDay(),
+            ]
+        );
+        $actividad->carreras()->sync([$carrera->id_carrera]);
+        $actividad->usuarios()->sync([]);
+
+        $estudiante = User::where('usuario', '20260003')->firstOrFail();
+        Cursa::updateOrCreate(
+            [
+                'id_persona' => $estudiante->id_persona,
+                'id_carrera' => $carrera->id_carrera,
+                'id_gestionacademica' => $gestion->id_gestionacademica,
+            ],
+            ['nivelinicio' => 1]
+        );
     }
 }

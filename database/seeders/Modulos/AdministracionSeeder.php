@@ -6,94 +6,16 @@ use App\Models\Cuenta;
 use App\Models\Empleado;
 use App\Models\Estudiante;
 use App\Models\Persona;
+use App\Models\Recurso;
 use App\Models\Rol;
 use App\Models\User;
-use Database\Seeders\Concerns\InsertsFilledRows;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\Hash;
 
 class AdministracionSeeder extends Seeder
 {
-    use InsertsFilledRows;
-
     public function run(): void
     {
-        // Completa primero las personas; usa sus id_persona en empleados, usuarios y cuentas.
-        $personas = [
-            [
-                'tipo' => null, // admin, empleado o estudiante
-                'celular' => null,
-                'direccion' => null,
-                'ci' => null,
-                'email' => null,
-                'fechanacimiento' => null, // AAAA-MM-DD
-                'foto' => null, // Ruta relativa en storage
-                'lugarexpedicion' => null,
-                'lugarnacimiento' => null,
-                'nacionalidad' => null,
-                'nombre' => null,
-                'primerapellido' => null,
-                'segundoapellido' => null,
-                'sexo' => null,
-                'telefono' => null,
-            ],
-        ];
-        $empleados = [
-            [
-                'id_persona' => null,
-                'abreviaturaprofesion' => null,
-                'codigo' => null,
-            ],
-        ];
-        $documentosEmpleado = [
-            [
-                'id_persona' => null,
-                'slot' => null, // Número del documento, del 1 al 4
-                'ruta' => null,
-            ],
-        ];
-        $usuarios = [
-            [
-                'id_persona' => null,
-                'usuario' => null,
-                'password' => null, // Escríbela sin hash; se cifrará automáticamente
-                'remember_token' => null,
-            ],
-        ];
-        $roles = [
-            ['nombre' => null],
-        ];
-        $recursos = [
-            [
-                'nombre' => null,
-                'urlpattern' => null,
-            ],
-        ];
-        $cuentas = [
-            [
-                'id_persona' => null,
-                'id_rol' => null,
-                'usuario' => null,
-                'password' => null, // Escríbela sin hash; se cifrará automáticamente
-                'remember_token' => null,
-            ],
-        ];
-        $privilegios = [
-            [
-                'id_recurso' => null,
-                'id_rol' => null,
-            ],
-        ];
-
-        $this->insertFilledRows('personas', $personas);
-        $this->insertFilledRows('empleados', $empleados);
-        $this->insertFilledRows('empleado_documentos', $documentosEmpleado);
-        $this->insertFilledRows('users', $usuarios, ['password']);
-        $this->insertFilledRows('rol', $roles);
-        $this->insertFilledRows('recurso', $recursos);
-        $this->insertFilledRows('cuenta', $cuentas, ['password']);
-        $this->insertFilledRows('privilegio', $privilegios);
-
         $this->seedDemoAccounts();
     }
 
@@ -249,6 +171,10 @@ class AdministracionSeeder extends Seeder
                     'password' => $password,
                 ]
             );
+
+            if ($account['role'] === 'Administrador') {
+                $role->recursos()->sync(Recurso::query()->pluck('id_recurso')->all());
+            }
         }
     }
 }

@@ -281,6 +281,13 @@ class DatabaseSeeder extends Seeder
         $actividadUsuario->carreras()->sync([]);
         $actividadUsuario->usuarios()->sync([$usuario->id_persona]);
 
-        $this->call(PostulantesDemoSeeder::class);
+        $this->call([
+            Modulos\AdministracionSeeder::class,
+            Modulos\InstitucionalSeeder::class,
+            StudentPortalSeeder::class,
+            Modulos\AcademicoSeeder::class,
+            Modulos\InscripcionesSeeder::class,
+            Modulos\PagosSeeder::class,
+        ]);
     }
 }

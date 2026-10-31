@@ -44,6 +44,75 @@ cd <NOMBRE_DE_LA_CARPETA>
 
 Reemplaza `<URL_DEL_REPOSITORIO>` con la dirección que te comparta tu compañero. Si ya tienes el proyecto, abre PowerShell en su carpeta y continúa con el siguiente paso.
 
+## Sincronizar cambios con Git
+
+Ejecuta estos comandos desde la carpeta del proyecto. El repositorio utiliza la rama `main`; confirma la rama actual antes de sincronizar:
+
+```powershell
+git status
+git branch --show-current
+```
+
+### Descargar los cambios más recientes
+
+Antes de actualizar, guarda tus cambios locales con un commit o respáldalos. Luego descarga los cambios de `main`:
+
+```powershell
+git pull --ff-only origin main
+```
+
+`--ff-only` evita crear un commit de combinación automáticamente. Si Git informa que no puede avanzar porque las ramas divergieron, no fuerces la actualización: conserva tus cambios y coordina la integración con tu equipo.
+
+### Subir tus cambios a `main`
+
+Primero revisa qué modificaste y verifica que no estés incluyendo archivos locales:
+
+```powershell
+git status
+git diff
+```
+
+Agrega solo los archivos que quieres compartir. Por ejemplo:
+
+```powershell
+git add README.md
+```
+
+Revisa lo que quedará en el commit y publícalo:
+
+```powershell
+git diff --cached
+git commit -m "docs: actualizar instrucciones del proyecto"
+git pull --ff-only origin main
+git push origin main
+```
+
+Si modificaste otros archivos, sustituye `README.md` por sus rutas. Usa un mensaje de commit breve que describa el cambio. Si `git push` es rechazado porque otra persona subió cambios, ejecuta `git pull --ff-only origin main`, resuelve cualquier conflicto, crea el commit que corresponda y vuelve a intentar `git push origin main`.
+
+### Trabajar en una rama propia (recomendado para equipos)
+
+Para no publicar directamente en `main`, crea una rama para tu tarea:
+
+```powershell
+git switch main
+git pull --ff-only origin main
+git switch -c feature/nombre-del-cambio
+```
+
+Después de editar y revisar tus archivos:
+
+```powershell
+git status
+git add README.md
+git diff --cached
+git commit -m "docs: describir el cambio"
+git push -u origin feature/nombre-del-cambio
+```
+
+Cuando termines, crea un *pull request* en GitHub para integrar esa rama a `main`. Antes de empezar otra tarea, vuelve a `main` y actualízala con `git pull --ff-only origin main`.
+
+**No subas** `.env`, contraseñas, respaldos de bases de datos, `vendor/` ni `node_modules/`. Revisa siempre `git status` y `git diff --cached` antes de confirmar. Nunca uses `git push --force` en una rama compartida.
+
 ## Instalar dependencias y configurar `.env`
 
 Desde la carpeta raíz del proyecto:
@@ -101,7 +170,16 @@ Si las tablas ya existen y solo quieres volver a ejecutar los datos iniciales:
 php artisan db:seed
 ```
 
-El seeder principal agrega registros de demostración, como carreras, materias, un administrador y postulaciones de prueba. **No contiene la base real de tu compañero**. Si necesitas continuar con datos reales, pídele un respaldo de la base de datos y las instrucciones para restaurarlo.
+El seeder principal ejecuta los módulos de administración, institución, portal de estudiantes, área académica, inscripciones y pagos, en el orden necesario para crear sus relaciones. Agrega cuentas, carreras, materias, grupos, actividades, postulaciones y pagos ficticios. Los seeders pueden volver a ejecutarse para actualizar esos registros de demostración sin duplicarlos. **No contiene la base real de tu compañero**. Si necesitas continuar con datos reales, pídele un respaldo de la base de datos y las instrucciones para restaurarlo.
+
+También puedes ejecutar un módulo por separado cuando sus registros previos ya existan. Por ejemplo:
+
+```powershell
+php artisan db:seed --class="Database\Seeders\Modulos\AdministracionSeeder"
+php artisan db:seed --class="Database\Seeders\Modulos\AcademicoSeeder"
+```
+
+Para inscripciones y pagos, ejecuta primero el sembrado completo: estos módulos dependen de las carreras, la gestión académica y las postulaciones de demostración.
 
 > **Atención:** `php artisan migrate:fresh --seed` elimina todas las tablas y sus datos antes de crearlas nuevamente. Úsalo solo en una base local descartable, nunca en una base con información que quieras conservar.
 
@@ -139,13 +217,30 @@ npm run dev
 
 ## Acceso de demostración
 
-Después de ejecutar `php artisan migrate --seed`, el seeder incluye esta cuenta local:
+Después de ejecutar `php artisan migrate --seed`, se crean estas cuentas locales de demostración:
 
 | Usuario | Contraseña | Rol |
 |---|---|---|
-| `20260001` | `adminroot` | Administrador |
+| `20260001` | `adminroot` | Administrador base |
+| `20260002` | `docente123` | Docente base |
+| `20260003` | `estudiante123` | Estudiante |
+| `admin_prueba` | `Admin2026!` | Administrador |
+| `secretaria_prueba` | `Secretaria2026!` | Secretaria |
+| `docente_prueba` | `Docente2026!` | Docente |
+| `estudiante_prueba` | `Estudiante2026!` | Estudiante |
 
 Son credenciales públicas de demostración definidas en el código. Úsalas únicamente en desarrollo y cámbialas antes de cualquier despliegue o uso con información real. El formulario de acceso solicita el usuario y la contraseña.
+
+### Estudiante de ejemplo del portal
+
+El seeder `StudentPortalSeeder` crea al estudiante **Daynor Estudiante Demo**. Para entrar con esa cuenta, utiliza:
+
+```text
+Usuario:     20260003
+Contraseña:  estudiante123
+```
+
+La cuenta `estudiante_prueba` también es de demostración y se crea desde `AdministracionSeeder`; no es la misma cuenta del portal anterior.
 
 ## Comandos útiles
 

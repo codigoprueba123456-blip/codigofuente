@@ -20,16 +20,28 @@ class DatabaseSeederTest extends TestCase
     {
         $this->seed(DatabaseSeeder::class);
 
-        $this->assertDatabaseCount('personas', 2);
-        $this->assertDatabaseCount('users', 2);
-        $this->assertDatabaseCount('rol', 2);
+        $this->assertDatabaseCount('personas', 7);
+        $this->assertDatabaseCount('users', 7);
+        $this->assertDatabaseCount('rol', 4);
+        $this->assertDatabaseCount('empleados', 4);
         $this->assertDatabaseCount('instituto', 1);
-        $this->assertDatabaseCount('carreras', 2);
+        $this->assertDatabaseCount('carreras', 20);
         $this->assertDatabaseCount('gestionacademica', 1);
-        $this->assertDatabaseCount('materia', 4);
-        $this->assertDatabaseCount('grupo', 2);
-        $this->assertDatabaseCount('actividad', 3);
+        $this->assertDatabaseCount('materia', 6);
+        $this->assertDatabaseCount('grupo', 3);
+        $this->assertDatabaseCount('actividad', 4);
         $this->assertDatabaseCount('postulante', 3);
+        $this->assertDatabaseCount('pago', 3);
+        $this->assertDatabaseCount('comprobante', 3);
+        $this->assertDatabaseCount('detalle', 3);
+        $this->assertDatabaseCount('cursa', 1);
+
+        $this->assertDatabaseHas('users', ['usuario' => 'admin_prueba']);
+        $this->assertDatabaseHas('users', ['usuario' => '20260003']);
+        $this->assertDatabaseHas('carreras', ['codigo' => 'SIS-2023', 'regimen' => 1]);
+        $this->assertDatabaseHas('materia', ['codigo' => 'SIS-2023-201']);
+        $this->assertDatabaseHas('grupo', ['codigo' => 'SIS-2023-201-A']);
+        $this->assertDatabaseHas('pago', ['id_postulante' => Postulante::where('codigo', 'DEMO-POST-001')->value('id_postulante')]);
 
         $this->assertDatabaseHas('carreras', [
             'codigo' => 'DEMO-SIS',
@@ -65,15 +77,20 @@ class DatabaseSeederTest extends TestCase
 
         $this->seed(DatabaseSeeder::class);
 
-        $this->assertDatabaseCount('personas', 2);
-        $this->assertDatabaseCount('users', 2);
-        $this->assertDatabaseCount('rol', 2);
+        $this->assertDatabaseCount('personas', 7);
+        $this->assertDatabaseCount('users', 7);
+        $this->assertDatabaseCount('rol', 4);
+        $this->assertDatabaseCount('empleados', 4);
         $this->assertDatabaseCount('instituto', 1);
-        $this->assertDatabaseCount('carreras', 2);
+        $this->assertDatabaseCount('carreras', 20);
         $this->assertDatabaseCount('gestionacademica', 1);
-        $this->assertDatabaseCount('materia', 4);
-        $this->assertDatabaseCount('grupo', 2);
-        $this->assertDatabaseCount('actividad', 3);
+        $this->assertDatabaseCount('materia', 6);
+        $this->assertDatabaseCount('grupo', 3);
+        $this->assertDatabaseCount('actividad', 4);
         $this->assertDatabaseCount('postulante', 3);
+        $this->assertDatabaseCount('pago', 3);
+        $this->assertDatabaseCount('comprobante', 3);
+        $this->assertDatabaseCount('detalle', 3);
+        $this->assertDatabaseCount('cursa', 1);
     }
 }
