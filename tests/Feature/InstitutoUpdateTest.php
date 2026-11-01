@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Models\Instituto;
 use App\Models\Carrera;
+use App\Models\Empleado;
 use App\Models\Materia;
 use App\Models\Persona;
 use App\Models\User;
@@ -31,6 +32,20 @@ class InstitutoUpdateTest extends TestCase
             'password' => Hash::make('password123'),
         ]);
         $this->enableFunctionality('admin/instituto');
+        $rectorPersona = Persona::create([
+            'nombre' => 'Rector',
+            'primerapellido' => 'Prueba',
+            'ci' => '11111112',
+            'tipo' => 'empleado',
+        ]);
+        $rector = Empleado::create(['id_persona' => $rectorPersona->id_persona]);
+        $directorPersona = Persona::create([
+            'nombre' => 'Director',
+            'primerapellido' => 'Academico',
+            'ci' => '11111113',
+            'tipo' => 'empleado',
+        ]);
+        $director = Empleado::create(['id_persona' => $directorPersona->id_persona]);
 
         $datosInstituto = [
             'nombreinstituto' => 'Instituto de Prueba',
@@ -43,12 +58,16 @@ class InstitutoUpdateTest extends TestCase
             'preciocredito' => 150,
             'resolucionministerial' => 'RM-123',
             'abreviatura' => 'IP',
+            'id_rector' => $rector->id_persona,
+            'id_directoracademico' => $director->id_persona,
         ];
 
         $this->actingAs($user)
             ->get(route('admin.instituto.index'))
             ->assertOk()
-            ->assertSee('name="nombreinstituto"', false);
+            ->assertSee('name="nombreinstituto"', false)
+            ->assertSee('Rector Prueba')
+            ->assertSee('Director Academico');
 
         $this->put(route('admin.instituto.update'), $datosInstituto)
             ->assertRedirect(route('admin.instituto.index'))
@@ -61,7 +80,9 @@ class InstitutoUpdateTest extends TestCase
             ->assertSee('value="Instituto de Prueba"', false)
             ->assertSee('value="La Paz"', false)
             ->assertSee('value="123456789"', false)
-            ->assertSee('value="IP"', false);
+            ->assertSee('value="IP"', false)
+            ->assertSee('value="' . $rector->id_persona . '" selected', false)
+            ->assertSee('value="' . $director->id_persona . '" selected', false);
 
         $this->assertSame(1, Instituto::count());
     }

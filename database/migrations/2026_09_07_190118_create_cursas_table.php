@@ -13,7 +13,6 @@ return new class extends Migration
             $table->unsignedBigInteger('id_persona');
             $table->unsignedBigInteger('id_carrera');
             $table->unsignedBigInteger('id_gestionacademica')->nullable();
-            $table->unsignedBigInteger('id_mencion')->nullable();
             $table->integer('nivelinicio')->default(1);
 
             // Relaciones

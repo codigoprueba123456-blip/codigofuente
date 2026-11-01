@@ -20,9 +20,12 @@ use App\Http\Controllers\AsignacionDocenteController;
 use App\Http\Controllers\GestionAcademicaController;
 use App\Http\Controllers\GrupoController;
 use App\Http\Controllers\MateriaController;
+use App\Http\Controllers\Reportes\MallaCurricularReporteController;
 
 Route::get('/', function () {
-    return view('welcome');
+    $carreras = \App\Models\Carrera::activas()->orderBy('nombre')->get();
+
+    return view('welcome', compact('carreras'));
 });
 
 Auth::routes();
@@ -160,6 +163,9 @@ Route::middleware(['auth', 'resource.access'])->prefix('inscripciones/inscripcio
 });
 Route::get('/pagos/pago', [PagosController::class, 'index'])
     ->name('pagos.index')
+    ->middleware(['auth', 'resource.access']);
+Route::get('/reportes/malla-curricular', [MallaCurricularReporteController::class, 'index'])
+    ->name('reportes.academicos.malla-curricular')
     ->middleware(['auth', 'resource.access']);
 Route::get('/reportes/inscripciones/{reporte}', [InscripcionesReportesController::class, 'index'])
     ->where('reporte', 'lista-postulantes|lista-inscritos-carrera|lista-inscritos-paralelo|lista-inscritos-grupo|libro-inscripciones|libro-inscripciones-carrera|lista-inscritos-multicarrera')

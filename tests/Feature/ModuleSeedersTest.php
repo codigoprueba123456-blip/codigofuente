@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Models\Carrera;
+use App\Models\GestionAcademica;
 use App\Models\Materia;
 use App\Models\Postulante;
 use App\Models\User;
@@ -36,6 +37,18 @@ class ModuleSeedersTest extends TestCase
         $this->assertDatabaseHas('carreras', ['codigo' => 'DEMO-MTZ']);
         $this->assertDatabaseHas('materia', ['codigo' => 'DEMO-SIS-201']);
         $this->assertDatabaseHas('grupo', ['codigo' => 'DEMO-MTZ-201-A']);
+        $this->assertDatabaseHas('gestionacademica', [
+            'gestion' => 2025,
+            'periodo' => 1,
+            'regimen' => 1,
+            'vigente' => false,
+        ]);
+        $this->assertDatabaseHas('gestionacademica', [
+            'gestion' => now()->year,
+            'periodo' => 1,
+            'regimen' => 1,
+            'vigente' => true,
+        ]);
         $this->assertDatabaseHas('cursa', [
             'id_persona' => User::where('usuario', '20260003')->value('id_persona'),
             'id_carrera' => Carrera::where('codigo', 'SIS-2023')->value('id_carrera'),
@@ -48,6 +61,7 @@ class ModuleSeedersTest extends TestCase
         $this->seed(AcademicoSeeder::class);
 
         $this->assertDatabaseCount('carreras', 20);
+        $this->assertSame(1, GestionAcademica::where('gestion', 2025)->where('periodo', 1)->count());
         $this->assertDatabaseCount('materia', 6);
         $this->assertDatabaseCount('grupo', 3);
     }

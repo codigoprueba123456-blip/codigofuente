@@ -21,7 +21,10 @@
                 <div class="form-group">
                     <label for="archivo">Archivo del plan de estudios</label>
                     <input type="file" name="archivo" id="archivo" class="form-control-file @error('archivo') is-invalid @enderror" accept=".xlsx,.xls,.csv,.pdf" required>
-                    <small class="form-text text-muted">Excel: la primera fila debe tener encabezados como código, nombre, créditos, horas, nivel y número. PDF: use una tabla de texto con esas columnas.</small>
+                    <small class="form-text text-muted">
+                        Puede cargar Excel o PDF con el formato de materias.xls. Se importan nivel, número, código, nombre, horas, estado curricular y prerrequisitos.
+                        Los prerrequisitos se vinculan por código; el creditaje se recalcula según la configuración de la carrera.
+                    </small>
                     @error('archivo')
                         <span class="invalid-feedback d-block">{{ $message }}</span>
                     @enderror

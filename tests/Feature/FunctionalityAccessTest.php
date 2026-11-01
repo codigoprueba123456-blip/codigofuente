@@ -70,6 +70,104 @@ class FunctionalityAccessTest extends TestCase
         $this->assertDatabaseMissing('materia', ['id_materia' => $subject->id_materia]);
     }
 
+    public function test_subject_index_lists_careers_and_filters_subjects_by_career(): void
+    {
+        $user = $this->createUser();
+        $instituto = Instituto::create(['nombreinstituto' => 'Instituto de Prueba']);
+        $primeraCarrera = Carrera::create([
+            'codigo' => 'INF-001',
+            'nombre' => 'Informática',
+            'id_instituto' => $instituto->id_instituto,
+        ]);
+        $segundaCarrera = Carrera::create([
+            'codigo' => 'ADM-001',
+            'nombre' => 'Administración',
+            'resolucionministerial1' => 'R.M. N° 123/2024',
+            'id_instituto' => $instituto->id_instituto,
+        ]);
+        Materia::create([
+            'nombre' => 'Programación',
+            'id_carrera' => $primeraCarrera->id_carrera,
+        ]);
+        Materia::create([
+            'nombre' => 'Contabilidad',
+            'id_carrera' => $segundaCarrera->id_carrera,
+        ]);
+
+        $this->actingAs($user)
+            ->get(route('planes.materias.index', ['id_carrera' => $primeraCarrera->id_carrera]))
+            ->assertOk()
+            ->assertSee('Informática')
+            ->assertSee('Administración · R.M. 123/2024')
+            ->assertSee('Programación')
+            ->assertDontSee('Contabilidad')
+            ->assertSee('value="' . $primeraCarrera->id_carrera . '" selected', false);
+    }
+
+    public function test_homepage_career_selector_shows_active_career_resolutions(): void
+    {
+        $instituto = Instituto::create(['nombreinstituto' => 'Instituto de Prueba']);
+        $carrera = Carrera::create([
+            'codigo' => 'INF-001',
+            'nombre' => 'Informática',
+            'resolucionministerial1' => 'R.M. N° 123/2024',
+            'id_instituto' => $instituto->id_instituto,
+        ]);
+
+        $this->get('/')
+            ->assertOk()
+            ->assertSee('value="' . $carrera->id_carrera . '"', false)
+            ->assertSee('Informática · R.M. 123/2024');
+    }
+
+    public function test_curriculum_report_page_and_exports_load_the_existing_views(): void
+    {
+        $user = $this->createUser();
+        $instituto = Instituto::create(['nombreinstituto' => 'Instituto de Prueba']);
+        $carrera = Carrera::create([
+            'codigo' => 'INF-001',
+            'nombre' => 'Informática',
+            'resolucionministerial1' => 'R.M. N° 123/2024',
+            'id_instituto' => $instituto->id_instituto,
+        ]);
+        Materia::create([
+            'codigo' => 'INF-101',
+            'nombre' => 'Programación',
+            'nivel' => 1,
+            'id_carrera' => $carrera->id_carrera,
+        ]);
+
+        $this->actingAs($user)
+            ->get(route('reportes.academicos.malla-curricular'))
+            ->assertOk()
+            ->assertSee('Reporte Malla Curricular')
+            ->assertSee('Informática · R.M. 123/2024');
+
+        $this->get(route('reportes.academicos.malla-curricular', [
+            'generar' => 1,
+            'id_carrera' => $carrera->id_carrera,
+        ]))
+            ->assertOk()
+            ->assertSee('Programación');
+
+        $this->get(route('reportes.academicos.malla-curricular', [
+            'formato' => 'pdf',
+            'id_carrera' => $carrera->id_carrera,
+        ]))
+            ->assertOk()
+            ->assertHeader('content-type', 'application/pdf');
+
+        $this->get(route('reportes.academicos.malla-curricular', [
+            'formato' => 'excel',
+            'id_carrera' => $carrera->id_carrera,
+        ]))
+            ->assertOk()
+            ->assertHeader(
+                'content-type',
+                'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+            );
+    }
+
     public function test_module_pages_require_authentication_even_when_read_only(): void
     {
         $this->get(route('planes.carreras.index'))

@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Reportes;
 
 use App\Http\Controllers\Controller;
+use App\Models\Carrera;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Database\Query\Builder;
 use Illuminate\Http\Request;
@@ -211,13 +212,19 @@ class InscripcionesReportesController extends Controller
                 'valor' => $gestion->id_gestionacademica,
                 'etiqueta' => 'Gestión '.$gestion->gestion.' - Periodo '.$gestion->periodo,
             ]);
-        $carreras = DB::table('carreras')
+        $carreras = Carrera::query()
             ->orderBy('nombre')
-            ->get(['id_carrera', 'nombre'])
-            ->map(fn (object $carrera): object => (object) [
-                'valor' => $carrera->id_carrera,
-                'etiqueta' => $carrera->nombre,
-            ]);
+            ->get()
+            ->map(function (Carrera $carrera): object {
+                $resoluciones = $carrera->resolucionesMinisteriales();
+
+                return (object) [
+                    'valor' => $carrera->id_carrera,
+                    'etiqueta' => $carrera->nombre.($resoluciones
+                        ? ' · R.M. '.implode(' / ', $resoluciones)
+                        : ''),
+                ];
+            });
         $materias = DB::table('materia')
             ->when($request->filled('id_carrera'), fn (Builder $query) => $query->where('id_carrera', $request->input('id_carrera')));
         $niveles = (clone $materias)->whereNotNull('nivel')->distinct()->orderBy('nivel')->pluck('nivel')

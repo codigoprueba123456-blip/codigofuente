@@ -48,8 +48,11 @@
                     <label for="id_carrera">Carrera:</label>
                     <select name="id_carrera" id="id_carrera" class="form-control" onchange="this.form.submit()">
                         @foreach ($carreras as $carrera)
+                            @php
+                                $resoluciones = $carrera->resolucionesMinisteriales();
+                            @endphp
                             <option value="{{ $carrera->id_carrera }}" @selected((int) request('id_carrera', $carreras->first()->id_carrera) === (int) $carrera->id_carrera)>
-                                {{ $carrera->carrera }}
+                                {{ $carrera->nombre . ($resoluciones ? ' · R.M. ' . implode(' / ', $resoluciones) : '') }}
                             </option>
                         @endforeach
                     </select>

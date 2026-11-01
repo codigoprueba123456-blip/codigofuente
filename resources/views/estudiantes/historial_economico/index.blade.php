@@ -20,8 +20,11 @@
                     <form method="GET" action="{{ route('estudiantes.historial_economico') }}" style="margin: 0;">
                         <select name="id_carrera" id="id_carrera" class="form-control" onchange="this.form.submit()" style="width: 100%; max-width: 430px; height: 42px; font-size: 1.05rem; border: 1px solid #cfd5da; border-radius: 4px; background-color: #fff; color: #1f1f1f; padding: 0 12px; box-shadow: none; cursor: pointer;">
                             @forelse ($carreras as $carrera)
+                                @php
+                                    $resoluciones = $carrera->resolucionesMinisteriales();
+                                @endphp
                                 <option value="{{ $carrera->id_carrera }}" @selected((int) $carreraSeleccionada === (int) $carrera->id_carrera)>
-                                    {{ $carrera->carrera }}
+                                    {{ $carrera->nombre . ($resoluciones ? ' · R.M. ' . implode(' / ', $resoluciones) : '') }}
                                 </option>
                             @empty
                                 <option value="" selected disabled>No tienes carreras inscritas</option>

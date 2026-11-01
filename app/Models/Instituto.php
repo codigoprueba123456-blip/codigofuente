@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class Instituto extends Model
 {
@@ -13,4 +14,14 @@ class Instituto extends Model
         'actividadeconomica', 'preciocredito', 'resolucionministerial',
         'abreviatura', 'logo', 'telefono', 'id_directoracademico', 'id_rector'
     ];
+
+    public function rector(): BelongsTo
+    {
+        return $this->belongsTo(Empleado::class, 'id_rector', 'id_persona');
+    }
+
+    public function directorAcademico(): BelongsTo
+    {
+        return $this->belongsTo(Empleado::class, 'id_directoracademico', 'id_persona');
+    }
 }

@@ -116,15 +116,15 @@ class DatabaseSeeder extends Seeder
             ['id_instituto' => 1],
             [
                 'actividadeconomica' => 'Educación superior',
-                'caracter' => 'PRIVADO',
+                'caracter' => 'FISCAL',
                 'nit' => '123456789',
-                'nombreimpuestos' => 'Instituto de Prueba',
+                'nombreimpuestos' => 'Instituto Tecnológico Sacaba',
                 'nombreregulador' => 'Ministerio de Educación',
-                'preciocredito' => 100,
+                'preciocredito' => 5,
                 'resolucionministerial' => 'R.M. 001/2026',
-                'ubicacion' => 'La Paz, Bolivia',
-                'abreviatura' => 'ITSA-DEMO',
-                'nombreinstituto' => 'Instituto de Prueba',
+                'ubicacion' => 'Cochabamba, Bolivia',
+                'abreviatura' => 'ITSA',
+                'nombreinstituto' => 'Instituto Tecnológico Sacaba',
                 'telefono' => 2234567,
                 'id_directoracademico' => $docente->id_persona,
                 'id_rector' => $docente->id_persona,
@@ -162,10 +162,21 @@ class DatabaseSeeder extends Seeder
             ]
         );
 
+        GestionAcademica::updateOrCreate(
+            ['gestion' => 2025, 'periodo' => 1],
+            [
+                'regimen' => 1,
+                'inicio' => '2025-01-01',
+                'fin' => '2025-12-31',
+                'vigente' => false,
+                'modalidadevaluacion' => 1,
+            ]
+        );
+
         $gestion = GestionAcademica::updateOrCreate(
             ['gestion' => now()->year, 'periodo' => 1],
             [
-                'regimen' => 2,
+                'regimen' => 1,
                 'inicio' => now()->startOfYear()->toDateString(),
                 'fin' => now()->endOfYear()->toDateString(),
                 'vigente' => true,

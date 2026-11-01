@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Instituto;
+use App\Models\Empleado;
 use App\Support\CareerCreditageService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -13,8 +14,17 @@ class InstitutoController extends Controller
     public function index()
     {
         $instituto = Instituto::first() ?? new Instituto;
+        $empleados = Empleado::with('persona')
+            ->whereHas('persona')
+            ->get()
+            ->sortBy(fn (Empleado $empleado): string => trim(implode(' ', array_filter([
+                $empleado->persona->nombre,
+                $empleado->persona->primerapellido,
+                $empleado->persona->segundoapellido,
+            ]))))
+            ->values();
 
-        return view('admin.instituto.index', compact('instituto'));
+        return view('admin.instituto.index', compact('instituto', 'empleados'));
     }
 
     public function update(Request $request, CareerCreditageService $creditage)
@@ -30,6 +40,8 @@ class InstitutoController extends Controller
             'preciocredito' => ['required', 'integer', 'min:0'],
             'resolucionministerial' => ['required', 'string', 'max:255'],
             'abreviatura' => ['required', 'string', 'max:255'],
+            'id_rector' => ['nullable', 'integer', 'exists:empleados,id_persona'],
+            'id_directoracademico' => ['nullable', 'integer', 'exists:empleados,id_persona'],
             'logo' => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp', 'max:2048'],
             'eliminar_logo' => ['sometimes', 'boolean'],
         ]);

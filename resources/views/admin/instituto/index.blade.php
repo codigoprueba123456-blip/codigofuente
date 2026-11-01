@@ -107,6 +107,53 @@
             </div>
 
             <div class="row">
+                <div class="col-md-6">
+                    <div class="form-group">
+                        <label for="id_rector">Rector</label>
+                        <select id="id_rector" name="id_rector" class="form-control @error('id_rector') is-invalid @enderror">
+                            <option value="">Seleccione un rector</option>
+                            @foreach ($empleados as $empleado)
+                                @php
+                                    $persona = $empleado->persona;
+                                    $nombre = trim(implode(' ', array_filter([
+                                        $persona->nombre,
+                                        $persona->primerapellido,
+                                        $persona->segundoapellido,
+                                    ])));
+                                @endphp
+                                <option value="{{ $empleado->id_persona }}" @selected((string) old('id_rector', $instituto->id_rector) === (string) $empleado->id_persona)>
+                                    {{ $nombre }}
+                                </option>
+                            @endforeach
+                        </select>
+                        @error('id_rector')<span class="invalid-feedback">{{ $message }}</span>@enderror
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="form-group">
+                        <label for="id_directoracademico">Director académico</label>
+                        <select id="id_directoracademico" name="id_directoracademico" class="form-control @error('id_directoracademico') is-invalid @enderror">
+                            <option value="">Seleccione un director académico</option>
+                            @foreach ($empleados as $empleado)
+                                @php
+                                    $persona = $empleado->persona;
+                                    $nombre = trim(implode(' ', array_filter([
+                                        $persona->nombre,
+                                        $persona->primerapellido,
+                                        $persona->segundoapellido,
+                                    ])));
+                                @endphp
+                                <option value="{{ $empleado->id_persona }}" @selected((string) old('id_directoracademico', $instituto->id_directoracademico) === (string) $empleado->id_persona)>
+                                    {{ $nombre }}
+                                </option>
+                            @endforeach
+                        </select>
+                        @error('id_directoracademico')<span class="invalid-feedback">{{ $message }}</span>@enderror
+                    </div>
+                </div>
+            </div>
+
+            <div class="row">
                 <div class="col-md-4">
                     <div class="form-group">
                         <label>Precio crédito *</label>

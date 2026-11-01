@@ -21,8 +21,9 @@ class MateriaController extends Controller
             $query->where('id_carrera', request('id_carrera'));
         }
         $materias = $query->get();
+        $carreras = Carrera::orderBy('nombre')->get();
 
-        return view('planes.materias.index', compact('materias'));
+        return view('planes.materias.index', compact('materias', 'carreras'));
     }
 
     public function create()
@@ -51,6 +52,7 @@ class MateriaController extends Controller
             $rows = $importer->rows($validated['archivo']);
             $imported = DB::transaction(function () use ($rows, $carrera, $creditage) {
                 $count = 0;
+                $materiasImportadas = [];
 
                 foreach ($rows as $index => $row) {
                     $validator = Validator::make($row, [
@@ -59,6 +61,9 @@ class MateriaController extends Controller
                         'horas' => ['nullable', 'integer', 'min:0'],
                         'nivel' => ['nullable', 'integer', 'min:0'],
                         'numero' => ['nullable', 'integer', 'min:0'],
+                        'curricular' => ['required', 'boolean'],
+                        'prerequisitos' => ['present', 'array'],
+                        'prerequisitos.*' => ['string', 'max:255'],
                     ]);
 
                     if ($validator->fails()) {
@@ -68,20 +73,45 @@ class MateriaController extends Controller
                     }
 
                     $data = $validator->validated();
-                    $data['id_carrera'] = $carrera->id_carrera;
-                    $data['curricular'] = true;
-
-                    $query = Materia::where('id_carrera', $carrera->id_carrera);
-                    $existing = !empty($data['codigo'])
-                        ? $query->where('codigo', $data['codigo'])->first()
-                        : $query->where('nombre', $data['nombre'])->first();
-
-                    if ($existing) {
-                        $existing->update($data);
-                    } else {
-                        Materia::create($data);
-                    }
+                    $prerequisitos = $data['prerequisitos'];
+                    unset($data['prerequisitos']);
+                    $identity = !empty($data['codigo'])
+                        ? ['id_carrera' => $carrera->id_carrera, 'codigo' => $data['codigo']]
+                        : ['id_carrera' => $carrera->id_carrera, 'nombre' => $data['nombre']];
+                    $materia = Materia::updateOrCreate($identity, $data);
+                    $materiasImportadas[] = [
+                        'materia' => $materia,
+                        'prerequisitos' => $prerequisitos,
+                        'fila' => $index + 2,
+                    ];
                     $count++;
+                }
+
+                $materiasPorCodigo = Materia::query()
+                    ->where('id_carrera', $carrera->id_carrera)
+                    ->whereNotNull('codigo')
+                    ->get()
+                    ->keyBy(fn (Materia $materia): string => mb_strtoupper(trim($materia->codigo)));
+
+                foreach ($materiasImportadas as $importada) {
+                    $idsPrerequisitos = [];
+                    foreach ($importada['prerequisitos'] as $codigo) {
+                        $prerequisito = $materiasPorCodigo->get(mb_strtoupper(trim($codigo)));
+                        if (! $prerequisito) {
+                            throw ValidationException::withMessages([
+                                'archivo' => 'Error en la fila ' . $importada['fila']
+                                    . ': no existe la materia prerequisito "' . $codigo . '" en esta carrera.',
+                            ]);
+                        }
+                        if ($prerequisito->is($importada['materia'])) {
+                            throw ValidationException::withMessages([
+                                'archivo' => 'Error en la fila ' . $importada['fila']
+                                    . ': una materia no puede ser prerequisito de sí misma.',
+                            ]);
+                        }
+                        $idsPrerequisitos[] = $prerequisito->id_materia;
+                    }
+                    $importada['materia']->prerequisitos()->sync($idsPrerequisitos);
                 }
 
                 $creditage->syncCareer($carrera);

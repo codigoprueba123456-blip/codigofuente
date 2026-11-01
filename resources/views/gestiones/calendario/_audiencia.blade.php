@@ -28,7 +28,10 @@
     <label for="carreras">Carreras</label>
     <select name="carreras[]" id="carreras" class="form-control" multiple size="5">
         @foreach($carreras as $carrera)
-            <option value="{{ $carrera->id_carrera }}" {{ in_array($carrera->id_carrera, $carrerasSeleccionadas) ? 'selected' : '' }}>{{ $carrera->nombre }}</option>
+            @php
+                $resoluciones = $carrera->resolucionesMinisteriales();
+            @endphp
+            <option value="{{ $carrera->id_carrera }}" {{ in_array($carrera->id_carrera, $carrerasSeleccionadas) ? 'selected' : '' }}>{{ $carrera->nombre . ($resoluciones ? ' · R.M. ' . implode(' / ', $resoluciones) : '') }}</option>
         @endforeach
     </select>
 </div>

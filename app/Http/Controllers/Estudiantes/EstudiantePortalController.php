@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Estudiantes;
 
 use App\Http\Controllers\Controller;
+use App\Models\Carrera;
 use App\Models\Persona;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -44,7 +45,13 @@ class EstudiantePortalController extends Controller
                     'cu.nivelinicio',
                 ]);
 
-            $carreras = $inscripciones->unique('id_carrera')->values();
+            $carrerasPorId = Carrera::whereIn('id_carrera', $inscripciones->pluck('id_carrera')->unique())
+                ->get()
+                ->keyBy('id_carrera');
+            $carreras = $inscripciones->unique('id_carrera')
+                ->map(fn (object $inscripcion): ?Carrera => $carrerasPorId->get($inscripcion->id_carrera))
+                ->filter()
+                ->values();
             $idCarrera = (int) $request->query('id_carrera', $carreras->first()->id_carrera ?? 0);
             if (! $carreras->contains(fn ($carrera): bool => (int) $carrera->id_carrera === $idCarrera)) {
                 $idCarrera = (int) ($carreras->first()->id_carrera ?? 0);
@@ -143,13 +150,10 @@ class EstudiantePortalController extends Controller
         $carreraSeleccionada = null;
 
         if ($persona?->estudiante) {
-            $carreras = DB::table('inscrito as i')
-                ->join('carreras as c', 'c.id_carrera', '=', 'i.id_carrera')
-                ->where('i.id_persona', $persona->id_persona)
-                ->select('c.id_carrera', 'c.nombre as carrera')
-                ->distinct()
-                ->orderBy('c.nombre')
-                ->get();
+            $carreras = Carrera::whereIn(
+                'id_carrera',
+                DB::table('inscrito')->where('id_persona', $persona->id_persona)->select('id_carrera')
+            )->orderBy('nombre')->get();
 
             $idCarrera = (int) $request->query('id_carrera', $request->query('carreras', 0));
             $carreraSeleccionada = $carreras->contains(

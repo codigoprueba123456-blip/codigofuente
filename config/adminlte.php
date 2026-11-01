@@ -312,59 +312,69 @@ return [
         // Sidebar items:
         [
             'text' => 'Administración',
-            'icon' => 'fas fa-fw fa-share',
+            'icon' => 'fas fa-fw fa-user-shield',
             'submenu' => [
                 [
                     'text' => 'Instituto',
                     'url' => 'admin/instituto',
+                    'icon' => 'fas fa-fw fa-university',
                 ],
                 [
                     'text' => 'Empleados',
                     'url' => 'admin/empleados',
+                    'icon' => 'fas fa-fw fa-id-badge',
                 ],
                 [
                     'text' => 'Roles',
                     'url' => 'admin/roles',
+                    'icon' => 'fas fa-fw fa-user-lock',
                 ],
                 [
                     'text' => 'Usuarios',
                     'url' => 'admin/usuarios',
+                    'icon' => 'fas fa-fw fa-users',
                 ],
             ],
         ],
         [
             'text' => 'Planes de Estudio',
-            'icon' => 'fas fa-fw fa-share',
+            'icon' => 'fas fa-fw fa-book-open',
             'submenu' => [
                 [
                     'text' => 'Carreras',
                     'url' => 'planes/carreras',
+                    'icon' => 'fas fa-fw fa-graduation-cap',
                 ],
                 [
                     'text' => 'Materias',
                     'url' => 'planes/materias',
+                    'icon' => 'fas fa-fw fa-book',
                 ],
             ],
         ],
         [
             'text' => 'Gestiones Academicas',
-            'icon' => 'fas fa-fw fa-share',
+            'icon' => 'fas fa-fw fa-calendar-alt',
             'submenu' => [
                 [
                     'text' => 'Calendario Academico',
                     'url' => 'planes/calendario',
+                    'icon' => 'fas fa-fw fa-calendar-check',
                 ],
                 [
                     'text' => 'Gestiones Academicas',
                     'url' => 'planes/gestiones',
+                    'icon' => 'fas fa-fw fa-calendar',
                 ],
                 [
                     'text' => 'Grupos',
                     'url' => 'planes/grupos',
+                    'icon' => 'fas fa-fw fa-users-cog',
                 ],
                 [
                     'text' => 'Asignación docente',
                     'url' => 'planes/asignacion-docente',
+                    'icon' => 'fas fa-fw fa-chalkboard-teacher',
                 ],
             ],
         ],
@@ -432,6 +442,11 @@ return [
             'text' => 'Reportes',
             'icon' => 'fas fa-chart-bar',
             'submenu' => [
+                [
+                    'text' => 'Malla Curricular',
+                    'icon' => 'fas fa-sitemap',
+                    'url' => 'reportes/malla-curricular',
+                ],
                 [
                     'text' => 'Inscripciones',
                     'icon' => 'fas fa-book',

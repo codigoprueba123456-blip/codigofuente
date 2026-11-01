@@ -1430,15 +1430,14 @@
                                         class="w-full px-4 py-3 rounded-xl bg-white border border-slate-300 text-sm text-slate-800 focus:border-[#015001] focus:ring-1 focus:ring-[#015001] outline-none transition-all"
                                         id="form-carrera" required="">
                                         <option value="">Seleccionar carrera...</option>
-                                        <option value="sistemas">Sistemas Informáticos</option>
-                                        <option value="secretariado">Secretariado Ejecutivo</option>
-                                        <option value="administracion">Administración de Empresas</option>
-                                        <option value="contaduria">Contaduría General</option>
-                                        <option value="topografia">Topografía y Geodesia</option>
-                                        <option value="mecanica">Mecánica Automotriz</option>
-                                        <option value="gastronomia">Gastronomía</option>
-                                        <option value="industrial">Informática Industrial</option>
-                                        <option value="construccion">Construcción Civil</option>
+                                        @foreach ($carreras as $carrera)
+                                            @php
+                                                $resoluciones = $carrera->resolucionesMinisteriales();
+                                            @endphp
+                                            <option value="{{ $carrera->id_carrera }}">
+                                                {{ $carrera->nombre . ($resoluciones ? ' · R.M. ' . implode(' / ', $resoluciones) : '') }}
+                                            </option>
+                                        @endforeach
                                     </select>
                                 </div>
                                 <div class="space-y-1">

@@ -16,12 +16,22 @@
     <div class="card-header bg-light">
         <div class="form-group mb-2">
             <label for="carrera_select" class="font-weight-normal text-muted mb-1">Carrera: *</label>
-            <div class="input-group" style="max-width: 350px;">
-                <select name="carrera_id" id="carrera_select" class="form-control">
-                    <option value="">Seleccione una carrera...</option>
-                    <!-- Puedes iterar las opciones de carrera desde tu controlador aquí -->
+            <form action="{{ route('planes.materias.index') }}" method="GET" class="input-group" style="max-width: 450px;">
+                <select name="id_carrera" id="carrera_select" class="form-control">
+                    <option value="">Todas las carreras</option>
+                    @foreach($carreras as $carrera)
+                        @php
+                            $resoluciones = $carrera->resolucionesMinisteriales();
+                        @endphp
+                        <option value="{{ $carrera->id_carrera }}" {{ (string) request('id_carrera') === (string) $carrera->id_carrera ? 'selected' : '' }}>
+                            {{ $carrera->nombre . ($resoluciones ? ' · R.M. ' . implode(' / ', $resoluciones) : '') }}
+                        </option>
+                    @endforeach
                 </select>
-            </div>
+                <div class="input-group-append">
+                    <button type="submit" class="btn btn-primary">Filtrar</button>
+                </div>
+            </form>
         </div>
 
         <div class="d-flex justify-content-between align-items-center flex-wrap mt-3">

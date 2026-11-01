@@ -70,8 +70,11 @@
                         <select name="id_carrera" id="id_carrera" class="form-control" onchange="this.form.submit()">
                             <option value="">-- Todas las Carreras --</option>
                             @foreach ($carreras as $c)
+                                @php
+                                    $resoluciones = $c->resolucionesMinisteriales();
+                                @endphp
                                 <option value="{{ $c->id_carrera }}" {{ request('id_carrera') == $c->id_carrera ? 'selected' : '' }}>
-                                    {{ $c->nombre }}
+                                    {{ $c->nombre . ($resoluciones ? ' · R.M. ' . implode(' / ', $resoluciones) : '') }}
                                 </option>
                             @endforeach
                         </select>

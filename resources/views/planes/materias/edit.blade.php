@@ -33,8 +33,11 @@
                         <select name="id_carrera" id="id_carrera" class="form-control @error('id_carrera') is-invalid @enderror" required>
                             <option value="">Seleccione una carrera</option>
                             @foreach($carreras as $carrera)
+                                @php
+                                    $resoluciones = $carrera->resolucionesMinisteriales();
+                                @endphp
                                 <option value="{{ $carrera->id_carrera }}" {{ old('id_carrera', $materia->id_carrera) == $carrera->id_carrera ? 'selected' : '' }}>
-                                    {{ $carrera->nombre }}
+                                    {{ $carrera->nombre . ($resoluciones ? ' · R.M. ' . implode(' / ', $resoluciones) : '') }}
                                 </option>
                             @endforeach
                         </select>

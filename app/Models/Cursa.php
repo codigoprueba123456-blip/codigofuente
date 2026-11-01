@@ -15,7 +15,6 @@ class Cursa extends Model
         'id_persona',
         'id_carrera',
         'id_gestionacademica',
-        'id_mencion',
         'nivelinicio',
     ];
 

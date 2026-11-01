@@ -296,10 +296,21 @@ class AcademicoSeeder extends Seeder
         $this->seedCurrentDemoCatalog($instituto->id_instituto);
 
         $carrera = Carrera::where('codigo', 'SIS-2023')->firstOrFail();
+        GestionAcademica::updateOrCreate(
+            ['gestion' => 2025, 'periodo' => 1],
+            [
+                'regimen' => 1,
+                'inicio' => '2025-01-01',
+                'fin' => '2025-12-31',
+                'vigente' => false,
+                'modalidadevaluacion' => 1,
+            ]
+        );
+
         $gestion = GestionAcademica::updateOrCreate(
             ['gestion' => now()->year, 'periodo' => 1],
             [
-                'regimen' => 2,
+                'regimen' => 1,
                 'inicio' => now()->startOfYear()->toDateString(),
                 'fin' => now()->endOfYear()->toDateString(),
                 'vigente' => true,
@@ -430,7 +441,7 @@ class AcademicoSeeder extends Seeder
         $gestion = GestionAcademica::updateOrCreate(
             ['gestion' => now()->year, 'periodo' => 1],
             [
-                'regimen' => 2,
+                'regimen' => 1,
                 'inicio' => now()->startOfYear()->toDateString(),
                 'fin' => now()->endOfYear()->toDateString(),
                 'vigente' => true,

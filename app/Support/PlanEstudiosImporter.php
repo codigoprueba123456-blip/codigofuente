@@ -4,8 +4,8 @@ namespace App\Support;
 
 use Illuminate\Http\UploadedFile;
 use PhpOffice\PhpSpreadsheet\IOFactory;
-use Smalot\PdfParser\Parser as PdfParser;
 use RuntimeException;
+use Smalot\PdfParser\Parser as PdfParser;
 
 class PlanEstudiosImporter
 {
@@ -19,75 +19,180 @@ class PlanEstudiosImporter
     private function spreadsheetRows(UploadedFile $file): array
     {
         $spreadsheet = IOFactory::load($file->getRealPath());
-        $sheet = $spreadsheet->getActiveSheet();
-        $rawRows = $sheet->toArray(null, true, true, false);
+        $rawRows = $spreadsheet->getActiveSheet()->toArray(null, true, true, false);
+        $headerIndex = null;
+        $headers = [];
 
-        if (count($rawRows) < 2) {
-            throw new RuntimeException('El archivo no contiene una fila de encabezados y al menos una materia.');
+        foreach (array_slice($rawRows, 0, 10, true) as $index => $rawRow) {
+            $candidate = array_map(fn ($value) => $this->header((string) $value), $rawRow);
+            if (array_intersect($candidate, ['nombre', 'materia', 'asignatura']) !== []) {
+                $headerIndex = $index;
+                $headers = $candidate;
+                break;
+            }
         }
 
-        $headers = array_map(fn ($value) => $this->header((string) $value), array_shift($rawRows));
+        if ($headerIndex === null) {
+            throw new RuntimeException('No se encontró la fila de encabezados del plan de estudios.');
+        }
 
-        return $this->mapRows($rawRows, $headers);
+        return $this->mapRows(array_slice($rawRows, $headerIndex + 1), $headers, $headerIndex + 2);
     }
 
     private function pdfRows(UploadedFile $file): array
     {
         $text = (new PdfParser())->parseFile($file->getRealPath())->getText();
-        $lines = preg_split('/\R/u', $text, -1, PREG_SPLIT_NO_EMPTY);
+        $lines = array_values(array_filter(array_map('trim', preg_split('/\R/u', $text) ?: []), fn (string $line): bool => $line !== ''));
+        $lines = $this->joinBrokenCodes($lines);
+        $cursos = [];
         $rows = [];
+        $nivelActual = null;
 
-        foreach ($lines as $line) {
-            $line = trim(preg_replace('/\s+/u', ' ', $line));
-            if ($line === '' || $this->looksLikeHeader($line)) {
+        foreach ($lines as $index => $line) {
+            if ($this->looksLikeHeader($line)) {
                 continue;
             }
 
-            $columns = preg_split('/\s{2,}|\||;|\t/u', $line, -1, PREG_SPLIT_NO_EMPTY);
-            if (count($columns) < 2) {
+            $nivelEncabezado = $this->pdfLevelLabel($line);
+            if ($nivelEncabezado !== null) {
+                $nivelActual = $nivelEncabezado;
+            }
+
+            $inlineRow = $this->inlinePdfRow($line, $nivelActual);
+            if ($inlineRow !== null) {
+                $rows[$index] = $inlineRow;
                 continue;
             }
 
-            $rows[] = $this->pdfRow($columns);
+            if (
+                isset($lines[$index - 1])
+                && preg_match('/^\d+$/u', $lines[$index - 1])
+                && preg_match('/^[A-Z0-9][A-Z0-9._-]*-\d{2,}[A-Z0-9._-]*$/iu', $line)
+            ) {
+                $cursos[] = [
+                    'codigo' => $line,
+                    'indice' => $index,
+                    'indiceNumero' => $index - 1,
+                    'numero' => $lines[$index - 1],
+                    'nivel' => $nivelActual,
+                ];
+            }
         }
 
+        foreach ($cursos as $index => $curso) {
+            $inicio = $curso['indice'] + 1;
+            $fin = $cursos[$index + 1]['indiceNumero'] ?? count($lines);
+            $sufijo = trim(implode(' ', array_slice($lines, $inicio, $fin - $inicio)));
+
+            if (! preg_match(
+                '/^(?<nombre>.+?)\s+(?<horas>\d+(?:[.,]\d+)?)\s+(?<creditaje>\d+(?:[.,]\d+)?)\s+(?<curricular>sí|si|no|true|false|1|0)(?:\s+(?<prerequisitos>.*))?$/iu',
+                $sufijo,
+                $columns
+            )) {
+                throw new RuntimeException('No se pudo interpretar la materia "' . $curso['codigo'] . '" en el PDF.');
+            }
+
+            $rows[$curso['indice']] = $this->normalizedRow([
+                'codigo' => $curso['codigo'],
+                'nombre' => $columns['nombre'],
+                'horas' => $columns['horas'],
+                'nivel' => $curso['nivel'],
+                'numero' => $curso['numero'],
+                'curricular' => $columns['curricular'],
+                'prerequisitos' => $columns['prerequisitos'] ?? '',
+            ]);
+        }
+
+        ksort($rows);
+        $rows = array_values($rows);
         if ($rows === []) {
-            throw new RuntimeException('No se encontraron filas de materias en el PDF. Use una tabla con código, nombre y datos numéricos.');
+            throw new RuntimeException('No se encontraron filas de materias en el PDF. Use una tabla con las columnas del archivo materias.xls.');
         }
 
         return $rows;
     }
 
-    private function pdfRow(array $columns): array
+    private function inlinePdfRow(string $line, ?int $nivelActual): ?array
     {
-        $code = null;
-        if (preg_match('/^[A-ZÁÉÍÓÚÑ0-9][A-ZÁÉÍÓÚÑ0-9._-]*$/iu', $columns[0]) && preg_match('/\d/u', $columns[0])) {
-            $code = $columns[0];
-            array_shift($columns);
+        if (! preg_match(
+            '/^(?<prefix>.*?)\s+(?<codigo>[A-Z0-9][A-Z0-9._-]*-\d{2,}[A-Z0-9._-]*)\s+(?<sufijo>.+)$/iu',
+            $line,
+            $match
+        )) {
+            return null;
         }
 
-        $numeric = [];
-        while ($columns !== [] && count($numeric) < 4 && preg_match('/^\d+(?:[.,]\d+)?$/', end($columns))) {
-            array_unshift($numeric, array_pop($columns));
+        if (! preg_match(
+            '/^(?<nombre>.+?)\s+(?<horas>\d+(?:[.,]\d+)?)\s+(?<creditaje>\d+(?:[.,]\d+)?)\s+(?<curricular>sí|si|no|true|false|1|0)(?:\s+(?<prerequisitos>.*))?$/iu',
+            trim($match['sufijo']),
+            $columns
+        )) {
+            return null;
         }
 
-        return [
-            'codigo' => $code,
-            'nombre' => trim(implode(' ', $columns)),
-            'horas' => $numeric[1] ?? null,
-            'nivel' => $numeric[2] ?? null,
-            'numero' => $numeric[3] ?? null,
-        ];
+        $prefix = trim($match['prefix']);
+        $numero = null;
+        if (preg_match('/(?:^|\s)(\d+)\s*$/u', $prefix, $numberMatch)) {
+            $numero = $numberMatch[1];
+            $prefix = trim(substr($prefix, 0, -strlen($numberMatch[0])));
+        }
+
+        return $this->normalizedRow([
+            'codigo' => $match['codigo'],
+            'nombre' => $columns['nombre'],
+            'horas' => $columns['horas'],
+            'nivel' => $this->parseLevel($prefix) ?? $nivelActual,
+            'numero' => $numero,
+            'curricular' => $columns['curricular'],
+            'prerequisitos' => $columns['prerequisitos'] ?? '',
+        ]);
     }
 
-    private function mapRows(array $rawRows, array $headers): array
+    private function joinBrokenCodes(array $lines): array
+    {
+        $joined = [];
+        for ($index = 0; $index < count($lines); $index++) {
+            if (
+                preg_match('/^[A-Z0-9][A-Z0-9._-]*-$/iu', $lines[$index])
+                && isset($lines[$index + 1])
+                && preg_match('/^\d{2,}[A-Z0-9._-]*$/iu', $lines[$index + 1])
+            ) {
+                $joined[] = $lines[$index] . $lines[++$index];
+                continue;
+            }
+
+            $joined[] = $lines[$index];
+        }
+
+        return $joined;
+    }
+
+    private function pdfLevelLabel(string $line): ?int
+    {
+        $normalized = $this->header($line);
+        $ordinales = 'primer|primero|segundo|tercer|tercero|cuarto|quinto|sexto|septimo|octavo|noveno|decimo';
+
+        if (preg_match('/^(?:' . $ordinales . ')(?:ano|semestre|nivel)?$/u', $normalized)) {
+            return $this->parseLevel($normalized);
+        }
+
+        if (preg_match('/^(?:ano|semestre|nivel)\d+$/u', $normalized)) {
+            return $this->parseLevel($normalized);
+        }
+
+        return null;
+    }
+
+    private function mapRows(array $rawRows, array $headers, int $firstDataRow = 2): array
     {
         $aliases = [
             'codigo' => ['codigo', 'codigomateria', 'clave'],
             'nombre' => ['nombre', 'materia', 'asignatura', 'unidaddeaprendizaje'],
             'horas' => ['horas', 'horassemana', 'cargahoraria'],
             'nivel' => ['nivel', 'semestre', 'periodo'],
-            'numero' => ['numero', 'orden', 'nro'],
+            'numero' => ['numero', 'nro', 'orden', 'n'],
+            'curricular' => ['curricular', 'escurricular'],
+            'prerequisitos' => ['prerequisitos', 'prerrequisitos', 'prerequisito', 'prerrequisito'],
         ];
         $indexes = [];
 
@@ -101,33 +206,115 @@ class PlanEstudiosImporter
             }
         }
 
-        if (!isset($indexes['nombre'])) {
+        if (! isset($indexes['nombre'])) {
             throw new RuntimeException('El archivo debe incluir una columna llamada nombre, materia o asignatura.');
         }
 
         $rows = [];
-        foreach ($rawRows as $rawRow) {
+        foreach ($rawRows as $index => $rawRow) {
             $name = trim((string) ($rawRow[$indexes['nombre']] ?? ''));
             if ($name === '') {
                 continue;
             }
 
             $row = ['nombre' => $name];
-            foreach (array_keys($aliases) as $field) {
-                if ($field !== 'nombre' && isset($indexes[$field])) {
+            foreach (['codigo', 'horas', 'nivel', 'numero', 'curricular', 'prerequisitos'] as $field) {
+                if (isset($indexes[$field])) {
                     $row[$field] = $this->value($rawRow[$indexes[$field]] ?? null);
                 }
             }
-            $rows[] = $row;
+
+            try {
+                $rows[] = $this->normalizedRow($row);
+            } catch (RuntimeException $exception) {
+                throw new RuntimeException('Error en la fila ' . ($firstDataRow + $index) . ': ' . $exception->getMessage(), 0, $exception);
+            }
+        }
+
+        if ($rows === []) {
+            throw new RuntimeException('El archivo no contiene ninguna materia para importar.');
         }
 
         return $rows;
     }
 
-    private function header(string $value): string
+    private function normalizedRow(array $row): array
     {
-        $value = mb_strtolower(trim($value));
-        return strtr($value, ['á' => 'a', 'é' => 'e', 'í' => 'i', 'ó' => 'o', 'ú' => 'u', 'ñ' => 'n', ' ' => '', '_' => '', '-' => '']);
+        $nivel = $row['nivel'] ?? null;
+        if ($nivel !== null && $nivel !== '') {
+            $nivel = $this->parseLevel((string) $nivel);
+            if ($nivel === null) {
+                throw new RuntimeException('El nivel debe ser numérico o tener un formato como PRIMER AÑO.');
+            }
+        }
+
+        $curricular = $this->parseBoolean($row['curricular'] ?? null);
+        $prerequisitos = $this->parsePrerequisites((string) ($row['prerequisitos'] ?? ''));
+
+        return [
+            'codigo' => $this->value($row['codigo'] ?? null),
+            'nombre' => trim((string) ($row['nombre'] ?? '')),
+            'horas' => $this->value($row['horas'] ?? null),
+            'nivel' => $nivel,
+            'numero' => $this->value($row['numero'] ?? null),
+            'curricular' => $curricular,
+            'prerequisitos' => $prerequisitos,
+        ];
+    }
+
+    private function parseLevel(string $value): ?int
+    {
+        $value = $this->header($value);
+        if (preg_match('/\d+/u', $value, $match)) {
+            return (int) $match[0];
+        }
+
+        foreach ([
+            'primer' => 1,
+            'primero' => 1,
+            'segundo' => 2,
+            'tercer' => 3,
+            'tercero' => 3,
+            'cuarto' => 4,
+            'quinto' => 5,
+            'sexto' => 6,
+            'septimo' => 7,
+            'octavo' => 8,
+            'noveno' => 9,
+            'decimo' => 10,
+        ] as $word => $number) {
+            if (str_contains($value, $word)) {
+                return $number;
+            }
+        }
+
+        return null;
+    }
+
+    private function parseBoolean(mixed $value): bool
+    {
+        $value = $this->header((string) $value);
+        if ($value === '') {
+            return true;
+        }
+        if (in_array($value, ['si', 'true', '1', 'yes', 'curricular'], true)) {
+            return true;
+        }
+        if (in_array($value, ['no', 'false', '0', 'nocurricular'], true)) {
+            return false;
+        }
+
+        throw new RuntimeException('El campo curricular debe indicar Sí o No.');
+    }
+
+    private function parsePrerequisites(string $value): array
+    {
+        preg_match_all('/[A-Z0-9][A-Z0-9._-]*-\d{2,}[A-Z0-9._-]*/iu', $value, $matches);
+
+        return array_values(array_unique(array_map(
+            fn (string $code): string => strtoupper($code),
+            $matches[0]
+        )));
     }
 
     private function value(mixed $value): ?string
@@ -136,9 +323,23 @@ class PlanEstudiosImporter
         return $value === '' ? null : str_replace(',', '.', $value);
     }
 
+    private function header(string $value): string
+    {
+        $value = mb_strtolower(trim($value));
+        $value = strtr($value, [
+            'á' => 'a', 'é' => 'e', 'í' => 'i', 'ó' => 'o', 'ú' => 'u', 'ñ' => 'n',
+            'º' => '', '°' => '',
+        ]);
+
+        return preg_replace('/[^a-z0-9]/u', '', $value) ?? '';
+    }
+
     private function looksLikeHeader(string $line): bool
     {
         $normalized = $this->header($line);
-        return str_contains($normalized, 'nombre') || str_contains($normalized, 'asignatura') || str_contains($normalized, 'materia');
+
+        return str_contains($normalized, 'codigo')
+            && (str_contains($normalized, 'nombre') || str_contains($normalized, 'materia'))
+            && (str_contains($normalized, 'nivel') || str_contains($normalized, 'horas'));
     }
 }
