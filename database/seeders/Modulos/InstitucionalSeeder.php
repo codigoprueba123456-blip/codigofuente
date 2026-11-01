@@ -13,6 +13,9 @@ class InstitucionalSeeder extends Seeder
         $directorId = Empleado::query()
             ->where('codigo', 'EMP-DEMO-001')
             ->value('id_persona');
+        $directorId ??= Empleado::query()
+            ->where('codigo', 'EMP-PRUEBA-003')
+            ->value('id_persona');
 
         Instituto::updateOrCreate(
             ['nombreinstituto' => 'Instituto de Prueba'],

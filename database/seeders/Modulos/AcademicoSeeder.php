@@ -5,17 +5,24 @@ namespace Database\Seeders\Modulos;
 use App\Models\Actividad;
 use App\Models\Carrera;
 use App\Models\Cursa;
+use App\Models\Empleado;
 use App\Models\GestionAcademica;
 use App\Models\Grupo;
 use App\Models\Instituto;
 use App\Models\Materia;
 use App\Models\User;
+use Database\Seeders\StudentPortalSeeder;
 use Illuminate\Database\Seeder;
 
 class AcademicoSeeder extends Seeder
 {
     public function run(): void
     {
+        $this->call([
+            InstitucionalSeeder::class,
+            StudentPortalSeeder::class,
+        ]);
+
         $carreras = [
             [
                 'codigo' => 'COC-2023',
@@ -286,6 +293,8 @@ class AcademicoSeeder extends Seeder
             );
         }
 
+        $this->seedCurrentDemoCatalog($instituto->id_instituto);
+
         $carrera = Carrera::where('codigo', 'SIS-2023')->firstOrFail();
         $gestion = GestionAcademica::updateOrCreate(
             ['gestion' => now()->year, 'periodo' => 1],
@@ -356,5 +365,97 @@ class AcademicoSeeder extends Seeder
             ],
             ['nivelinicio' => 1]
         );
+    }
+
+    private function seedCurrentDemoCatalog(int $institutoId): void
+    {
+        $jefeCarreraId = Empleado::query()
+            ->where('codigo', 'EMP-DEMO-001')
+            ->value('id_persona')
+            ?? Empleado::query()
+                ->where('codigo', 'EMP-PRUEBA-003')
+                ->value('id_persona');
+
+        $carreras = [];
+        foreach ([
+            ['codigo' => 'DEMO-SIS', 'nombre' => 'Ingeniería de Sistemas (Prueba)'],
+            ['codigo' => 'DEMO-MTZ', 'nombre' => 'Mecánica Automotriz (Prueba)'],
+        ] as $datos) {
+            $carreras[$datos['codigo']] = Carrera::updateOrCreate(
+                ['codigo' => $datos['codigo']],
+                [
+                    'creditajeadmision' => 10,
+                    'creditajematricula' => 20,
+                    'nivelacademico' => 1,
+                    'nombre' => $datos['nombre'],
+                    'activo' => true,
+                    'regimen' => 1,
+                    'resolucionministerial1' => 'R.M. 001/2026',
+                    'version' => 1,
+                    'id_instituto' => $institutoId,
+                    'id_jefecarrera' => $jefeCarreraId,
+                ]
+            );
+        }
+
+        foreach ([
+            ['career' => 'DEMO-SIS', 'code' => 'DEMO-SIS-101', 'name' => 'Fundamentos de Programación (Prueba)', 'credits' => 4, 'level' => 1],
+            ['career' => 'DEMO-SIS', 'code' => 'DEMO-SIS-201', 'name' => 'Programación Avanzada (Prueba)', 'credits' => 5, 'level' => 2],
+            ['career' => 'DEMO-MTZ', 'code' => 'DEMO-MTZ-101', 'name' => 'Fundamentos de Mecánica Automotriz (Prueba)', 'credits' => 4, 'level' => 1],
+            ['career' => 'DEMO-MTZ', 'code' => 'DEMO-MTZ-201', 'name' => 'Sistemas del Motor y Diagnóstico (Prueba)', 'credits' => 5, 'level' => 2],
+        ] as $datos) {
+            $materia = Materia::updateOrCreate(
+                [
+                    'codigo' => $datos['code'],
+                    'id_carrera' => $carreras[$datos['career']]->id_carrera,
+                ],
+                [
+                    'nombre' => $datos['name'],
+                    'creditajemateria' => $datos['credits'],
+                    'curricular' => true,
+                    'horas' => 6,
+                    'nivel' => $datos['level'],
+                    'numero' => 1,
+                ]
+            );
+
+            if ($datos['level'] === 2) {
+                $materiaInicial = Materia::where('codigo', str_replace('201', '101', $datos['code']))
+                    ->where('id_carrera', $carreras[$datos['career']]->id_carrera)
+                    ->firstOrFail();
+                $materia->prerequisitos()->sync([$materiaInicial->id_materia]);
+            }
+        }
+
+        $gestion = GestionAcademica::updateOrCreate(
+            ['gestion' => now()->year, 'periodo' => 1],
+            [
+                'regimen' => 2,
+                'inicio' => now()->startOfYear()->toDateString(),
+                'fin' => now()->endOfYear()->toDateString(),
+                'vigente' => true,
+                'modalidadevaluacion' => 1,
+            ]
+        );
+
+        foreach ([
+            ['career' => 'DEMO-SIS', 'code' => 'DEMO-SIS-201-A'],
+            ['career' => 'DEMO-MTZ', 'code' => 'DEMO-MTZ-201-A'],
+        ] as $datos) {
+            $materia = Materia::where('codigo', str_replace('-A', '', $datos['code']))
+                ->where('id_carrera', $carreras[$datos['career']]->id_carrera)
+                ->firstOrFail();
+
+            Grupo::updateOrCreate(
+                ['codigo' => $datos['code'], 'id_gestionacademica' => $gestion->id_gestionacademica],
+                [
+                    'capacidad' => 30,
+                    'turno' => 1,
+                    'abierto' => true,
+                    'id_persona' => $jefeCarreraId,
+                    'id_materia' => $materia->id_materia,
+                ]
+            );
+        }
     }
 }

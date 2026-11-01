@@ -27,6 +27,27 @@ document.addEventListener('DOMContentLoaded', function () {
     let consultaCiPendiente = false;
     let activeCompressions = 0;
 
+    function mostrarFallback(title, message) {
+        let feedback = form.querySelector('[data-form-feedback]');
+        if (!feedback) {
+            feedback = document.createElement('div');
+            feedback.className = 'alert alert-warning';
+            feedback.setAttribute('data-form-feedback', '');
+            feedback.setAttribute('role', 'alert');
+            form.prepend(feedback);
+        }
+
+        feedback.textContent = `${title}: ${message}`;
+    }
+
+    function notificar(icon, title, message) {
+        if (typeof window.itsaToast === 'function') {
+            window.itsaToast(icon, title, message);
+        } else {
+            mostrarFallback(title, message);
+        }
+    }
+
     function aplicarFichaExistente(estudiante) {
         personalFieldIds.forEach(id => {
             const field = document.getElementById(id);
@@ -91,6 +112,7 @@ document.addEventListener('DOMContentLoaded', function () {
         } catch (error) {
             existingStudentMessage.textContent = error.message || 'No se pudo comprobar el CI en el sistema.';
             existingStudentMessage.classList.remove('d-none');
+            notificar('error', 'No se pudo comprobar el C.I.', error.message || 'Intenta nuevamente.');
         } finally {
             consultaCiPendiente = false;
         }
@@ -210,13 +232,13 @@ document.addEventListener('DOMContentLoaded', function () {
         if (!sourceFile) return;
 
         if (!['image/jpeg', 'image/png', 'image/webp'].includes(sourceFile.type)) {
-            alert('El documento debe ser una imagen JPG, PNG o WebP.');
+            notificar('error', 'Imagen no válida', 'El documento debe ser una imagen JPG, PNG o WebP.');
             clearDocument(input.id);
             return;
         }
 
         if (sourceFile.size > maxSourceFileBytes) {
-            alert('La imagen original supera 15 MB. Selecciona una imagen más pequeña.');
+            notificar('warning', 'Imagen demasiado grande', 'La imagen original supera 15 MB. Selecciona una imagen más pequeña.');
             clearDocument(input.id);
             return;
         }
@@ -246,11 +268,11 @@ document.addEventListener('DOMContentLoaded', function () {
 
             if (totalSelectedBytes() > maxTotalFileBytes) {
                 clearDocument(input.id);
-                alert('Los documentos superan el máximo total de 1.750 KB. Selecciona imágenes más pequeñas.');
+                notificar('warning', 'Límite de archivos excedido', 'Los documentos superan el máximo total de 1.750 KB. Selecciona imágenes más pequeñas.');
             }
         } catch (error) {
             clearDocument(input.id);
-            alert(error.message || 'No se pudo comprimir la imagen.');
+            notificar('error', 'No se pudo procesar la imagen', error.message || 'Intenta seleccionar otra imagen.');
         } finally {
             activeCompressions--;
             if (submitButton) submitButton.disabled = activeCompressions > 0;
@@ -268,19 +290,19 @@ document.addEventListener('DOMContentLoaded', function () {
     form.addEventListener('submit', function (event) {
         if (consultaCiPendiente) {
             event.preventDefault();
-            alert('Espera a que termine la búsqueda del CI antes de guardar.');
+            notificar('info', 'Búsqueda en curso', 'Espera a que termine la búsqueda del CI antes de guardar.');
             return;
         }
 
         if (activeCompressions > 0) {
             event.preventDefault();
-            alert('Espera a que termine la compresión de las imágenes antes de guardar.');
+            notificar('info', 'Procesando imágenes', 'Espera a que termine la compresión de las imágenes antes de guardar.');
             return;
         }
 
         if (totalSelectedBytes() > maxTotalFileBytes) {
             event.preventDefault();
-            alert('Los documentos superan el máximo total de 1.750 KB. Selecciona imágenes más pequeñas.');
+            notificar('warning', 'Límite de archivos excedido', 'Los documentos superan el máximo total de 1.750 KB. Selecciona imágenes más pequeñas.');
             return;
         }
 
@@ -300,7 +322,11 @@ document.addEventListener('DOMContentLoaded', function () {
                     ? `Te faltó adjuntar ${label}.`
                     : `Te faltó ingresar ${label.toLowerCase()}.`;
             });
-            alert(`Revisa estos campos antes de guardar:\n\n${messages.join('\n')}`);
+            if (typeof window.itsaAlert === 'function') {
+                window.itsaAlert('warning', 'Completa los campos requeridos', messages.join('\n'));
+            } else {
+                mostrarFallback('Completa los campos requeridos', messages.join(' '));
+            }
             const firstMissing = missingFields[0];
             (firstMissing.type === 'file' ? firstMissing.closest('.card') : firstMissing)
                 ?.scrollIntoView({ behavior: 'smooth', block: 'center' });

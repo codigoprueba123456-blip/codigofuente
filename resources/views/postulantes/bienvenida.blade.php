@@ -112,6 +112,7 @@
     <!-- BEGIN: MainContentSection -->
     <main class="relative z-20 max-w-6xl mx-auto px-4 sm:px-8 -mt-24 mb-12 w-full flex flex-col gap-6"
         data-purpose="registration-cards-container">
+        @include('partials.sweetalert-messages')
         <!-- Card 1: Proceso de Postulación Académica -->
         <section class="bg-white rounded-3xl shadow-xl shadow-green-950/5 border border-itsa-cardBorder p-6 sm:p-8"
             data-purpose="admission-steps-card">
@@ -282,12 +283,6 @@
 
                         <div class="p-5 sm:p-6">
                             @if($postulanteBase && $postulaciones->isNotEmpty())
-                                @if(session('success'))
-                                    <div class="mb-5 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-medium text-emerald-800" role="status">
-                                        {{ session('success') }}
-                                    </div>
-                                @endif
-
                                 <div class="mb-5">
                                     <p class="text-[11px] font-bold uppercase tracking-[0.18em] text-emerald-700">Postulante encontrado</p>
                                     <h3 class="mt-1 text-xl font-bold text-gray-900">{{ $postulanteBase->nombre }} {{ $postulanteBase->primerapellido }} {{ $postulanteBase->segundoapellido ?? '' }}</h3>
@@ -483,6 +478,7 @@
         <p>© 2025 Instituto Tecnológico Sacaba (ITSA) - Todos los derechos reservados.</p>
     </footer>
     <!-- END: Footer -->
+    @include('partials.sweetalert-assets')
 </body>
 
 </html>

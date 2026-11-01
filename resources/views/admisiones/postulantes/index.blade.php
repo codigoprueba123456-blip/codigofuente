@@ -54,7 +54,7 @@
             {{-- FILTROS DE GESTIÓN, CARRERA Y CATEGORÍA --}}
             <form method="GET" action="{{ route('admisiones.postulantes.index') }}" id="formFiltros">
                 <div class="row mb-3">
-                    <div class="col-md-4">
+                    <div class="col-md-3">
                         <label for="id_gestionacademica" class="font-weight-bold">Gestión Académica:</label>
                         <select name="id_gestionacademica" id="id_gestionacademica" class="form-control" onchange="this.form.submit()">
                             <option value="">-- Todas las Gestiones --</option>
@@ -65,7 +65,7 @@
                             @endforeach
                         </select>
                     </div>
-                    <div class="col-md-4">
+                    <div class="col-md-3">
                         <label for="id_carrera" class="font-weight-bold">Carrera:</label>
                         <select name="id_carrera" id="id_carrera" class="form-control" onchange="this.form.submit()">
                             <option value="">-- Todas las Carreras --</option>
@@ -76,12 +76,20 @@
                             @endforeach
                         </select>
                     </div>
-                    <div class="col-md-4">
+                    <div class="col-md-3">
                         <label for="categoria" class="font-weight-bold">Categoría de Postulación:</label>
                         <select name="categoria" id="categoria" class="form-control" onchange="this.form.submit()">
                             <option value="">-- Todas las Categorías --</option>
                             <option value="multiples" {{ request('categoria') == 'multiples' ? 'selected' : '' }}>Postulantes en Múltiples Carreras (2+)</option>
                             <option value="unica" {{ request('categoria') == 'unica' ? 'selected' : '' }}>Postulantes en Carrera Única</option>
+                        </select>
+                    </div>
+                    <div class="col-md-3">
+                        <label for="estado" class="font-weight-bold">Estado:</label>
+                        <select name="estado" id="estado" class="form-control" onchange="this.form.submit()">
+                            <option value="">-- Todos los estados --</option>
+                            <option value="pendiente" {{ request('estado') === 'pendiente' ? 'selected' : '' }}>Pendiente de inscripción</option>
+                            <option value="inscrito" {{ request('estado') === 'inscrito' ? 'selected' : '' }}>Inscrito como estudiante</option>
                         </select>
                     </div>
                 </div>
@@ -98,6 +106,9 @@
                     @endif
                     @if (request('categoria'))
                         <input type="hidden" name="categoria" value="{{ request('categoria') }}">
+                    @endif
+                    @if (request('estado'))
+                        <input type="hidden" name="estado" value="{{ request('estado') }}">
                     @endif
 
                     <input type="text" name="buscar_rapido" value="{{ request('buscar_rapido') }}" class="form-control" placeholder="Buscar por nombre o CI...">
@@ -126,10 +137,12 @@
                             <th width="5%" class="text-center">Nº</th>
                             <th>Código</th>
                             <th>Fecha</th>
+                            <th>Gestión / Periodo</th>
                             <th>Apellidos y Nombres</th>
                             <th>CI</th>
                             <th>Celular</th>
                             <th>Carrera</th>
+                            <th>Estado</th>
                             <th class="text-center">Acciones</th>
                         </tr>
                     </thead>
@@ -139,6 +152,7 @@
                                 <td class="text-center">{{ $postulantes->firstItem() + $index }}</td>
                                 <td><span class="badge badge-secondary">{{ $p->codigo ?? 'S/C' }}</span></td>
                                 <td>{{ $p->fecha ? date('d/m/Y', strtotime($p->fecha)) : '' }}</td>
+                                <td>{{ $p->gestionAcademica?->gestion ?? '—' }} / {{ $p->gestionAcademica?->periodo ?? '—' }}</td>
                                 <td class="font-weight-bold">
                                     {{ $p->primerapellido }} {{ $p->segundoapellido ?? '' }}, {{ $p->nombre }}
                                 </td>
@@ -153,6 +167,13 @@
                                     @endif
                                 </td>
                                 <td>{{ $p->carrera->nombre ?? 'Sin Carrera' }}</td>
+                                <td>
+                                    @if ($p->inscripcion_origen_exists)
+                                        <span class="badge badge-success">Inscrito como estudiante</span>
+                                    @else
+                                        <span class="badge badge-secondary">Pendiente de inscripción</span>
+                                    @endif
+                                </td>
                                 <td class="text-center">
                                     <button type="button" class="btn btn-xs btn-info" data-toggle="modal" data-target="#modalExpediente{{ $p->id_postulante ?? $loop->index }}" title="Ver Documentos">
                                         <i class="fas fa-eye"></i> Ver Documentos
@@ -161,7 +182,7 @@
                             </tr>
                         @empty
                             <tr>
-                                <td colspan="8" class="text-center text-muted py-4">
+                                <td colspan="10" class="text-center text-muted py-4">
                                     <i class="fas fa-info-circle mr-1"></i> No se encontraron registros de postulantes.
                                 </td>
                             </tr>

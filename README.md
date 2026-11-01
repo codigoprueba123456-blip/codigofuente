@@ -170,16 +170,17 @@ Si la base ya contiene información que quieras conservar, aplica únicamente la
 php artisan migrate
 ```
 
-El seeder principal ejecuta los módulos de administración, institución, portal de estudiantes, área académica, inscripciones y pagos, en el orden necesario para crear sus relaciones. Agrega cuentas, carreras, materias, grupos, actividades, postulaciones y pagos ficticios. Algunos seeders insertan filas directamente y no son seguros para volver a ejecutarse sobre una base ya poblada: hazlo solo en una base local descartable o después de revisar y respaldar los datos. **No contiene la base real de tu compañero**. Si necesitas continuar con datos reales, pídele un respaldo de la base de datos y las instrucciones para restaurarlo.
+El seeder principal ejecuta los módulos de administración, institución, portal de estudiantes, área académica, inscripciones y pagos. Agrega cuentas, carreras, materias, grupos, actividades, postulaciones y pagos ficticios. Los módulos preparan sus prerrequisitos y pueden volver a ejecutarse para actualizar esos datos de demostración. **No contiene la base real de tu compañero**. Si necesitas continuar con datos reales, pídele un respaldo de la base de datos y las instrucciones para restaurarlo.
 
-También puedes ejecutar un módulo por separado cuando sus registros previos ya existan. Por ejemplo:
+También puedes ejecutar cualquiera de los módulos por separado después de aplicar las migraciones; cada uno crea los datos previos que necesita:
 
 ```powershell
 php artisan db:seed --class="Database\Seeders\Modulos\AdministracionSeeder"
+php artisan db:seed --class="Database\Seeders\Modulos\InstitucionalSeeder"
 php artisan db:seed --class="Database\Seeders\Modulos\AcademicoSeeder"
+php artisan db:seed --class="Database\Seeders\Modulos\InscripcionesSeeder"
+php artisan db:seed --class="Database\Seeders\Modulos\PagosSeeder"
 ```
-
-Para inscripciones y pagos, ejecuta primero el sembrado completo: estos módulos dependen de las carreras, la gestión académica y las postulaciones de demostración.
 
 > **Atención:** `php artisan migrate:fresh --seed` elimina todas las tablas y sus datos antes de crearlas nuevamente. Úsalo solo en una base local descartable, nunca en una base con información que quieras conservar.
 

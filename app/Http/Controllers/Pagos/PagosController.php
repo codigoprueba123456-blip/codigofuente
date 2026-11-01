@@ -23,21 +23,39 @@ class PagosController extends Controller
         $query = $this->pagosQuery();
 
         if (! empty($filters['desde'])) {
-            $query->whereDate('cb.fecha', '>=', $filters['desde']);
+            $query->whereDate(
+                DB::raw('COALESCE(cb.fecha, i.fecha, po.fecha, pago.created_at)'),
+                '>=',
+                $filters['desde']
+            );
         }
 
         if (! empty($filters['hasta'])) {
-            $query->whereDate('cb.fecha', '<=', $filters['hasta']);
+            $query->whereDate(
+                DB::raw('COALESCE(cb.fecha, i.fecha, po.fecha, pago.created_at)'),
+                '<=',
+                $filters['hasta']
+            );
         }
 
         if (! empty($filters['usuario'])) {
-            $usuario = trim($filters['usuario']);
-            $query->where(function (Builder $search) use ($usuario): void {
-                $search->where('up.nombre', 'like', '%'.$usuario.'%')
-                    ->orWhere('up.primerapellido', 'like', '%'.$usuario.'%')
-                    ->orWhere('up.email', 'like', '%'.$usuario.'%')
-                    ->orWhere('u.usuario', 'like', '%'.$usuario.'%');
-            });
+            $terminosUsuario = preg_split('/\s+/', trim($filters['usuario']), -1, PREG_SPLIT_NO_EMPTY) ?: [];
+            foreach ($terminosUsuario as $termino) {
+                $query->where(function (Builder $search) use ($termino): void {
+                    $like = '%'.$termino.'%';
+                    $search->where('p.ci', 'like', $like)
+                        ->orWhere('p.nombre', 'like', $like)
+                        ->orWhere('p.primerapellido', 'like', $like)
+                        ->orWhere('p.segundoapellido', 'like', $like)
+                        ->orWhere('student_user.usuario', 'like', $like)
+                        ->orWhere('p.email', 'like', $like)
+                        ->orWhere('actor_person.nombre', 'like', $like)
+                        ->orWhere('actor_person.primerapellido', 'like', $like)
+                        ->orWhere('actor_person.segundoapellido', 'like', $like)
+                        ->orWhere('actor_user.usuario', 'like', $like)
+                        ->orWhere('actor_person.email', 'like', $like);
+                });
+            }
         }
 
         if (! empty($filters['buscar'])) {
@@ -52,22 +70,27 @@ class PagosController extends Controller
                         ->orWhere('po.nombre', 'like', '%'.$termino.'%')
                         ->orWhere('po.primerapellido', 'like', '%'.$termino.'%')
                         ->orWhere('po.segundoapellido', 'like', '%'.$termino.'%')
-                        ->orWhere('up.nombre', 'like', '%'.$termino.'%')
-                        ->orWhere('up.primerapellido', 'like', '%'.$termino.'%')
-                        ->orWhere('up.email', 'like', '%'.$termino.'%')
-                        ->orWhere('u.usuario', 'like', '%'.$termino.'%')
+                        ->orWhere('actor_person.nombre', 'like', '%'.$termino.'%')
+                        ->orWhere('actor_person.primerapellido', 'like', '%'.$termino.'%')
+                        ->orWhere('actor_person.email', 'like', '%'.$termino.'%')
+                        ->orWhere('student_user.usuario', 'like', '%'.$termino.'%')
+                        ->orWhere('actor_user.usuario', 'like', '%'.$termino.'%')
                         ->orWhere('cb.deposito', 'like', '%'.$termino.'%')
+                        ->orWhere('i.deposito', 'like', '%'.$termino.'%')
+                        ->orWhere('po.deposito', 'like', '%'.$termino.'%')
                         ->orWhere('cb.id_comprobante', 'like', '%'.$termino.'%')
+                        ->orWhere('pago.id_pago', 'like', '%'.$termino.'%')
                         ->orWhere('i.codigo', 'like', '%'.$termino.'%')
-                        ->orWhere('po.codigo', 'like', '%'.$termino.'%');
+                        ->orWhere('po.codigo', 'like', '%'.$termino.'%')
+                        ->orWhere('detalle.codigo', 'like', '%'.$termino.'%');
                 });
             }
         }
 
         if (! empty($filters['formato'])) {
             $pagosData = (clone $query)
-                ->orderByDesc('cb.fecha')
-                ->orderByDesc('cb.id_comprobante')
+                ->orderByRaw('COALESCE(cb.fecha, i.fecha, po.fecha, pago.created_at) DESC')
+                ->orderByDesc('pago.id_pago')
                 ->get();
 
             if ($filters['formato'] === 'pdf') {
@@ -75,18 +98,18 @@ class PagosController extends Controller
             }
 
             $rows = $pagosData->map(fn ($pago): array => [
-                        $pago->inscrito_codigo ?? $pago->postulante_codigo ?? 'PAG-'.$pago->id_pago,
-                        $pago->deposito,
-                        $pago->fecha,
-                        trim(implode(' ', array_filter([
-                            $pago->persona_nombre ?? $pago->postulante_nombre,
-                            $pago->persona_primerapellido ?? $pago->postulante_primerapellido,
-                            $pago->persona_segundoapellido ?? $pago->postulante_segundoapellido,
-                        ]))),
-                        $pago->usuario_nombre,
-                        $pago->monto,
-                        $pago->valido ? 'Sí' : 'No',
-                    ])->all();
+                $pago->inscrito_codigo ?? $pago->postulante_codigo ?? 'PAG-'.$pago->id_pago,
+                $pago->deposito,
+                $pago->fecha,
+                trim(implode(' ', array_filter([
+                    $pago->persona_nombre ?? $pago->postulante_nombre,
+                    $pago->persona_primerapellido ?? $pago->postulante_primerapellido,
+                    $pago->persona_segundoapellido ?? $pago->postulante_segundoapellido,
+                ]))),
+                $pago->usuario_login ?? $pago->usuario_nombre,
+                $pago->monto,
+                $pago->valido === null ? 'Pendiente' : ($pago->valido ? 'Sí' : 'No'),
+            ])->all();
 
             return $this->exportarExcel(
                 'Pagos_'.now()->format('Y-m-d_H-i').'.xlsx',
@@ -96,8 +119,8 @@ class PagosController extends Controller
         }
 
         $pagos = $query
-            ->orderByDesc('cb.fecha')
-            ->orderByDesc('cb.id_comprobante')
+            ->orderByRaw('COALESCE(cb.fecha, i.fecha, po.fecha, pago.created_at) DESC')
+            ->orderByDesc('pago.id_pago')
             ->paginate((int) ($filters['por_pagina'] ?? 10))
             ->withQueryString();
 
@@ -108,34 +131,40 @@ class PagosController extends Controller
     {
         $detalles = DB::table('detalle')
             ->select('id_pago')
+            ->selectRaw('MAX(codigo) as codigo')
             ->selectRaw('SUM(monto) as monto')
             ->groupBy('id_pago');
-        $pagos = DB::table('pago as pago')
-            ->leftJoinSub($detalles, 'detalle', 'detalle.id_pago', '=', 'pago.id_pago')
-            ->select('pago.id_inscrito', 'pago.id_postulante')
-            ->selectRaw('SUM(COALESCE(detalle.monto, pago.monto, 0)) as monto')
-            ->groupBy('pago.id_inscrito', 'pago.id_postulante');
 
-        return DB::table('comprobante as cb')
-            ->leftJoin('inscrito as i', 'i.id_inscrito', '=', 'cb.id_inscrito')
-            ->leftJoin('postulante as po', 'po.id_postulante', '=', 'cb.id_postulante')
-            ->leftJoinSub($pagos, 'pa', function ($join): void {
-                $join->on('pa.id_inscrito', '=', 'cb.id_inscrito')
-                    ->orOn('pa.id_postulante', '=', 'cb.id_postulante');
+        return DB::table('pago')
+            ->leftJoinSub($detalles, 'detalle', 'detalle.id_pago', '=', 'pago.id_pago')
+            ->leftJoin('inscrito as i', 'i.id_inscrito', '=', 'pago.id_inscrito')
+            ->leftJoin('postulante as po', 'po.id_postulante', '=', 'pago.id_postulante')
+            ->leftJoin('comprobante as cb', function ($join): void {
+                $join->where(function ($receipt): void {
+                    $receipt->whereNotNull('pago.id_inscrito')
+                        ->whereColumn('cb.id_inscrito', 'pago.id_inscrito');
+                })->orWhere(function ($receipt): void {
+                    $receipt->whereNull('pago.id_inscrito')
+                        ->whereColumn('cb.id_postulante', 'pago.id_postulante');
+                });
             })
             ->leftJoin('personas as p', function ($join): void {
-                $join->on('p.id_persona', '=', 'cb.id_estudiante')
-                    ->orOn('p.id_persona', '=', 'i.id_persona');
+                $join->on(
+                    'p.id_persona',
+                    '=',
+                    DB::raw('COALESCE(cb.id_estudiante, i.id_persona)')
+                );
             })
-            ->leftJoin('users as u', 'u.id_persona', '=', 'cb.id_usuario')
-            ->leftJoin('personas as up', 'up.id_persona', '=', 'u.id_persona')
+            ->leftJoin('users as student_user', 'student_user.id_persona', '=', 'p.id_persona')
+            ->leftJoin('users as actor_user', 'actor_user.id_persona', '=', 'cb.id_usuario')
+            ->leftJoin('personas as actor_person', 'actor_person.id_persona', '=', 'actor_user.id_persona')
             ->select(
-                'cb.id_comprobante as id_pago',
-                'cb.deposito',
-                'cb.fecha',
-                DB::raw('COALESCE(pa.monto, 0) as monto'),
+                'pago.id_pago',
+                DB::raw('COALESCE(cb.deposito, i.deposito, po.deposito) as deposito'),
+                DB::raw('COALESCE(cb.fecha, i.fecha, po.fecha, pago.created_at) as fecha'),
+                DB::raw('COALESCE(detalle.monto, pago.monto, 0) as monto'),
                 'cb.valido',
-                'cb.id_gestionacademica',
+                DB::raw('COALESCE(cb.id_gestionacademica, i.id_gestionacademica, po.id_gestionacademica) as id_gestionacademica'),
                 'p.nombre as persona_nombre',
                 'p.primerapellido as persona_primerapellido',
                 'p.segundoapellido as persona_segundoapellido',
@@ -144,11 +173,13 @@ class PagosController extends Controller
                 'po.primerapellido as postulante_primerapellido',
                 'po.segundoapellido as postulante_segundoapellido',
                 'po.ci as postulante_ci',
-                'up.nombre as usuario_nombre',
-                'up.email as usuario_email',
+                DB::raw('COALESCE(student_user.usuario, actor_person.nombre) as usuario_nombre'),
+                DB::raw('COALESCE(student_user.usuario, actor_user.usuario) as usuario_login'),
+                DB::raw('COALESCE(p.email, actor_person.email) as usuario_email'),
                 'i.codigo as inscrito_codigo',
-                'po.codigo as postulante_codigo'
-            )
-            ->addSelect(DB::raw('u.usuario as usuario_login'));
+                'po.codigo as postulante_codigo',
+                'detalle.codigo as detalle_codigo',
+                'cb.id_comprobante'
+            );
     }
 }

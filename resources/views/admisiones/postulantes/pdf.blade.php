@@ -43,12 +43,14 @@
     <table>
         <thead>
             <tr>
-                <th width="5%">Nº</th>
-                <th width="15%">CÓDIGO</th>
-                <th width="12%">FECHA</th>
-                <th width="38%">APELLIDOS Y NOMBRES</th>
-                <th width="15%">C.I.</th>
-                <th width="15%">CELULAR</th>
+                <th width="4%">Nº</th>
+                <th width="12%">CÓDIGO</th>
+                <th width="10%">FECHA</th>
+                <th width="27%">APELLIDOS Y NOMBRES</th>
+                <th width="12%">C.I.</th>
+                <th width="10%">CELULAR</th>
+                <th width="12%">GESTIÓN / PERIODO</th>
+                <th width="13%">ESTADO</th>
             </tr>
         </thead>
         <tbody>
@@ -60,10 +62,12 @@
                     <td>{{ $p->primerapellido }} {{ $p->segundoapellido ?? '' }}, {{ $p->nombre }}</td>
                     <td class="text-center">{{ $p->ci }}</td>
                     <td class="text-center">{{ $p->celular ?? '-' }}</td>
+                    <td class="text-center">{{ $p->gestionAcademica?->gestion ?? '—' }} / {{ $p->gestionAcademica?->periodo ?? '—' }}</td>
+                    <td class="text-center">{{ $p->inscripcion_origen_exists ? 'Inscrito como estudiante' : 'Pendiente de inscripción' }}</td>
                 </tr>
             @empty
                 <tr>
-                    <td colspan="6" class="text-center" style="padding: 20px; color: #777;">No se encontraron registros para este reporte.</td>
+                    <td colspan="8" class="text-center" style="padding: 20px; color: #777;">No se encontraron registros para este reporte.</td>
                 </tr>
             @endforelse
         </tbody>

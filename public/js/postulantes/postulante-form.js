@@ -15,6 +15,7 @@ document.addEventListener('DOMContentLoaded', function () {
         path_diploma: 'preview_diploma'
     };
     const previewUrls = new Map();
+    const pendingInputs = new Set();
     let activeCompressions = 0;
 
     // ==========================================
@@ -27,6 +28,89 @@ document.addEventListener('DOMContentLoaded', function () {
         || document.getElementById('formEditarPostulante')
         || document.querySelector('form');
     const submitButtons = form ? form.querySelectorAll('button[type="submit"]') : [];
+
+    function feedbackFor(input) {
+        let feedback = input.validationFeedback;
+        if (feedback) return feedback;
+
+        feedback = document.createElement('div');
+        feedback.className = 'invalid-feedback d-block';
+        feedback.id = `validation-error-${input.id || input.name}`;
+        feedback.setAttribute('role', 'alert');
+
+        let anchor = input;
+        if (input.id === 'foto') anchor = input.parentElement;
+        else if (input.classList.contains('custom-file-input')) anchor = input.closest('.custom-file');
+        anchor.insertAdjacentElement('afterend', feedback);
+        input.validationFeedback = feedback;
+
+        if (input.id) input.setAttribute('aria-describedby', feedback.id);
+        input.setAttribute('aria-invalid', 'true');
+        input.classList.add('is-invalid');
+
+        if (input.id === 'foto') {
+            document.getElementById('fotografiaGuia')?.classList.add('border', 'border-danger', 'text-danger');
+            preview?.classList.add('border', 'border-danger');
+        } else if (input.classList.contains('custom-file-input')) {
+            input.nextElementSibling?.classList.add('is-invalid', 'border-danger', 'text-danger');
+        }
+
+        return feedback;
+    }
+
+    function showFieldError(input, message) {
+        feedbackFor(input).textContent = message;
+    }
+
+    function clearFieldError(input) {
+        const feedbackId = input.validationFeedback?.id;
+        input.validationFeedback?.remove();
+        input.validationFeedback = null;
+        if (feedbackId && input.getAttribute('aria-describedby') === feedbackId) {
+            input.removeAttribute('aria-describedby');
+        }
+        input.removeAttribute('aria-invalid');
+        input.classList.remove('is-invalid');
+
+        if (input.id === 'foto') {
+            document.getElementById('fotografiaGuia')?.classList.remove('border', 'border-danger', 'text-danger');
+            preview?.classList.remove('border', 'border-danger');
+        } else if (input.classList.contains('custom-file-input')) {
+            input.nextElementSibling?.classList.remove('is-invalid', 'border-danger', 'text-danger');
+        }
+    }
+
+    function validationMessage(input) {
+        if (input.validity.valueMissing) {
+            return input.type === 'file'
+                ? 'Selecciona una imagen para este documento.'
+                : 'Completa este campo obligatorio.';
+        }
+        if (input.validity.typeMismatch && input.type === 'email') {
+            return 'Ingresa un correo electrónico válido.';
+        }
+        if (input.validity.rangeUnderflow || input.validity.rangeOverflow) {
+            return 'El valor está fuera del rango permitido.';
+        }
+        return input.validationMessage || 'Revisa este campo.';
+    }
+
+    function focusField(input) {
+        const pane = input.closest('.step-pane');
+        if (pane?.classList.contains('d-none')) {
+            const paneNumber = Number(pane.id.replace('paneStep', ''));
+            if (paneNumber && window.cambiarPaso) window.cambiarPaso(paneNumber);
+        }
+
+        const target = input.id === 'foto'
+            ? document.getElementById('fotografiaGuia')
+            : input.classList.contains('custom-file-input')
+                ? input.nextElementSibling
+                : input;
+
+        target?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        if (input.type !== 'file') input.focus({ preventScroll: true });
+    }
 
     function setCompressionState(isCompressing) {
         submitButtons.forEach(button => {
@@ -48,7 +132,7 @@ document.addEventListener('DOMContentLoaded', function () {
     }
 
     async function compressImage(file, maxBytes, isProfilePhoto) {
-        if (file.size <= maxBytes && file.type === 'image/webp') return file;
+        if (file.size <= maxBytes) return file;
 
         let imageSource;
         let cleanup = () => {};
@@ -64,7 +148,7 @@ document.addEventListener('DOMContentLoaded', function () {
                 await imageSource.decode();
             } catch (error) {
                 URL.revokeObjectURL(objectUrl);
-                throw new Error('No se pudo leer la imagen. Selecciona una foto JPG, PNG o WebP.');
+                throw new Error('No se pudo leer la imagen. Selecciona un archivo JPG o PNG válido.');
             }
             cleanup = () => URL.revokeObjectURL(objectUrl);
         }
@@ -81,21 +165,18 @@ document.addEventListener('DOMContentLoaded', function () {
                 canvas.width = Math.max(1, Math.round(imageSource.width * scale));
                 canvas.height = Math.max(1, Math.round(imageSource.height * scale));
                 const context = canvas.getContext('2d', { alpha: false });
+                if (!context) throw new Error('El navegador no pudo preparar la imagen para comprimirla.');
                 context.fillStyle = '#ffffff';
                 context.fillRect(0, 0, canvas.width, canvas.height);
                 context.drawImage(imageSource, 0, 0, canvas.width, canvas.height);
 
                 for (const quality of [0.86, 0.8, 0.74, 0.68, 0.62]) {
-                    let blob = await canvasBlob(canvas, 'image/webp', quality);
-                    if (blob.type !== 'image/webp') {
-                        blob = await canvasBlob(canvas, 'image/jpeg', quality);
-                    }
+                    const blob = await canvasBlob(canvas, 'image/jpeg', quality);
 
                     if (blob.size <= maxBytes) {
-                        const extension = blob.type === 'image/webp' ? 'webp' : 'jpg';
                         const baseName = file.name.replace(/\.[^.]+$/, '');
-                        return new File([blob], `${baseName}.${extension}`, {
-                            type: blob.type,
+                        return new File([blob], `${baseName}.jpg`, {
+                            type: 'image/jpeg',
                             lastModified: Date.now()
                         });
                     }
@@ -147,19 +228,24 @@ document.addEventListener('DOMContentLoaded', function () {
         const sourceFile = input.files?.[0];
         if (!sourceFile) return;
 
-        if (!sourceFile.type.startsWith('image/')) {
-            alert('Solo se aceptan imágenes. No se aceptan archivos PDF.');
-            input.value = '';
+        clearFieldError(input);
+
+        if (!['image/jpeg', 'image/png'].includes(sourceFile.type)) {
+            if (input.id === 'foto') resetPhotoPreview();
+            else clearDocumentInput(input.id);
+            showFieldError(input, 'Solo se aceptan imágenes JPG o PNG. Selecciona un archivo de imagen válido.');
             return;
         }
 
         if (sourceFile.size > MAX_SOURCE_FILE_BYTES) {
-            alert('La imagen original supera 15 MB. Selecciona una imagen más pequeña.');
-            input.value = '';
+            if (input.id === 'foto') resetPhotoPreview();
+            else clearDocumentInput(input.id);
+            showFieldError(input, 'La imagen original supera 15 MB. Selecciona una imagen más pequeña.');
             return;
         }
 
         activeCompressions++;
+        pendingInputs.add(input);
         setCompressionState(true);
 
         try {
@@ -173,7 +259,12 @@ document.addEventListener('DOMContentLoaded', function () {
 
             setInputFile(input, compressedFile);
             showImagePreview(input, compressedFile);
-            input.nextElementSibling.textContent = `${compressedFile.name} (${Math.ceil(compressedFile.size / 1024)} KB)`;
+            const fileLabel = input.id === 'foto'
+                ? document.getElementById('fotografiaGuia')
+                : input.nextElementSibling;
+            if (fileLabel) {
+                fileLabel.textContent = `${compressedFile.name} (${Math.ceil(compressedFile.size / 1024)} KB)`;
+            }
 
             const totalSize = Object.keys(fileBudgets).reduce((sum, id) => {
                 const field = document.getElementById(id);
@@ -181,17 +272,17 @@ document.addEventListener('DOMContentLoaded', function () {
             }, 0);
 
             if (totalSize > MAX_TOTAL_FILE_BYTES) {
-                input.value = '';
-                alert('Las imágenes seleccionadas superan el máximo total de 1.550 KB. Reduce alguna imagen y vuelve a seleccionarla.');
                 if (input.id === 'foto') resetPhotoPreview();
                 else clearDocumentInput(input.id);
+                showFieldError(input, 'El total de las imágenes supera 1.550 KB. Reduce una imagen y vuelve a seleccionarla.');
             }
         } catch (error) {
             if (input.id === 'foto') resetPhotoPreview();
             else clearDocumentInput(input.id);
-            alert(error.message || 'No se pudo comprimir la imagen.');
+            showFieldError(input, error.message || 'No se pudo comprimir la imagen.');
         } finally {
             activeCompressions--;
+            pendingInputs.delete(input);
             setCompressionState(activeCompressions > 0);
         }
     }
@@ -200,10 +291,16 @@ document.addEventListener('DOMContentLoaded', function () {
         if (photoInput) photoInput.value = '';
         if (preview) preview.innerHTML = '<i class="fas fa-camera"></i><span>Vista previa</span>';
         if (btnRemovePhoto) btnRemovePhoto.classList.add('d-none');
+        const photoLabel = document.getElementById('fotografiaGuia');
+        if (photoLabel?.dataset.originalText) photoLabel.textContent = photoLabel.dataset.originalText;
+        if (photoInput) clearFieldError(photoInput);
         const oldUrl = previewUrls.get('foto');
         if (oldUrl) URL.revokeObjectURL(oldUrl);
         previewUrls.delete('foto');
     }
+
+    const photoLabel = document.getElementById('fotografiaGuia');
+    if (photoLabel) photoLabel.dataset.originalText = photoLabel.textContent.trim();
 
     photoInput?.addEventListener('change', () => processImageInput(photoInput));
 
@@ -212,13 +309,14 @@ document.addEventListener('DOMContentLoaded', function () {
     });
 
     // ==========================================
-    // 2. ETIQUETA, VALIDACIÓN, VISTA PREVIA Y ELIMINACIÓN DE DOCUMENTOS (PDF/IMAGEN)
+    // 2. ETIQUETA, VALIDACIÓN, VISTA PREVIA Y ELIMINACIÓN DE DOCUMENTOS
     // ==========================================
     function clearDocumentInput(inputId) {
         const input = document.getElementById(inputId);
         if (!input) return;
         
         input.value = '';
+        clearFieldError(input);
         
         const nextSibling = input.nextElementSibling;
         if (nextSibling && nextSibling.classList.contains('custom-file-label')) {
@@ -268,7 +366,8 @@ document.addEventListener('DOMContentLoaded', function () {
     form?.addEventListener('submit', function (e) {
         if (activeCompressions > 0) {
             e.preventDefault();
-            alert('Espera a que termine la compresión de las imágenes antes de guardar.');
+            const input = pendingInputs.values().next().value;
+            if (input) showFieldError(input, 'Espera a que termine la compresión antes de guardar.');
             return;
         }
 
@@ -279,76 +378,58 @@ document.addEventListener('DOMContentLoaded', function () {
 
         if (totalSize > MAX_TOTAL_FILE_BYTES) {
             e.preventDefault();
-            alert('Las imágenes superan el máximo total de 1.550 KB. Selecciona imágenes más pequeñas.');
+            const input = form.querySelector('input[type="file"]');
+            if (input) showFieldError(input, 'El total de las imágenes supera 1.550 KB. Reduce una imagen y vuelve a intentarlo.');
             return;
         }
 
-        const requiredElements = form.querySelectorAll('[required]');
-        let faltantes = [];
-        let primerElementoFaltante = null;
-
-        requiredElements.forEach(element => {
-            let estaVacio = false;
-
-            if (element.type === 'file') {
-                if (!element.files || element.files.length === 0) {
-                    estaVacio = true;
-                }
-            } else {
-                if (!element.value || element.value.trim() === '') {
-                    estaVacio = true;
-                }
+        let primerElementoInvalido = null;
+        form.querySelectorAll('input, select, textarea').forEach(element => {
+            if (element.checkValidity()) {
+                clearFieldError(element);
+                return;
             }
 
-            if (estaVacio) {
-                let labelText = element.getAttribute('data-name');
-
-                if (!labelText && element.id) {
-                    const label = form.querySelector('label[for="' + element.id + '"]');
-                    if (label) {
-                        labelText = label.innerText.replace('*', '').trim();
-                    }
-                }
-
-                if (!labelText) {
-                    const parent = element.closest('.mb-3');
-                    if (parent) {
-                        const lbl = parent.querySelector('label');
-                        if (lbl) labelText = lbl.innerText.replace('*', '').trim();
-                    }
-                }
-
-                if (!labelText) {
-                    labelText = element.name || 'Campo obligatorio';
-                }
-
-                faltantes.push(labelText);
-                if (!primerElementoFaltante) primerElementoFaltante = element;
-            }
+            showFieldError(element, validationMessage(element));
+            if (!primerElementoInvalido) primerElementoInvalido = element;
         });
 
-        if (faltantes.length > 0) {
+        if (primerElementoInvalido) {
             e.preventDefault();
-            
-            let mensaje = 'Por favor completa los siguientes campos obligatorios antes de continuar:\n\n';
-            faltantes.forEach((item, index) => {
-                mensaje += `${index + 1}. ${item}\n`;
-            });
-
-            alert(mensaje);
-
-            if (primerElementoFaltante) {
-                let scrollTarget = primerElementoFaltante;
-                if (primerElementoFaltante.classList.contains('custom-file-input') || primerElementoFaltante.id === 'foto') {
-                    scrollTarget = primerElementoFaltante.closest('.card') || primerElementoFaltante;
-                }
-                scrollTarget.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                if (typeof primerElementoFaltante.focus === 'function' && primerElementoFaltante.type !== 'file') {
-                    primerElementoFaltante.focus();
-                }
-            }
+            focusField(primerElementoInvalido);
         }
     });
+
+    form?.querySelectorAll('input, select, textarea').forEach(input => {
+        const clearIfValid = () => {
+            if (input.checkValidity()) clearFieldError(input);
+        };
+        input.addEventListener(input.type === 'file' || input.tagName === 'SELECT' ? 'change' : 'input', clearIfValid);
+        input.addEventListener('blur', clearIfValid);
+    });
+
+    if (form) {
+        let serverErrors = window.postulanteValidationErrors;
+        if (!serverErrors) {
+            try {
+                serverErrors = JSON.parse(form.dataset.validationErrors || '{}');
+            } catch (error) {
+                console.error('No se pudieron leer los errores de validación del formulario.', error);
+                serverErrors = {};
+            }
+        }
+
+        let firstServerError = null;
+        Object.entries(serverErrors || {}).forEach(([name, messages]) => {
+            const input = Array.from(form.elements).find(element => element.name === name)
+                || (name === 'documentos' ? form.querySelector('input[type="file"]') : null);
+            if (!input) return;
+
+            showFieldError(input, messages[0]);
+            if (!firstServerError) firstServerError = input;
+        });
+        if (firstServerError) focusField(firstServerError);
+    }
 
     // ==========================================
     // 4. TUTORIAL INTERACTIVO Y GUÍA

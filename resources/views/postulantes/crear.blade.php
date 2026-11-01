@@ -1,6 +1,8 @@
 @vite(['resources/sass/app.scss', 'resources/js/app.js'])
 
-@php($tutorialVideoUrl = $tutorialVideoUrl ?? null)
+@php
+    $tutorialVideoUrl = $tutorialVideoUrl ?? null;
+@endphp
 
 <div class="itsa-postulante-public">
 
@@ -56,43 +58,7 @@
         {{-- =====================================================
              ALERTAS
         ====================================================== --}}
-        @if (session('success'))
-            <div class="alert alert-success shadow-sm alert-dismissible fade show" role="alert">
-                <i class="fas fa-check-circle me-1"></i>
-                {{ session('success') }}
-
-                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-            </div>
-        @endif
-
-        @if (session('error'))
-            <div class="alert alert-danger shadow-sm alert-dismissible fade show" role="alert">
-                <i class="fas fa-exclamation-triangle me-1"></i>
-                {{ session('error') }}
-
-                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-            </div>
-        @endif
-
-        @if ($errors->any())
-            <div class="alert alert-danger shadow-sm alert-dismissible fade show" role="alert">
-
-                <strong>
-                    <i class="fas fa-times-circle me-1"></i>
-                    Revisa los datos ingresados:
-                </strong>
-
-                <ul class="mb-0 mt-1 ps-3">
-                    @foreach ($errors->all() as $error)
-                        <li>{{ $error }}</li>
-                    @endforeach
-                </ul>
-
-                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-
-            </div>
-        @endif
-
+        @include('partials.sweetalert-messages')
 
         {{-- =====================================================
              AVISO SEGUNDA CARRERA
@@ -221,6 +187,8 @@
         ====================================================== --}}
         <form action="{{ route('postulantes.store') }}" method="POST" enctype="multipart/form-data"
             id="formRegistrarPostulante"
+            novalidate
+            data-validation-errors="{{ json_encode($errors->messages(), JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP | JSON_HEX_TAG) }}"
             data-carreras-inscritas="{{ json_encode($carrerasInscritas ?? ($postulanteBase->carrerasInscritasIds ?? [])) }}">
 
             @csrf
@@ -309,12 +277,8 @@
 
                                         <i class="fas fa-info-circle text-success me-1"></i>
 
-                                        Imagen original hasta
-
-                                        <br>
-
-                                        Se comprime y almacena a máximo
-                                        <strong>150 KB</strong>.
+                                        Formatos admitidos: JPG o PNG. La fotografía se comprime antes de enviarse
+                                        y no supera <strong>150 KB</strong>.
 
                                     </small>
 
@@ -860,8 +824,14 @@
                                     </option>
 
                                     @foreach ($carreras ?? [] as $carrera)
+                                        @php
+                                            $resoluciones = $carrera->resolucionesMinisteriales();
+                                        @endphp
                                         <option value="{{ $carrera->id_carrera }}" @selected(old('id_carrera') == $carrera->id_carrera)>
                                             {{ $carrera->nombre }}
+                                            @if($resoluciones)
+                                                · R.M. {{ implode(' / ', $resoluciones) }}
+                                            @endif
                                         </option>
                                     @endforeach
 
@@ -1039,7 +1009,7 @@
                                             </span>
                                         @else
                                             <i class="fas fa-info-circle me-1"></i>
-                                            Fotografía nítida frontal · Máx. 350 KB
+                                            Imagen JPG o PNG · Máx. 350 KB comprimida
                                         @endif
 
                                     </small>
@@ -1115,7 +1085,7 @@
                                             </span>
                                         @else
                                             <i class="fas fa-info-circle me-1"></i>
-                                            Fotografía posterior nítida · Máx. 350 KB
+                                            Imagen JPG o PNG · Máx. 350 KB comprimida
                                         @endif
 
                                     </small>
@@ -1191,7 +1161,7 @@
                                             </span>
                                         @else
                                             <i class="fas fa-info-circle me-1"></i>
-                                            Imagen legible del certificado · Máx. 350 KB
+                                            Imagen JPG o PNG · Máx. 350 KB comprimida
                                         @endif
 
                                     </small>
@@ -1267,7 +1237,7 @@
                                             </span>
                                         @else
                                             <i class="fas fa-info-circle me-1"></i>
-                                            Imagen nítida del diploma · Máx. 350 KB
+                                            Imagen JPG o PNG · Máx. 350 KB comprimida
                                         @endif
 
                                     </small>
@@ -1399,4 +1369,8 @@
 
 
 <script src="{{ asset('js/postulantes/registro-pasos.js') }}"></script>
+<script>
+    window.postulanteValidationErrors = @json($errors->messages());
+</script>
+@include('partials.sweetalert-assets')
 <script src="{{ asset('js/postulantes/postulante-form.js') }}"></script>

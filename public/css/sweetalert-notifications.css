@@ -1,0 +1,17 @@
+.swal2-popup.itsa-swal-toast {
+    border-radius: 1rem;
+    box-shadow: 0 0.75rem 2rem rgba(20, 33, 25, 0.2);
+}
+
+.swal2-popup.itsa-swal-modal {
+    border-radius: 1.25rem;
+}
+
+.swal2-popup.itsa-swal-modal .swal2-confirm {
+    border-radius: 0.65rem;
+    background-color: #015001;
+}
+
+.swal2-popup.itsa-swal-modal .swal2-html-container {
+    white-space: pre-line;
+}

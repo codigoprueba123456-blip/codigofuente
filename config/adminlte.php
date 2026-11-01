@@ -429,6 +429,25 @@ return [
             ],
         ],
         [
+            'text' => 'Reportes',
+            'icon' => 'fas fa-chart-bar',
+            'submenu' => [
+                [
+                    'text' => 'Inscripciones',
+                    'icon' => 'fas fa-book',
+                    'submenu' => [
+                        ['text' => 'Lista Postulantes', 'url' => 'reportes/inscripciones/lista-postulantes'],
+                        ['text' => 'Lista Inscritos Carrera', 'url' => 'reportes/inscripciones/lista-inscritos-carrera'],
+                        ['text' => 'Lista Inscritos Paralelo', 'url' => 'reportes/inscripciones/lista-inscritos-paralelo'],
+                        ['text' => 'Lista Inscritos Grupo', 'url' => 'reportes/inscripciones/lista-inscritos-grupo'],
+                        ['text' => 'Libro de Inscripciones', 'url' => 'reportes/inscripciones/libro-inscripciones'],
+                        ['text' => 'Libro de Inscripciones Carrera', 'url' => 'reportes/inscripciones/libro-inscripciones-carrera'],
+                        ['text' => 'Lista Inscritos Multicarrera', 'url' => 'reportes/inscripciones/lista-inscritos-multicarrera'],
+                    ],
+                ],
+            ],
+        ],
+        [
             'text' => 'Estudiantes',
             'icon' => 'fas fa-user-graduate',
             'submenu' => [
@@ -546,12 +565,27 @@ return [
             ],
         ],
         'Sweetalert2' => [
-            'active' => false,
+            'active' => true,
             'files' => [
                 [
                     'type' => 'js',
                     'asset' => false,
-                    'location' => '//cdn.jsdelivr.net/npm/sweetalert2@8',
+                    'location' => 'https://cdn.jsdelivr.net/npm/sweetalert2@11/dist/sweetalert2.all.min.js',
+                ],
+                [
+                    'type' => 'css',
+                    'asset' => false,
+                    'location' => 'https://cdn.jsdelivr.net/npm/sweetalert2@11/dist/sweetalert2.min.css',
+                ],
+                [
+                    'type' => 'css',
+                    'asset' => true,
+                    'location' => 'css/sweetalert-notifications.css',
+                ],
+                [
+                    'type' => 'js',
+                    'asset' => true,
+                    'location' => 'js/sweetalert-notifications.js',
                 ],
             ],
         ],

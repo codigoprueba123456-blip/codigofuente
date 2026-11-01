@@ -10,35 +10,7 @@
 <div class="row">
     <div class="col-12">
         
-        {{-- Alertas de Sesión --}}
-        @if(session('success'))
-            <div class="alert alert-success alert-dismissible fade show" role="alert">
-                <i class="fas fa-check-circle mr-1"></i> {{ session('success') }}
-                <button type="button" class="close" data-dismiss="alert" aria-label="Close">
-                    <span aria-hidden="true">&times;</span>
-                </button>
-            </div>
-        @endif
-
-        @if(session('error'))
-            <div class="alert alert-danger alert-dismissible fade show" role="alert">
-                <i class="fas fa-exclamation-triangle mr-1"></i> {{ session('error') }}
-                <button type="button" class="close" data-dismiss="alert" aria-label="Close">
-                    <span aria-hidden="true">&times;</span>
-                </button>
-            </div>
-        @endif
-
-        @if($errors->any())
-            <div class="alert alert-danger" role="alert">
-                <strong>Revisa los campos marcados:</strong>
-                <ul class="mb-0 mt-1">
-                    @foreach($errors->all() as $error)
-                        <li>{{ $error }}</li>
-                    @endforeach
-                </ul>
-            </div>
-        @endif
+        @include('partials.sweetalert-messages')
 
         <form action="{{ route('estudiante_nuevo.store') }}" method="POST" enctype="multipart/form-data" id="formEstudianteNuevo" data-student-lookup-url="{{ route('estudiante_nuevo.buscar') }}" novalidate>
             @csrf
@@ -312,8 +284,14 @@
                             <select name="id_carrera" id="id_carrera" class="form-control custom-select @error('id_carrera') is-invalid @enderror" required>
                                 <option value="">-- Seleccionar Carrera --</option>
                                 @foreach($carreras as $c)
+                                    @php
+                                        $resoluciones = $c->resolucionesMinisteriales();
+                                    @endphp
                                     <option value="{{ $c->id_carrera }}" @selected(old('id_carrera') == $c->id_carrera)>
                                         {{ $c->nombre }}
+                                        @if($resoluciones)
+                                            · R.M. {{ implode(' / ', $resoluciones) }}
+                                        @endif
                                     </option>
                                 @endforeach
                             </select>

@@ -14,7 +14,9 @@ class CambioCarreraController extends Controller
 {
     public function index()
     {
-        $carreras = Carrera::activas()->orderBy('nombre')->get(['id_carrera', 'nombre']);
+        $carreras = Carrera::activas()
+            ->orderBy('nombre')
+            ->get(['id_carrera', 'nombre', 'resolucionministerial1', 'resolucionministerial2', 'resolucionministerial3']);
         $gestiones = GestionAcademica::query()
             ->orderByDesc('gestion')
             ->orderByDesc('periodo')

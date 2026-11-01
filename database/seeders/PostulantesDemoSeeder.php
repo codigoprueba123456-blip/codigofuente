@@ -28,11 +28,11 @@ class PostulantesDemoSeeder extends Seeder
             'direccion' => 'Zona Villa Adela, El Alto, La Paz',
             'fechanacimiento' => '2005-04-15',
             'lugarnacimiento' => 'El Alto, La Paz',
-            'lugarexpedicion' => 'La Paz',
+            'lugarexpedicion' => 'LP',
             'nacionalidad' => 'Boliviana',
-            'sexo' => 'FEMENINO',
+            'sexo' => 'F',
             'nombrecolegio' => 'U.E. Demo El Alto',
-            'caractercolegio' => 'FISCAL',
+            'caractercolegio' => 'Fiscal',
             'egresocolegio' => 2024,
             'diplomabachiller' => true,
             'nombrecontacto' => 'Rosa Mamani',
@@ -40,8 +40,8 @@ class PostulantesDemoSeeder extends Seeder
             'celularcontacto' => '70000011',
             'path_ci_frontal' => 'demo/valeria_quispe_ci_frontal.jpg',
             'path_ci_reverso' => 'demo/valeria_quispe_ci_reverso.jpg',
-            'path_nacimiento' => 'demo/valeria_quispe_certificado_nacimiento.pdf',
-            'path_diploma' => 'demo/valeria_quispe_diploma_bachiller.pdf',
+            'path_nacimiento' => 'demo/valeria_quispe_certificado_nacimiento.jpg',
+            'path_diploma' => 'demo/valeria_quispe_diploma_bachiller.jpg',
         ];
 
         $this->crearPostulacion(
@@ -63,11 +63,11 @@ class PostulantesDemoSeeder extends Seeder
             'direccion' => 'Zona Cala Cala, Cochabamba',
             'fechanacimiento' => '2004-09-22',
             'lugarnacimiento' => 'Cochabamba',
-            'lugarexpedicion' => 'Cochabamba',
+            'lugarexpedicion' => 'CB',
             'nacionalidad' => 'Boliviana',
-            'sexo' => 'MASCULINO',
+            'sexo' => 'M',
             'nombrecolegio' => 'U.E. Demo Cochabamba',
-            'caractercolegio' => 'FISCAL',
+            'caractercolegio' => 'Fiscal',
             'egresocolegio' => 2023,
             'diplomabachiller' => true,
             'nombrecontacto' => 'Elena Choque',
@@ -75,8 +75,8 @@ class PostulantesDemoSeeder extends Seeder
             'celularcontacto' => '70000012',
             'path_ci_frontal' => 'demo/diego_flores_ci_frontal.jpg',
             'path_ci_reverso' => 'demo/diego_flores_ci_reverso.jpg',
-            'path_nacimiento' => 'demo/diego_flores_certificado_nacimiento.pdf',
-            'path_diploma' => 'demo/diego_flores_diploma_bachiller.pdf',
+            'path_nacimiento' => 'demo/diego_flores_certificado_nacimiento.jpg',
+            'path_diploma' => 'demo/diego_flores_diploma_bachiller.jpg',
         ];
 
         $this->crearPostulacion(

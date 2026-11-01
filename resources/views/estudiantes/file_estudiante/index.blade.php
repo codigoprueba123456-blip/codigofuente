@@ -9,25 +9,13 @@
 @section('content')
 <div class="card card-default">
     <div class="card-body">
-        @if (session('success'))
-            <div class="alert alert-success">{{ session('success') }}</div>
-        @endif
+        @include('partials.sweetalert-messages')
 
         @if (!$persona || !$persona->estudiante)
             <div class="alert alert-warning mb-0">
                 Esta cuenta todavía no está vinculada a una ficha de estudiante.
             </div>
         @else
-            @if ($errors->any())
-                <div class="alert alert-danger">
-                    <ul class="mb-0">
-                        @foreach ($errors->all() as $error)
-                            <li>{{ $error }}</li>
-                        @endforeach
-                    </ul>
-                </div>
-            @endif
-
             <form action="{{ route('estudiantes.file_estudiante.update') }}" method="POST">
                 @csrf
                 @method('PUT')

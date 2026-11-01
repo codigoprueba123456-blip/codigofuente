@@ -225,9 +225,11 @@ class GestionarPostulacionesServicio
     private function guardarImagen($archivo, string $rutaBase): string
     {
         $extension = match ($archivo->getMimeType()) {
-            'image/webp' => 'webp',
             'image/png' => 'png',
-            default => 'jpg',
+            'image/jpeg' => 'jpg',
+            default => throw ValidationException::withMessages([
+                'documentos' => 'Solo se aceptan imágenes JPG o PNG.',
+            ]),
         };
 
         $ruta = $archivo->storeAs(

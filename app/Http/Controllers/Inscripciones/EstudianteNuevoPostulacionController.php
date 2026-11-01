@@ -43,12 +43,14 @@ class EstudianteNuevoPostulacionController extends Controller
             'ci' => $postulante->ci,
             'idcarrera' => (string) $postulante->id_carrera,
             'carreraNombre' => $postulante->carrera?->nombre ?? 'Carrera sin nombre',
+            'carreraResoluciones' => $postulante->carrera?->resolucionesMinisteriales() ?? [],
             'idgestion' => (string) $postulante->id_gestionacademica,
-            'lugarexpedicion' => $postulante->lugarexpedicion ?? '',
+            'foto' => $postulante->foto ?? '',
+            'lugarexpedicion' => $this->normalizarLugarExpedicion($postulante->lugarexpedicion),
             'fechanacimiento' => $postulante->fechanacimiento?->format('Y-m-d') ?? '',
             'lugarnacimiento' => $postulante->lugarnacimiento ?? '',
             'nacionalidad' => $postulante->nacionalidad ?? '',
-            'sexo' => $postulante->sexo ?? '',
+            'sexo' => $this->normalizarSexo($postulante->sexo),
             'direccion' => $postulante->direccion ?? '',
             'telefono' => $postulante->telefono ?? '',
             'celular' => $postulante->celular ?? '',
@@ -57,7 +59,7 @@ class EstudianteNuevoPostulacionController extends Controller
             'celularcontacto' => $postulante->celularcontacto ?? '',
             'parentescocontacto' => $postulante->parentescocontacto ?? '',
             'nombrecolegio' => $postulante->nombrecolegio ?? '',
-            'caractercolegio' => $postulante->caractercolegio ?? '',
+            'caractercolegio' => $this->normalizarCaracterColegio($postulante->caractercolegio),
             'egresocolegio' => (string) ($postulante->egresocolegio ?? ''),
             'diplomabachiller' => (string) ($postulante->diplomabachiller ?? '0'),
             'pathci' => $postulante->path_ci_frontal ?? '',
@@ -73,6 +75,44 @@ class EstudianteNuevoPostulacionController extends Controller
             'gestionActual',
             'gestionSeleccionadaId'
         ));
+    }
+
+    private function normalizarSexo(?string $sexo): string
+    {
+        return match (mb_strtoupper(trim((string) $sexo))) {
+            'M', 'MASCULINO' => 'M',
+            'F', 'FEMENINO' => 'F',
+            default => '',
+        };
+    }
+
+    private function normalizarCaracterColegio(?string $caracter): string
+    {
+        return match (mb_strtoupper(trim((string) $caracter))) {
+            'FISCAL' => 'Fiscal',
+            'PARTICULAR', 'PRIVADO' => 'Particular',
+            'CONVENIO' => 'Convenio',
+            default => '',
+        };
+    }
+
+    private function normalizarLugarExpedicion(?string $lugar): string
+    {
+        $normalizado = mb_strtoupper(Str::ascii(trim((string) $lugar)));
+
+        return match ($normalizado) {
+            'CB', 'COCHABAMBA' => 'CB',
+            'LP', 'LA PAZ' => 'LP',
+            'SC', 'SANTA CRUZ' => 'SC',
+            'OR', 'ORURO' => 'OR',
+            'PT', 'POTOSI' => 'PT',
+            'CH', 'CHUQUISACA', 'SUCRE' => 'CH',
+            'TJ', 'TARIJA' => 'TJ',
+            'BE', 'BENI' => 'BE',
+            'PD', 'PANDO' => 'PD',
+            'OTRO', 'OTROS' => 'OTRO',
+            default => '',
+        };
     }
 
     public function store(Request $request)

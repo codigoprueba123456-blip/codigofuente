@@ -10,27 +10,7 @@
 <div class="row">
     <div class="col-12">
 
-        @if(session('success'))
-            <div class="alert alert-success alert-dismissible fade show" role="alert">
-                <i class="fas fa-check-circle mr-1"></i> {{ session('success') }}
-                <button type="button" class="close" data-dismiss="alert" aria-label="Close">
-                    <span aria-hidden="true">&times;</span>
-                </button>
-            </div>
-        @endif
-
-        @if($errors->any())
-            <div class="alert alert-danger alert-dismissible fade show" role="alert">
-                <ul class="mb-0">
-                    @foreach($errors->all() as $error)
-                        <li>{{ $error }}</li>
-                    @endforeach
-                </ul>
-                <button type="button" class="close" data-dismiss="alert" aria-label="Close">
-                    <span aria-hidden="true">&times;</span>
-                </button>
-            </div>
-        @endif
+        @include('partials.sweetalert-messages')
 
         @if(!$gestionActual)
             <div class="alert alert-warning">No hay una gestión académica configurada para inscribir.</div>
@@ -110,7 +90,7 @@
 
                         <div class="col-12 mb-3">
                             <label class="font-weight-bold">Carreras, nivel autorizado y vouchers <span class="text-danger">*</span></label>
-                            <div id="carrerasEstudiante" class="border rounded p-3 text-muted">Busca y selecciona un estudiante para cargar su historial y las carreras disponibles.</div>
+                            <div id="carrerasEstudiante" class="border rounded p-3 text-muted">Busca y selecciona un estudiante para cargar las carreras asociadas a su historial.</div>
                             @error('inscripciones')
                                 <div class="text-danger mt-2">{{ $message }}</div>
                             @enderror
@@ -158,6 +138,18 @@
     #estudianteResultados .estudiante-ci {
         color: #d8e5e9;
     }
+
+    .registrar-carrera.registrar-si {
+        color: #155724;
+        border-color: #28a745;
+        background-color: #e8f5eb;
+    }
+
+    .registrar-carrera.registrar-no {
+        color: #721c24;
+        border-color: #dc3545;
+        background-color: #fbeaec;
+    }
 </style>
 @endpush
 
@@ -172,7 +164,7 @@
     let temporizadorBusqueda;
     let solicitudBusqueda = 0;
 
-    function limpiarSeleccion(mensaje = 'Busca y selecciona un estudiante para cargar su historial y las carreras disponibles.') {
+    function limpiarSeleccion(mensaje = 'Busca y selecciona un estudiante para cargar las carreras asociadas a su historial.') {
         estudianteId.value = '';
         document.getElementById('estudianteSeleccionado').classList.add('d-none');
         carrerasContenedor.replaceChildren();
@@ -200,7 +192,7 @@
             if (carrera.ya_inscrito) {
                 const filaActual = document.createElement('div');
                 filaActual.className = 'border-bottom py-2 text-muted';
-                filaActual.textContent = `${carrera.nombre}: ya inscrito en esta gestión.`;
+                filaActual.textContent = `${nombreConResolucion(carrera)}: ya inscrito en esta gestión.`;
                 carrerasContenedor.appendChild(filaActual);
                 return;
             }
@@ -209,9 +201,9 @@
             fila.className = 'row align-items-end border-bottom py-3';
 
             const nombre = document.createElement('div');
-            nombre.className = 'col-md-4 font-weight-bold text-primary';
+            nombre.className = 'col-md-3 font-weight-bold text-primary';
             const nombreCarrera = document.createElement('div');
-            nombreCarrera.textContent = carrera.nombre;
+            nombreCarrera.textContent = nombreConResolucion(carrera);
             nombre.appendChild(nombreCarrera);
             if (carrera.historial?.length) {
                 const resumen = document.createElement('small');
@@ -224,8 +216,23 @@
             fila.appendChild(nombre);
 
             carrerasPendientes++;
+            const registrar = document.createElement('div');
+            registrar.className = 'col-md-2';
+            const etiquetaRegistrar = document.createElement('label');
+            etiquetaRegistrar.className = 'font-weight-bold';
+            etiquetaRegistrar.textContent = 'Registrar:';
+            etiquetaRegistrar.htmlFor = `registrar-${carrera.id}`;
+            const seleccionRegistrar = document.createElement('select');
+            seleccionRegistrar.id = `registrar-${carrera.id}`;
+            seleccionRegistrar.name = `inscripciones[${indice}][registrar]`;
+            seleccionRegistrar.className = 'form-control registrar-carrera';
+            seleccionRegistrar.append(new Option('Sí', '1'), new Option('No', '0'));
+            const inscripcionAnterior = inscripcionesAnteriores.find(item => Number(item.id_carrera) === Number(carrera.id));
+            seleccionRegistrar.value = inscripcionAnterior?.registrar ?? '1';
+            registrar.append(etiquetaRegistrar, seleccionRegistrar);
+
             const nivel = document.createElement('div');
-            nivel.className = 'col-md-3';
+            nivel.className = 'col-md-2';
             const etiquetaNivel = document.createElement('label');
             etiquetaNivel.className = 'font-weight-bold';
             etiquetaNivel.textContent = 'Nivel autorizado:';
@@ -239,8 +246,7 @@
             for (let numero = 1; numero <= 10; numero++) {
                 seleccionNivel.append(new Option(`${numero}° nivel`, numero));
             }
-            const nivelAnterior = inscripcionesAnteriores.find(item => Number(item.id_carrera) === Number(carrera.id))?.nivelinicio;
-            seleccionNivel.value = nivelAnterior || carrera.nivel_sugerido || '';
+            seleccionNivel.value = inscripcionAnterior?.nivelinicio || carrera.nivel_sugerido || '';
             nivel.append(etiquetaNivel, seleccionNivel);
 
             const deposito = document.createElement('div');
@@ -256,13 +262,28 @@
             campo.className = 'form-control';
             campo.placeholder = 'Ingresar voucher de esta carrera';
             campo.required = true;
-            campo.value = inscripcionesAnteriores.find(item => Number(item.id_carrera) === Number(carrera.id))?.deposito || '';
+            campo.value = inscripcionAnterior?.deposito || '';
             const idCampo = document.createElement('input');
             idCampo.type = 'hidden';
             idCampo.name = `inscripciones[${indice}][id_carrera]`;
             idCampo.value = carrera.id;
             deposito.append(etiqueta, campo, idCampo);
-            fila.append(nivel, deposito);
+
+            const actualizarEstado = () => {
+                const registrarCarrera = seleccionRegistrar.value === '1';
+                seleccionRegistrar.classList.toggle('registrar-si', registrarCarrera);
+                seleccionRegistrar.classList.toggle('registrar-no', !registrarCarrera);
+                [seleccionNivel, campo].forEach(input => {
+                    input.disabled = !registrarCarrera;
+                    input.required = registrarCarrera;
+                });
+                nivel.classList.toggle('d-none', !registrarCarrera);
+                deposito.classList.toggle('d-none', !registrarCarrera);
+            };
+            seleccionRegistrar.addEventListener('change', actualizarEstado);
+            actualizarEstado();
+
+            fila.append(registrar, nivel, deposito);
             carrerasContenedor.appendChild(fila);
         });
 
@@ -273,6 +294,13 @@
             carrerasContenedor.appendChild(estado);
         }
         botonGuardar.disabled = carrerasPendientes === 0;
+    }
+
+    function nombreConResolucion(carrera) {
+        const resoluciones = (carrera.resoluciones || []).filter(Boolean);
+        return resoluciones.length
+            ? `${carrera.nombre} · R.M. ${resoluciones.join(' / ')}`
+            : carrera.nombre;
     }
 
     async function buscarEstudiantes(parametros) {
@@ -293,7 +321,7 @@
     estudianteInput.addEventListener('input', () => {
         clearTimeout(temporizadorBusqueda);
         solicitudBusqueda++;
-        limpiarSeleccion('Busca y selecciona un estudiante para cargar su historial y las carreras disponibles.');
+        limpiarSeleccion('Busca y selecciona un estudiante para cargar las carreras asociadas a su historial.');
         resultados.replaceChildren();
         const termino = estudianteInput.value.trim();
         if (termino.length < 2) return;
@@ -328,7 +356,17 @@
         }, 250);
     });
 
-    document.getElementById('formEstudianteRegular').addEventListener('submit', function () {
+    document.getElementById('formEstudianteRegular').addEventListener('submit', function (event) {
+        const carrerasParaRegistrar = [...carrerasContenedor.querySelectorAll('.registrar-carrera')]
+            .some(select => select.value === '1');
+        if (!carrerasParaRegistrar) {
+            event.preventDefault();
+            if (typeof window.itsaAlert === 'function') {
+                window.itsaAlert('warning', 'Selecciona una carrera', 'Marca Registrar: Sí en al menos una carrera para continuar.');
+            }
+            return;
+        }
+
         botonGuardar.disabled = true;
         botonGuardar.innerHTML = '<i class="fas fa-spinner fa-spin mr-1"></i> Guardando...';
     });

@@ -39,6 +39,14 @@ class DatabaseSeederTest extends TestCase
         $this->assertDatabaseHas('users', ['usuario' => 'admin_prueba']);
         $this->assertDatabaseHas('users', ['usuario' => '20260003']);
         $this->assertDatabaseHas('carreras', ['codigo' => 'SIS-2023', 'regimen' => 1]);
+        $this->assertDatabaseHas('postulante', [
+            'codigo' => 'DEMO-POST-001',
+            'lugarexpedicion' => 'LP',
+            'sexo' => 'F',
+            'caractercolegio' => 'Fiscal',
+            'path_nacimiento' => 'demo/valeria_quispe_certificado_nacimiento.jpg',
+            'path_diploma' => 'demo/valeria_quispe_diploma_bachiller.jpg',
+        ]);
         $this->assertDatabaseHas('materia', ['codigo' => 'SIS-2023-201']);
         $this->assertDatabaseHas('grupo', ['codigo' => 'SIS-2023-201-A']);
         $this->assertDatabaseHas('pago', ['id_postulante' => Postulante::where('codigo', 'DEMO-POST-001')->value('id_postulante')]);

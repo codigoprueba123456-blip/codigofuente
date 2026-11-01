@@ -21,6 +21,23 @@ class Carrera extends Model
         return $query->where('activo', true);
     }
 
+    public function resolucionesMinisteriales(): array
+    {
+        return array_values(array_filter(array_map(function (?string $resolucion): ?string {
+            if ($resolucion === null || trim($resolucion) === '') {
+                return null;
+            }
+
+            $resolucion = trim($resolucion);
+
+            return trim(preg_replace('/^R\.?\s*M\.?\s*(?:N[º°]\s*)?/iu', '', $resolucion) ?? $resolucion);
+        }, [
+            $this->resolucionministerial1,
+            $this->resolucionministerial2,
+            $this->resolucionministerial3,
+        ])));
+    }
+
     public function instituto()
     {
         return $this->belongsTo(Instituto::class, 'id_instituto', 'id_instituto');

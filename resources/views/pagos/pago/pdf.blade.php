@@ -49,7 +49,7 @@
                     <td>{{ $pago->deposito ?? '—' }}</td>
                     <td>{{ $pago->fecha ? \Illuminate\Support\Carbon::parse($pago->fecha)->format('d/m/Y') : '—' }}</td>
                     <td>{{ $nombre !== '' ? $nombre : 'Postulante sin nombre' }}</td>
-                    <td>{{ trim(implode(' ', array_filter([$pago->usuario_nombre, $pago->usuario_email]))) ?: '—' }}</td>
+                    <td>{{ $pago->usuario_login ?? $pago->usuario_nombre ?? $pago->usuario_email ?? '—' }}</td>
                     <td>{{ $pago->monto !== null ? number_format((float) $pago->monto, 2) : '—' }}</td>
                     <td>{{ $pago->valido === null ? 'Pendiente' : ($pago->valido ? 'Sí' : 'No') }}</td>
                 </tr>

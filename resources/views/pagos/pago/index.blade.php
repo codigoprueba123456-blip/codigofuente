@@ -28,25 +28,16 @@
             </div>
 
             <div class="row mb-3 align-items-center">
-                <div class="col-md-11">
+                <div class="col-md-12 d-flex flex-wrap align-items-center">
                     <button type="submit" class="btn btn-default bg-light border">
                         <i class="fas fa-search"></i> Buscar
                     </button>
-                </div>
-                <div class="col-md-1 text-right">
-                    <div class="btn-group">
-                        <button type="button" class="btn btn-default bg-light border dropdown-toggle" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false" aria-label="Exportar pagos">
-                            <i class="fas fa-cog"></i>
-                        </button>
-                        <div class="dropdown-menu dropdown-menu-right">
-                            <a class="dropdown-item" href="{{ route('pagos.index', array_merge(request()->except(['page', 'formato']), ['formato' => 'excel'])) }}">
-                                <i class="fas fa-file-excel text-success mr-2"></i> Exportar Excel
-                            </a>
-                            <a class="dropdown-item" href="{{ route('pagos.index', array_merge(request()->except(['page', 'formato']), ['formato' => 'pdf'])) }}" target="_blank" rel="noopener">
-                                <i class="fas fa-file-pdf text-danger mr-2"></i> Exportar PDF
-                            </a>
-                        </div>
-                    </div>
+                    <a class="btn btn-success ml-2" href="{{ route('pagos.index', array_merge(request()->except(['page', 'formato']), ['formato' => 'excel'])) }}">
+                        <i class="fas fa-file-excel mr-1"></i> Exportar Excel
+                    </a>
+                    <a class="btn btn-danger ml-2" href="{{ route('pagos.index', array_merge(request()->except(['page', 'formato']), ['formato' => 'pdf'])) }}" target="_blank" rel="noopener">
+                        <i class="fas fa-file-pdf mr-1"></i> Exportar PDF
+                    </a>
                 </div>
             </div>
         </form>
@@ -125,7 +116,7 @@
                                     <td>{{ $pago->deposito ?? '—' }}</td>
                                     <td>{{ $pago->fecha ? \Illuminate\Support\Carbon::parse($pago->fecha)->format('d/m/Y') : '—' }}</td>
                                     <td>{{ $nombre !== '' ? $nombre : 'Postulante sin nombre' }}</td>
-                                    <td>{{ $pago->usuario_nombre ?? $pago->usuario_email ?? '—' }}</td>
+                                    <td>{{ $pago->usuario_login ?? $pago->usuario_nombre ?? $pago->usuario_email ?? '—' }}</td>
                                     <td>{{ $pago->monto !== null ? number_format((float) $pago->monto, 2) : '—' }}</td>
                                     <td>
                                         @if ($pago->valido === null)

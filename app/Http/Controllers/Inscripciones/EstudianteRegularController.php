@@ -77,30 +77,61 @@ class EstudianteRegularController extends Controller
             ])
             ->groupBy('id_persona');
 
-        $carreras = Carrera::activas()->orderBy('nombre')->get(['id_carrera', 'nombre']);
+        $historialCursa = DB::table('cursa as cu')
+            ->leftJoin('gestionacademica as g', 'g.id_gestionacademica', '=', 'cu.id_gestionacademica')
+            ->join('carreras as c', 'c.id_carrera', '=', 'cu.id_carrera')
+            ->whereIn('cu.id_persona', $idsPersona)
+            ->get([
+                'cu.id_persona',
+                'cu.id_carrera',
+                'c.nombre as carrera',
+                'cu.id_gestionacademica',
+                'cu.nivelinicio',
+                'g.gestion',
+                'g.periodo',
+            ])
+            ->groupBy('id_persona');
 
-        return response()->json($personas->map(function ($persona) use ($historial, $carreras, $gestionActual): array {
+        $carreras = Carrera::activas()
+            ->orderBy('nombre')
+            ->get(['id_carrera', 'nombre', 'resolucionministerial1', 'resolucionministerial2', 'resolucionministerial3']);
+
+        return response()->json($personas->map(function ($persona) use ($historial, $historialCursa, $carreras, $gestionActual): array {
             $nombre = trim(implode(' ', array_filter([
                 $persona->nombre,
                 $persona->primerapellido,
                 $persona->segundoapellido,
             ])));
-            $historialPersona = $historial->get($persona->id_persona, collect());
+            $historialPersona = $historial->get($persona->id_persona, collect())
+                ->concat($historialCursa->get($persona->id_persona, collect()))
+                ->sortByDesc(fn ($registro) => [
+                    (int) ($registro->gestion ?? 0),
+                    (int) ($registro->periodo ?? 0),
+                    (int) ($registro->id_gestionacademica ?? 0),
+                ])
+                ->unique(fn ($registro) => $registro->id_carrera.'-'.($registro->id_gestionacademica ?? 'sin-gestion'))
+                ->values();
+            $idsCarrerasPersona = $historialPersona->pluck('id_carrera')
+                ->push($persona->id_carrera)
+                ->filter()
+                ->map(fn ($id): int => (int) $id)
+                ->unique();
 
             return [
                 'id' => $persona->id_persona,
                 'nombre' => $nombre,
                 'ci' => $persona->ci,
                 'traspaso_convalidacion' => (bool) $persona->traspaso_convalidacion,
-                'carreras' => $carreras->map(function ($carrera) use ($historialPersona, $gestionActual): array {
+                'carreras' => $carreras->whereIn('id_carrera', $idsCarrerasPersona)->map(function ($carrera) use ($historialPersona, $gestionActual): array {
                     $registrosCarrera = $historialPersona
-                        ->where('id_carrera', $carrera->id_carrera)
+                        ->where('id_carrera', (int) $carrera->id_carrera)
                         ->values();
                     $registroReciente = $registrosCarrera->first();
 
                     return [
                         'id' => (int) $carrera->id_carrera,
                         'nombre' => $carrera->nombre,
+                        'resoluciones' => $carrera->resolucionesMinisteriales(),
                         'ya_inscrito' => $registrosCarrera->contains(
                             fn ($registro): bool => (int) $registro->id_gestionacademica === (int) $gestionActual->id_gestionacademica
                         ),
@@ -131,15 +162,41 @@ class EstudianteRegularController extends Controller
             'becado' => 'nullable|boolean',
             'traspaso_convalidacion' => 'required|boolean',
             'inscripciones' => 'required|array|min:1',
+            'inscripciones.*.registrar' => 'required|boolean',
             'inscripciones.*.id_carrera' => [
                 'required',
                 'integer',
                 'distinct',
                 Rule::exists('carreras', 'id_carrera')->where('activo', true),
             ],
-            'inscripciones.*.nivelinicio' => 'required|integer|between:1,10',
-            'inscripciones.*.deposito' => 'required|string|max:255',
+            'inscripciones.*.nivelinicio' => 'nullable|integer|between:1,10',
+            'inscripciones.*.deposito' => 'nullable|string|max:255',
         ]);
+
+        $inscripcionesSolicitadas = collect($validated['inscripciones'])
+            ->filter(fn (array $inscripcion): bool => (bool) (int) $inscripcion['registrar'])
+            ->values();
+        if ($inscripcionesSolicitadas->isEmpty()) {
+            throw ValidationException::withMessages([
+                'inscripciones' => 'Selecciona Registrar: Sí en al menos una carrera.',
+            ]);
+        }
+
+        foreach ($inscripcionesSolicitadas as $indice => $inscripcion) {
+            $voucher = trim((string) ($inscripcion['deposito'] ?? ''));
+            if (empty($inscripcion['nivelinicio']) || $voucher === '') {
+                $errors = [];
+                if (empty($inscripcion['nivelinicio'])) {
+                    $errors["inscripciones.$indice.nivelinicio"] = 'Selecciona el nivel autorizado para cada carrera que se va a registrar.';
+                }
+                if ($voucher === '') {
+                    $errors["inscripciones.$indice.deposito"] = 'Ingresa el voucher para cada carrera que se va a registrar.';
+                }
+
+                throw ValidationException::withMessages($errors);
+            }
+        }
+        $validated['inscripciones'] = $inscripcionesSolicitadas->all();
 
         $vouchers = [];
         foreach ($validated['inscripciones'] as $indice => $inscripcion) {
@@ -155,10 +212,30 @@ class EstudianteRegularController extends Controller
         }
 
         DB::transaction(function () use ($validated, $gestionActual): void {
-            DB::table('estudiante')
+            $estudiante = DB::table('estudiante')
                 ->where('id_persona', $validated['id_persona'])
                 ->lockForUpdate()
                 ->first();
+
+            $carrerasAsociadas = DB::table('inscrito')
+                ->where('id_persona', $validated['id_persona'])
+                ->pluck('id_carrera')
+                ->merge(DB::table('cursa')
+                    ->where('id_persona', $validated['id_persona'])
+                    ->pluck('id_carrera'))
+                ->push($estudiante->id_carrera ?? null)
+                ->filter()
+                ->map(fn ($id): int => (int) $id)
+                ->unique();
+
+            foreach ($validated['inscripciones'] as $indice => $inscripcion) {
+                if (! $carrerasAsociadas->contains((int) $inscripcion['id_carrera'])) {
+                    throw ValidationException::withMessages([
+                        "inscripciones.$indice.id_carrera" => 'Solo puedes registrar carreras asociadas al historial del estudiante.',
+                    ]);
+                }
+            }
+
             DB::table('estudiante')
                 ->where('id_persona', $validated['id_persona'])
                 ->update([

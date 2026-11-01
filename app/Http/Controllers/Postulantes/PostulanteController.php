@@ -9,6 +9,7 @@ use App\Models\Postulante;
 use App\Servicios\Postulantes\GestionarPostulacionesServicio;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\View\View;
 
 class PostulanteController extends Controller
@@ -159,6 +160,16 @@ class PostulanteController extends Controller
 
         if (! $gestionActiva || (int) $postulante->id_gestionacademica !== (int) $gestionActiva->id_gestionacademica) {
             abort(404);
+        }
+
+        $inscrito = DB::table('inscrito')
+            ->where('id_postulante_origen', $postulante->id_postulante)
+            ->exists();
+
+        if ($inscrito) {
+            return redirect()
+                ->route('postulantes.bienvenida', ['ci_consulta' => $postulante->ci])
+                ->with('error', 'No se puede eliminar esta postulación porque forma parte del historial de un estudiante.');
         }
 
         $ci = $postulante->ci;

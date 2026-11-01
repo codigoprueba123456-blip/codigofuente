@@ -9,6 +9,7 @@ use App\Models\Persona;
 use App\Models\Recurso;
 use App\Models\Rol;
 use App\Models\User;
+use App\Support\MenuResourceSync;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\Hash;
 
@@ -16,6 +17,7 @@ class AdministracionSeeder extends Seeder
 {
     public function run(): void
     {
+        MenuResourceSync::sync();
         $this->seedDemoAccounts();
     }
 

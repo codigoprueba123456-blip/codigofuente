@@ -23,7 +23,7 @@ class StudentNewPostulacionHistoryTest extends TestCase
         $this->withoutMiddleware(EnsureFunctionalityAccess::class);
         $this->actingAs($this->createAdmin());
         $gestion = GestionAcademica::create([
-            'gestion' => now()->year,
+            'gestion' => now()->year - 1,
             'periodo' => 1,
             'regimen' => 1,
             'vigente' => true,
@@ -46,12 +46,13 @@ class StudentNewPostulacionHistoryTest extends TestCase
             'direccion' => 'El Alto, La Paz',
             'fechanacimiento' => '2005-04-15',
             'lugarnacimiento' => 'El Alto',
-            'lugarexpedicion' => 'LP',
+            'lugarexpedicion' => 'La Paz',
             'nacionalidad' => 'Boliviana',
-            'sexo' => 'F',
+            'sexo' => 'FEMENINO',
+            'foto' => 'postulantes/foto.jpg',
             'fecha' => now(),
             'nombrecolegio' => 'U.E. de Prueba',
-            'caractercolegio' => 'Fiscal',
+            'caractercolegio' => 'FISCAL',
             'egresocolegio' => 2024,
             'diplomabachiller' => true,
             'nombrecontacto' => 'Rosa Mamani',
@@ -66,14 +67,25 @@ class StudentNewPostulacionHistoryTest extends TestCase
             'id_gestionacademica' => $gestion->id_gestionacademica,
         ]);
 
-        $this->get(route('estudiante_nuevo_postulacion.index'))
+        $indexResponse = $this->get(route('estudiante_nuevo_postulacion.index'))
             ->assertOk()
+            ->assertSee('sweetalert2@11', false)
+            ->assertSee('sweetalert-notifications.js', false)
             ->assertSee('POSTULANTE-001')
             ->assertDontSee('Nivel autorizado')
             ->assertDontSee('nivelinicio')
             ->assertSee('postulaciones.forEach((postulacion, index) => {', false)
             ->assertSee('postulaciones[${index}][id_postulante]', false)
             ->assertSee('postulaciones[${index}][deposito]', false);
+        $datosPrecargados = collect($indexResponse->viewData('postulantesData'))->first();
+        $this->assertSame('LP', $datosPrecargados['lugarexpedicion']);
+        $this->assertSame('F', $datosPrecargados['sexo']);
+        $this->assertSame('Fiscal', $datosPrecargados['caractercolegio']);
+        $this->assertSame('postulantes/ci-frontal.jpg', $datosPrecargados['pathci']);
+        $this->assertSame('postulantes/ci-reverso.jpg', $datosPrecargados['pathciReverso']);
+        $this->assertSame('postulantes/nacimiento.jpg', $datosPrecargados['pathnac']);
+        $this->assertSame('postulantes/diploma.jpg', $datosPrecargados['pathdip']);
+        $this->assertSame('postulantes/foto.jpg', $datosPrecargados['foto']);
 
         $response = $this->post(route('estudiante_nuevo_postulacion.store'), [
             'postulaciones' => [[
@@ -122,6 +134,19 @@ class StudentNewPostulacionHistoryTest extends TestCase
             'nivelinicio' => 1,
         ]);
         $idPersona = Persona::where('ci', 'POSTULANTE-001')->value('id_persona');
+        $this->assertDatabaseHas('estudiante', [
+            'id_persona' => $idPersona,
+            'nombrecolegio' => 'U.E. de Prueba',
+            'caractercolegio' => 'Fiscal',
+            'path_ci' => 'postulantes/ci-frontal.jpg',
+            'path_ci_reverso' => 'postulantes/ci-reverso.jpg',
+            'path_nacimiento' => 'postulantes/nacimiento.jpg',
+            'path_diploma' => 'postulantes/diploma.jpg',
+        ]);
+        $this->assertDatabaseHas('personas', [
+            'id_persona' => $idPersona,
+            'foto' => 'postulantes/foto.jpg',
+        ]);
         $usuario = User::where('id_persona', $idPersona)->firstOrFail();
         $cuenta = Cuenta::where('id_persona', $idPersona)->firstOrFail();
         $this->assertMatchesRegularExpression('/^'.now()->format('Y').'\d{4}$/', $usuario->usuario);
@@ -132,9 +157,32 @@ class StudentNewPostulacionHistoryTest extends TestCase
         $this->get(route('estudiante_nuevo_postulacion.index'))
             ->assertOk()
             ->assertDontSee('POSTULANTE-001');
-        $this->get(route('admisiones.postulantes.index'))
+        $this->get(route('admisiones.postulantes.index', [
+            'id_gestionacademica' => $gestion->id_gestionacademica,
+        ]))
+            ->assertOk()
+            ->assertSee('POSTULANTE-001')
+            ->assertSee((string) (now()->year - 1))
+            ->assertSee((string) $gestion->periodo)
+            ->assertSee('Inscrito como estudiante');
+        $this->get(route('admisiones.postulantes.index', [
+            'id_gestionacademica' => $gestion->id_gestionacademica,
+            'estado' => 'inscrito',
+        ]))
             ->assertOk()
             ->assertSee('POSTULANTE-001');
+        $this->get(route('admisiones.postulantes.index', [
+            'id_gestionacademica' => $gestion->id_gestionacademica,
+            'estado' => 'pendiente',
+        ]))
+            ->assertOk()
+            ->assertDontSee('POSTULANTE-001');
+
+        $this->delete(route('postulantes.destroy', $postulante->id_postulante))
+            ->assertSessionHas('error');
+        $this->assertDatabaseHas('postulante', [
+            'id_postulante' => $postulante->id_postulante,
+        ]);
     }
 
     private function createAdmin(): User

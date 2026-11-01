@@ -12,12 +12,7 @@
         <p class="mb-1"><strong>Estudiante:</strong> {{ trim($inscripcion->nombre.' '.$inscripcion->primerapellido.' '.$inscripcion->segundoapellido) }}</p>
         <p class="mb-3"><strong>Carrera:</strong> {{ $inscripcion->carrera }} · Gestión {{ $gestionActual->gestion }} / Periodo {{ $gestionActual->periodo }} · Nivel {{ $inscripcion->nivelinicio }}°</p>
 
-        @if (session('success'))
-            <div class="alert alert-success">{{ session('success') }}</div>
-        @endif
-        @if ($errors->any())
-            <div class="alert alert-danger"><ul class="mb-0">@foreach ($errors->all() as $error)<li>{{ $error }}</li>@endforeach</ul></div>
-        @endif
+        @include('partials.sweetalert-messages')
 
         <div class="mb-3">
             <a href="{{ route('inscripcion_manual.materias', $inscripcion->id_inscrito) }}" class="btn btn-default border">

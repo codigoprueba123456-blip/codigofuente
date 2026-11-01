@@ -18,28 +18,7 @@
     <div class="row">
         <div class="col-12">
 
-            @if (session('success'))
-                <div class="alert alert-success alert-dismissible fade show shadow-sm" role="alert">
-                    <i class="fas fa-check-circle mr-1"></i> {{ session('success') }}
-                    <button type="button" class="close" data-dismiss="alert" aria-label="Close">
-                        <span aria-hidden="true">&times;</span>
-                    </button>
-                </div>
-            @endif
-
-            @if ($errors->any())
-                <div class="alert alert-danger alert-dismissible fade show shadow-sm" role="alert">
-                    <h5 class="alert-heading font-weight-bold mb-1"><i class="fas fa-exclamation-triangle mr-1"></i> Corrija los siguientes campos:</h5>
-                    <ul class="mb-0 pl-3">
-                        @foreach ($errors->all() as $error)
-                            <li>{{ $error }}</li>
-                        @endforeach
-                    </ul>
-                    <button type="button" class="close" data-dismiss="alert" aria-label="Close">
-                        <span aria-hidden="true">&times;</span>
-                    </button>
-                </div>
-            @endif
+            @include('partials.sweetalert-messages')
 
             <form action="{{ route('estudiante_nuevo_postulacion.store') }}" method="POST" id="formPostulanteNuevo">
                 @csrf
@@ -92,6 +71,12 @@
                     </div>
                     <div class="card-body">
                         <div class="row text-center">
+                            <div class="col-md-3 mb-3">
+                                <span class="small font-weight-bold text-dark d-block mb-1">Fotografía</span>
+                                <div id="preview_foto" class="border rounded p-2 bg-light shadow-sm" style="min-height: 110px; display: flex; align-items: center; justify-content: center;">
+                                    <span class="text-muted small font-italic">Sin archivo</span>
+                                </div>
+                            </div>
                             <div class="col-md-3 mb-3">
                                 <span class="small font-weight-bold text-dark d-block mb-1">C.I. anverso</span>
                                 <div id="preview_ci" class="border rounded p-2 bg-light shadow-sm" style="min-height: 110px; display: flex; align-items: center; justify-content: center;">
@@ -279,7 +264,10 @@
 
                 const title = document.createElement('strong');
                 title.className = 'd-block mb-2 text-primary';
-                title.textContent = postulacion.carreraNombre;
+                const resoluciones = (postulacion.carreraResoluciones || []).filter(Boolean);
+                title.textContent = resoluciones.length
+                    ? `${postulacion.carreraNombre} · R.M. ${resoluciones.join(' / ')}`
+                    : postulacion.carreraNombre;
 
                 const hiddenId = document.createElement('input');
                 hiddenId.type = 'hidden';
@@ -402,6 +390,7 @@
             }
 
             // Renderizar documentos
+            renderizarArchivoDirecto('preview_foto', p.foto);
             renderizarArchivoDirecto('preview_ci', p.pathci);
             renderizarArchivoDirecto('preview_ci_reverso', p.pathciReverso);
             renderizarArchivoDirecto('preview_nac', p.pathnac);
@@ -415,13 +404,16 @@
             postulacionesContainer.innerHTML = '<span class="text-muted">Busque una persona para revisar sus carreras y comprobantes.</span>';
             dropdownResults.style.display = 'none';
             
-            ['preview_ci', 'preview_ci_reverso', 'preview_nac', 'preview_dip'].forEach(id => {
+            ['preview_foto', 'preview_ci', 'preview_ci_reverso', 'preview_nac', 'preview_dip'].forEach(id => {
                 document.getElementById(id).innerHTML = `<span class="text-muted small font-italic">Sin archivo</span>`;
             });
         });
 
         formPostulante?.addEventListener('submit', function() {
             const btn = this.querySelector('button[type="submit"]');
+            if (typeof window.itsaToast === 'function') {
+                window.itsaToast('info', 'Procesando inscripción', 'Al completar el registro se abrirá el PDF con las credenciales.');
+            }
             if (btn) {
                 btn.disabled = true;
                 btn.innerHTML = '<i class="fas fa-spinner fa-spin mr-1"></i> Guardando...';

@@ -8,6 +8,7 @@ use App\Http\Controllers\Inscripciones\CambioCarreraController;
 use App\Http\Controllers\Inscripciones\InscripcionManualController;
 use App\Http\Controllers\Inscripciones\InscritosController;
 use App\Http\Controllers\Pagos\PagosController;
+use App\Http\Controllers\Reportes\InscripcionesReportesController;
 use App\Http\Controllers\Postulantes\PostulanteController;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\Auth;
@@ -159,6 +160,10 @@ Route::middleware(['auth', 'resource.access'])->prefix('inscripciones/inscripcio
 });
 Route::get('/pagos/pago', [PagosController::class, 'index'])
     ->name('pagos.index')
+    ->middleware(['auth', 'resource.access']);
+Route::get('/reportes/inscripciones/{reporte}', [InscripcionesReportesController::class, 'index'])
+    ->where('reporte', 'lista-postulantes|lista-inscritos-carrera|lista-inscritos-paralelo|lista-inscritos-grupo|libro-inscripciones|libro-inscripciones-carrera|lista-inscritos-multicarrera')
+    ->name('reportes.inscripciones.index')
     ->middleware(['auth', 'resource.access']);
 Route::get('/estudiantes/historial_academico', function () {
     return view('estudiantes.historial_academico.index');

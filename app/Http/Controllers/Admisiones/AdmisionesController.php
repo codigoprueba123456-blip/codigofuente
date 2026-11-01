@@ -30,8 +30,10 @@ class AdmisionesController extends Controller
         $export = $request->validate([
             'exportar' => ['nullable', 'in:filtrado,todo'],
             'formato' => ['nullable', 'in:excel,pdf'],
+            'estado' => ['nullable', 'in:pendiente,inscrito'],
         ]);
-        $query = Postulante::with(['carrera', 'gestionAcademica']);
+        $query = Postulante::with(['carrera', 'gestionAcademica'])
+            ->withExists('inscripcionOrigen');
 
         // -------------------------------------------------------------
         // 1. BARRA DE BÚSQUEDA RÁPIDA (Buscador Global)
@@ -56,6 +58,12 @@ class AdmisionesController extends Controller
 
         if ($request->filled('id_gestionacademica')) {
             $query->where('id_gestionacademica', $request->id_gestionacademica);
+        }
+
+        if ($request->input('estado') === 'inscrito') {
+            $query->whereHas('inscripcionOrigen');
+        } elseif ($request->input('estado') === 'pendiente') {
+            $query->whereDoesntHave('inscripcionOrigen');
         }
 
         // -------------------------------------------------------------
@@ -85,7 +93,10 @@ class AdmisionesController extends Controller
             $formato = $export['formato'] ?? 'excel';
 
             $postulantesData = ($tipo === 'todo')
-                ? Postulante::with(['carrera', 'gestionAcademica'])->orderBy('id_postulante', 'desc')->get()
+                ? Postulante::with(['carrera', 'gestionAcademica'])
+                    ->withExists('inscripcionOrigen')
+                    ->orderBy('id_postulante', 'desc')
+                    ->get()
                 : $query->orderBy('id_postulante', 'desc')->get();
 
             $carreraSeleccionada = $request->filled('id_carrera') ? DB::table('carreras')->where('id_carrera', $request->id_carrera)->first() : null;
@@ -108,11 +119,13 @@ class AdmisionesController extends Controller
                             $postulante->celular,
                             $postulante->carrera?->nombre,
                             $postulante->gestionAcademica?->gestion,
+                            $postulante->gestionAcademica?->periodo,
+                            $postulante->inscripcion_origen_exists ? 'Inscrito como estudiante' : 'Pendiente de inscripción',
                         ])->all();
 
                 return $this->exportarExcel(
                     $nombreArchivo.'_'.now()->format('Y-m-d_H-i').'.xlsx',
-                    ['Código', 'Fecha', 'Apellidos', 'Nombres', 'CI', 'Celular', 'Carrera', 'Gestión'],
+                    ['Código', 'Fecha', 'Apellidos', 'Nombres', 'CI', 'Celular', 'Carrera', 'Gestión', 'Periodo', 'Estado'],
                     $rows
                 );
             }

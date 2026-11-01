@@ -10,6 +10,8 @@ class PagosSeeder extends Seeder
 {
     public function run(): void
     {
+        $this->call(InscripcionesSeeder::class);
+
         $postulantes = Postulante::query()
             ->where('codigo', 'like', 'DEMO-POST-%')
             ->get();

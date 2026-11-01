@@ -64,5 +64,27 @@ class PostulanteDocumentValidationTest extends TestCase
         } catch (ValidationException $exception) {
             $this->assertArrayHasKey('path_ci_frontal', $exception->errors());
         }
+
+        $webpRequest = Request::create('/postulantes/store', 'POST', $request->request->all(), [], [
+            'fotografia' => UploadedFile::fake()->image('foto.jpg'),
+            'path_ci_frontal' => UploadedFile::fake()->create('documento.webp', 100, 'image/webp'),
+            'path_ci_reverso' => UploadedFile::fake()->image('ci-reverso.jpg'),
+            'path_nacimiento' => UploadedFile::fake()->image('nacimiento.jpg'),
+            'path_diploma' => UploadedFile::fake()->image('diploma.jpg'),
+        ]);
+
+        try {
+            app(PostulanteValidator::class)->validarRegistro($webpRequest, $gestion, null);
+            $this->fail('A WebP document must not be accepted as a postulant attachment.');
+        } catch (ValidationException $exception) {
+            $this->assertArrayHasKey('path_ci_frontal', $exception->errors());
+        }
+
+        $formulario = $this->get(route('postulantes.registrar'))
+            ->assertOk()
+            ->getContent();
+        $this->assertSame(5, substr_count($formulario, 'accept="image/jpeg,image/png"'));
+        $this->assertStringContainsString('novalidate', $formulario);
+        $this->assertStringNotContainsString('webp', mb_strtolower($formulario));
     }
 }

@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 
 class Postulante extends Model
 {
@@ -70,5 +71,10 @@ class Postulante extends Model
     public function gestion()
     {
         return $this->belongsTo(GestionAcademica::class, 'id_gestionacademica', 'id_gestionacademica');
+    }
+
+    public function inscripcionOrigen(): HasOne
+    {
+        return $this->hasOne(Inscrito::class, 'id_postulante_origen', 'id_postulante');
     }
 }

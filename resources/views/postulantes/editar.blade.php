@@ -26,36 +26,7 @@
         <div class="row">
             <div class="col-12">
         {{-- ALERTAS Y NOTIFICACIONES --}}
-        @if(session('success'))
-            <div class="alert alert-success shadow-sm alert-dismissible fade show" role="alert">
-                <i class="fas fa-check-circle mr-1"></i> {{ session('success') }}
-                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close">
-                    <span aria-hidden="true">&times;</span>
-                </button>
-            </div>
-        @endif
-        @if(session('error'))
-            <div class="alert alert-danger shadow-sm alert-dismissible fade show" role="alert">
-                <i class="fas fa-exclamation-triangle mr-1"></i> {{ session('error') }}
-                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close">
-                    <span aria-hidden="true">&times;</span>
-                </button>
-            </div>
-        @endif
-        @if($errors->any())
-            <div class="alert alert-danger shadow-sm alert-dismissible fade show" role="alert">
-                <strong><i class="fas fa-times-circle mr-1"></i> Revisa los datos ingresados:</strong>
-                <ul class="mb-0 mt-1 pl-3">
-                    @foreach($errors->all() as $error)
-                        <li>{{ $error }}</li>
-                    @endforeach
-                </ul>
-                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close">
-                    <span aria-hidden="true">&times;</span>
-                </button>
-            </div>
-        @endif
-
+        @include('partials.sweetalert-messages')
         {{-- BANNER DE INFORMACIÓN PARA EDICIÓN --}}
         <div class="alert alert-warning shadow-sm border-left-warning mb-4" role="alert">
             <h5 class="font-weight-bold"><i class="fas id-card mr-1 text-warning"></i> Panel de Actualización de Expediente</h5>
@@ -63,7 +34,9 @@
             <br>Puedes modificar cualquier campo de texto o reemplazar los documentos digitales según sea necesario. Los archivos actuales se mantendrán si no seleccionas archivos nuevos.
         </div>
 
-        <form action="{{ route('postulantes.update', $postulante->id_postulante) }}" method="POST" enctype="multipart/form-data" id="formEditarPostulante">
+        <form action="{{ route('postulantes.update', $postulante->id_postulante) }}" method="POST" enctype="multipart/form-data" id="formEditarPostulante"
+            novalidate
+            data-validation-errors="{{ json_encode($errors->messages(), JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP | JSON_HEX_TAG) }}">
             @csrf
             @method('PUT')
 
@@ -89,7 +62,7 @@
                                 </label>
                             </div>
                             <input type="file" name="fotografia" id="foto" class="d-none" accept="image/jpeg,image/png">
-                            <small class="text-muted d-block text-center mt-2">Imagen <strong>máximo 150 KB</strong></small>
+                            <small class="text-muted d-block text-center mt-2">JPG o PNG. Se comprime hasta <strong>150 KB</strong>.</small>
                         </div>
                         <div class="col-md-8 mb-3">
                             <div class="intro-copy">
@@ -188,7 +161,15 @@
                             <select name="id_carrera" id="id_carrera" class="form-control custom-select" required>
                                 <option value="">-- Seleccionar carrera --</option>
                                 @foreach($carreras ?? [] as $carrera)
-                                    <option value="{{ $carrera->id_carrera }}" @selected(old('id_carrera', $postulante->id_carrera) == $carrera->id_carrera)>{{ $carrera->nombre }}</option>
+                                    @php
+                                        $resoluciones = $carrera->resolucionesMinisteriales();
+                                    @endphp
+                                    <option value="{{ $carrera->id_carrera }}" @selected(old('id_carrera', $postulante->id_carrera) == $carrera->id_carrera)>
+                                        {{ $carrera->nombre }}
+                                        @if($resoluciones)
+                                            · R.M. {{ implode(' / ', $resoluciones) }}
+                                        @endif
+                                    </option>
                                 @endforeach
                             </select>
                         </div>
@@ -229,7 +210,7 @@
                                 <label class="custom-file-label" for="path_ci_frontal" data-browse="Elegir">Seleccionar nueva imagen...</label>
                             </div>
                             <small class="text-muted d-block mt-1">
-                                @if($postulante->path_ci_frontal) <span class="text-success"><i class="fas fa-check-circle"></i> Imagen cargada. Selecciona otra solo para reemplazarla.</span> @else Sin imagen previa @endif · Máximo 350 KB comprimida
+                                @if($postulante->path_ci_frontal) <span class="text-success"><i class="fas fa-check-circle"></i> Imagen cargada. Selecciona otra solo para reemplazarla.</span> @else Sin imagen previa @endif · JPG o PNG, máximo 350 KB comprimida
                             </small>
                         </div>
 
@@ -240,7 +221,7 @@
                                 <label class="custom-file-label" for="path_ci_reverso" data-browse="Elegir">Seleccionar nueva imagen...</label>
                             </div>
                             <small class="text-muted d-block mt-1">
-                                @if($postulante->path_ci_reverso) <span class="text-success"><i class="fas fa-check-circle"></i> Imagen cargada. Selecciona otra solo para reemplazarla.</span> @else Sin imagen previa @endif · Máximo 350 KB comprimida
+                                @if($postulante->path_ci_reverso) <span class="text-success"><i class="fas fa-check-circle"></i> Imagen cargada. Selecciona otra solo para reemplazarla.</span> @else Sin imagen previa @endif · JPG o PNG, máximo 350 KB comprimida
                             </small>
                         </div>
 
@@ -251,7 +232,7 @@
                                 <label class="custom-file-label" for="path_nacimiento" data-browse="Elegir">Seleccionar nueva imagen...</label>
                             </div>
                             <small class="text-muted d-block mt-1">
-                                @if($postulante->path_nacimiento) <span class="text-success"><i class="fas fa-check-circle"></i> Imagen cargada. Selecciona otra solo para reemplazarla.</span> @else Sin imagen previa @endif · Máximo 350 KB comprimida
+                                @if($postulante->path_nacimiento) <span class="text-success"><i class="fas fa-check-circle"></i> Imagen cargada. Selecciona otra solo para reemplazarla.</span> @else Sin imagen previa @endif · JPG o PNG, máximo 350 KB comprimida
                             </small>
                         </div>
 
@@ -262,7 +243,7 @@
                                 <label class="custom-file-label" for="path_diploma" data-browse="Elegir">Seleccionar nueva imagen...</label>
                             </div>
                             <small class="text-muted d-block mt-1">
-                                @if($postulante->path_diploma) <span class="text-success"><i class="fas fa-check-circle"></i> Imagen cargada. Selecciona otra solo para reemplazarla.</span> @else Sin imagen previa @endif · Máximo 350 KB comprimida
+                                @if($postulante->path_diploma) <span class="text-success"><i class="fas fa-check-circle"></i> Imagen cargada. Selecciona otra solo para reemplazarla.</span> @else Sin imagen previa @endif · JPG o PNG, máximo 350 KB comprimida
                             </small>
                         </div>
 
@@ -285,4 +266,8 @@
 <link rel="stylesheet" href="{{ asset('css/postulantes/formularios.css') }}">
 <link rel="stylesheet" href="{{ asset('css/postulantes/edicion.css') }}">
 
+<script>
+    window.postulanteValidationErrors = @json($errors->messages());
+</script>
+@include('partials.sweetalert-assets')
 <script src="{{ asset('js/postulantes/postulante-form.js') }}"></script>

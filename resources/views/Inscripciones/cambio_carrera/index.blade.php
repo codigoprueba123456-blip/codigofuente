@@ -9,18 +9,7 @@
 @section('content')
 <div class="card card-default">
     <div class="card-body">
-        @if (session('success'))
-            <div class="alert alert-success">{{ session('success') }}</div>
-        @endif
-        @if ($errors->any())
-            <div class="alert alert-danger">
-                <ul class="mb-0">
-                    @foreach ($errors->all() as $error)
-                        <li>{{ $error }}</li>
-                    @endforeach
-                </ul>
-            </div>
-        @endif
+        @include('partials.sweetalert-messages')
 
         <form action="{{ route('cambio_carrera.store') }}" method="POST" id="formCambioCarrera">
             @csrf
@@ -72,7 +61,15 @@
                     <select name="id_carrera" id="id_carrera" class="form-control" required>
                         <option value="">Seleccione una carrera</option>
                         @foreach ($carreras as $carrera)
-                            <option value="{{ $carrera->id_carrera }}" @selected((string) old('id_carrera') === (string) $carrera->id_carrera)>{{ $carrera->nombre }}</option>
+                            @php
+                                $resoluciones = $carrera->resolucionesMinisteriales();
+                            @endphp
+                            <option value="{{ $carrera->id_carrera }}" @selected((string) old('id_carrera') === (string) $carrera->id_carrera)>
+                                {{ $carrera->nombre }}
+                                @if($resoluciones)
+                                    · R.M. {{ implode(' / ', $resoluciones) }}
+                                @endif
+                            </option>
                         @endforeach
                     </select>
                 </div>
