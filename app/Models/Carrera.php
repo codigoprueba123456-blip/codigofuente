@@ -6,6 +6,11 @@ use Illuminate\Database\Eloquent\Model;
 
 class Carrera extends Model
 {
+    public const NIVEL_TECNICO_SUPERIOR = 1;
+    public const NIVEL_TECNICO_MEDIO = 2;
+    public const REGIMEN_ANUAL = 1;
+    public const REGIMEN_SEMESTRAL = 2;
+
     protected $table = 'carreras';
     protected $primaryKey = 'id_carrera';
     protected $fillable = [ 'codigo', 'creditajeadmision','creditajematricula', 'nivelacademico', 'nombre', 'activo', 'regimen', 'resolucionministerial1', 'resolucionministerial2',

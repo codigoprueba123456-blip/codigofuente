@@ -40,6 +40,10 @@ class CarreraInstituteTest extends TestCase
             ->get(route('planes.carreras.create'))
             ->assertOk()
             ->assertSee('Instituto Configurado')
+            ->assertSee('Técnico Superior')
+            ->assertSee('Técnico Medio')
+            ->assertSee('Anual')
+            ->assertSee('Semestral')
             ->assertDontSee('name="creditajeadmision"', false)
             ->assertDontSee('name="creditajematricula"', false);
 
@@ -84,6 +88,8 @@ class CarreraInstituteTest extends TestCase
         $this->get(route('planes.carreras.index'))
             ->assertOk()
             ->assertSee('50')
+            ->assertSee('Anual')
+            ->assertSee('Técnico Superior')
             ->assertSee('RM-123');
     }
 

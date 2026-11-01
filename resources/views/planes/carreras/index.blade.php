@@ -75,8 +75,8 @@
                             </span>
                         </td>
                         <td>{{ $carrera->creditajeadmision ?? '-' }}</td>
-                        <td>{{ $carrera->regimen ?? '-' }}</td>
-                        <td>{{ $carrera->nivelacademico ?? '-' }}</td>
+                        <td>{{ match ((int) $carrera->regimen) { \App\Models\Carrera::REGIMEN_ANUAL => 'Anual', \App\Models\Carrera::REGIMEN_SEMESTRAL => 'Semestral', default => '-' } }}</td>
+                        <td>{{ match ((int) $carrera->nivelacademico) { \App\Models\Carrera::NIVEL_TECNICO_SUPERIOR => 'Técnico Superior', \App\Models\Carrera::NIVEL_TECNICO_MEDIO => 'Técnico Medio', default => '-' } }}</td>
                         <td class="text-center">{{ $carrera->version ?? '-' }}</td>
                         <td class="text-center">{{ $carrera->resolucionministerial1 ?? '-' }}</td>
                         <td class="text-center">{{ $carrera->resolucionministerial2 ?? '-' }}</td>

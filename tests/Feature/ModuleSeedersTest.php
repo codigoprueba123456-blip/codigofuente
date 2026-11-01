@@ -35,6 +35,16 @@ class ModuleSeedersTest extends TestCase
         $this->assertDatabaseHas('users', ['usuario' => '20260003']);
         $this->assertDatabaseHas('carreras', ['codigo' => 'DEMO-SIS']);
         $this->assertDatabaseHas('carreras', ['codigo' => 'DEMO-MTZ']);
+        $this->assertDatabaseHas('carreras', [
+            'codigo' => 'COC-2023',
+            'nivelacademico' => Carrera::NIVEL_TECNICO_SUPERIOR,
+            'regimen' => Carrera::REGIMEN_ANUAL,
+        ]);
+        $this->assertDatabaseHas('carreras', [
+            'codigo' => 'COC-2019',
+            'nivelacademico' => Carrera::NIVEL_TECNICO_SUPERIOR,
+            'regimen' => Carrera::REGIMEN_SEMESTRAL,
+        ]);
         $this->assertDatabaseHas('materia', ['codigo' => 'DEMO-SIS-201']);
         $this->assertDatabaseHas('grupo', ['codigo' => 'DEMO-MTZ-201-A']);
         $this->assertDatabaseHas('gestionacademica', [

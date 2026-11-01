@@ -105,8 +105,14 @@ class CarreraController extends Controller
             'codigo' => ['required', 'string', 'max:255', Rule::unique('carreras', 'codigo')->ignore($id, 'id_carrera')],
             'nombre' => ['required', 'string', 'max:255'],
             'activo' => ['sometimes', 'boolean'],
-            'nivelacademico' => ['nullable', 'integer', 'min:0'],
-            'regimen' => ['nullable', 'integer', 'min:0'],
+            'nivelacademico' => ['nullable', 'integer', Rule::in([
+                Carrera::NIVEL_TECNICO_SUPERIOR,
+                Carrera::NIVEL_TECNICO_MEDIO,
+            ])],
+            'regimen' => ['nullable', 'integer', Rule::in([
+                Carrera::REGIMEN_ANUAL,
+                Carrera::REGIMEN_SEMESTRAL,
+            ])],
             'resolucionministerial1' => ['nullable', 'string', 'max:255'],
             'resolucionministerial2' => ['nullable', 'string', 'max:255'],
             'resolucionministerial3' => ['nullable', 'string', 'max:255'],

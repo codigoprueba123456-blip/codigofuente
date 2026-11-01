@@ -283,8 +283,14 @@ class AcademicoSeeder extends Seeder
         );
 
         foreach ($carreras as $datosCarrera) {
-            $datosCarrera['nivelacademico'] = 1;
-            $datosCarrera['regimen'] = $datosCarrera['regimen'] === 'ANUAL' ? 1 : 2;
+            $datosCarrera['nivelacademico'] = match ($datosCarrera['nivelacademico']) {
+                'TÉCNICO SUPERIOR' => Carrera::NIVEL_TECNICO_SUPERIOR,
+                'TÉCNICO MEDIO' => Carrera::NIVEL_TECNICO_MEDIO,
+            };
+            $datosCarrera['regimen'] = match ($datosCarrera['regimen']) {
+                'ANUAL' => Carrera::REGIMEN_ANUAL,
+                'SEMESTRAL' => Carrera::REGIMEN_SEMESTRAL,
+            };
             $datosCarrera['id_instituto'] = $instituto->id_instituto;
 
             Carrera::updateOrCreate(
@@ -397,10 +403,10 @@ class AcademicoSeeder extends Seeder
                 [
                     'creditajeadmision' => 10,
                     'creditajematricula' => 20,
-                    'nivelacademico' => 1,
+                    'nivelacademico' => Carrera::NIVEL_TECNICO_SUPERIOR,
                     'nombre' => $datos['nombre'],
                     'activo' => true,
-                    'regimen' => 1,
+                    'regimen' => Carrera::REGIMEN_ANUAL,
                     'resolucionministerial1' => 'R.M. 001/2026',
                     'version' => 1,
                     'id_instituto' => $institutoId,

@@ -53,19 +53,24 @@
             </div>
             <div class="col-md-4 form-group">
                 <label for="nivelacademico">Nivel académico</label>
-                <input type="number" name="nivelacademico" id="nivelacademico" class="form-control" min="0" value="{{ old('nivelacademico', $carrera->nivelacademico ?? '') }}">
+                <select name="nivelacademico" id="nivelacademico" class="form-control @error('nivelacademico') is-invalid @enderror">
+                    <option value="">Seleccione un nivel</option>
+                    <option value="{{ \App\Models\Carrera::NIVEL_TECNICO_SUPERIOR }}" @selected(old('nivelacademico', $carrera->nivelacademico ?? '') == \App\Models\Carrera::NIVEL_TECNICO_SUPERIOR)>Técnico Superior</option>
+                    <option value="{{ \App\Models\Carrera::NIVEL_TECNICO_MEDIO }}" @selected(old('nivelacademico', $carrera->nivelacademico ?? '') == \App\Models\Carrera::NIVEL_TECNICO_MEDIO)>Técnico Medio</option>
+                </select>
+                @error('nivelacademico')<span class="invalid-feedback">{{ $message }}</span>@enderror
             </div>
-        </div>
-
-        <div class="alert alert-info">
-            Los creditajes de admisión y matrícula se calculan automáticamente como 10 veces el precio del crédito configurado en el instituto.
-            El creditaje total de matrícula se distribuye entre las materias curriculares de esta carrera.
         </div>
 
         <div class="row">
             <div class="col-md-3 form-group">
                 <label for="regimen">Régimen</label>
-                <input type="number" name="regimen" id="regimen" class="form-control" min="0" value="{{ old('regimen', $carrera->regimen ?? '') }}">
+                <select name="regimen" id="regimen" class="form-control @error('regimen') is-invalid @enderror">
+                    <option value="">Seleccione un régimen</option>
+                    <option value="{{ \App\Models\Carrera::REGIMEN_ANUAL }}" @selected(old('regimen', $carrera->regimen ?? '') == \App\Models\Carrera::REGIMEN_ANUAL)>Anual</option>
+                    <option value="{{ \App\Models\Carrera::REGIMEN_SEMESTRAL }}" @selected(old('regimen', $carrera->regimen ?? '') == \App\Models\Carrera::REGIMEN_SEMESTRAL)>Semestral</option>
+                </select>
+                @error('regimen')<span class="invalid-feedback">{{ $message }}</span>@enderror
             </div>
             <div class="col-md-3 form-group">
                 <label for="version">Versión</label>

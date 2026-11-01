@@ -117,48 +117,14 @@
                             </td>
                             <td>
                                 <!-- Botón para abrir modal de asignación -->
-                                <button type="button" class="btn btn-xs btn-outline-primary border-0 p-0 me-1" 
-                                        data-bs-toggle="modal" 
-                                        data-bs-target="#assignModal{{ $grupo->id_grupo }}" 
+                                <button type="button" class="btn btn-xs btn-outline-primary border-0 p-0 me-1"
+                                        data-toggle="modal"
+                                        data-target="#assignModal{{ $grupo->id_grupo }}"
                                         title="Asignar Docente">
                                     <i class="fas fa-user-plus"></i>
                                 </button>
                             </td>
                         </tr>
-
-                        <!-- Modal de Asignación individual por Grupo -->
-                        <div class="modal fade" id="assignModal{{ $grupo->id_grupo }}" tabindex="-1" aria-hidden="true">
-                            <div class="modal-dialog modal-dialog-centered">
-                                <div class="modal-content">
-                                    <form action="{{ route('admin.asignacion-docente.asignar', $grupo->id_grupo) }}" method="POST">
-                                        @csrf
-                                        @method('PUT')
-                                        <div class="modal-header py-2">
-                                            <h6 class="modal-title">Asignar Docente a {{ $grupo->codigo }}</h6>
-                                            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                                        </div>
-                                        <div class="modal-body text-start">
-                                            <p class="mb-2"><strong>Materia:</strong> {{ $grupo->materia->nombre ?? '-' }}</p>
-                                            <div class="mb-3">
-                                                <label for="id_persona" class="form-label">Seleccionar Docente:</label>
-                                                <select name="id_persona" class="form-select form-select-sm" required>
-                                                    <option value="">-- Seleccionar --</option>
-                                                    @foreach($docentes as $docente)
-                                                        <option value="{{ $docente->id_persona }}" {{ $grupo->id_persona == $docente->id_persona ? 'selected' : '' }}>
-                                                            {{ $docente->nombre }} {{ $docente->primerapellido }} {{ $docente->segundoapellido }}
-                                                        </option>
-                                                    @endforeach
-                                                </select>
-                                            </div>
-                                        </div>
-                                        <div class="modal-footer py-1">
-                                            <button type="button" class="btn btn-sm btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-                                            <button type="submit" class="btn btn-sm btn-primary">Guardar Asignación</button>
-                                        </div>
-                                    </form>
-                                </div>
-                            </div>
-                        </div>
                     @empty
                         <tr>
                             <td colspan="10" class="text-start ps-3 py-2 text-muted" style="background-color: #fff;">
@@ -169,6 +135,43 @@
                 </tbody>
             </table>
         </div>
+
+        @foreach($grupos as $grupo)
+            <div class="modal fade" id="assignModal{{ $grupo->id_grupo }}" tabindex="-1" role="dialog" aria-hidden="true">
+                <div class="modal-dialog modal-dialog-centered" role="document">
+                    <div class="modal-content">
+                        <form action="{{ route('admin.asignacion-docente.asignar', $grupo->id_grupo) }}" method="POST">
+                            @csrf
+                            @method('PUT')
+                            <div class="modal-header py-2">
+                                <h6 class="modal-title">Asignar Docente a {{ $grupo->codigo }}</h6>
+                                <button type="button" class="close" data-dismiss="modal" aria-label="Cerrar">
+                                    <span aria-hidden="true">&times;</span>
+                                </button>
+                            </div>
+                            <div class="modal-body text-start">
+                                <p class="mb-2"><strong>Materia:</strong> {{ $grupo->materia->nombre ?? '-' }}</p>
+                                <div class="mb-3">
+                                    <label for="id_persona_{{ $grupo->id_grupo }}" class="form-label">Seleccionar Docente:</label>
+                                    <select id="id_persona_{{ $grupo->id_grupo }}" name="id_persona" class="form-control form-control-sm" required>
+                                        <option value="">-- Seleccionar --</option>
+                                        @foreach($docentes as $docente)
+                                            <option value="{{ $docente->id_persona }}" {{ $grupo->id_persona == $docente->id_persona ? 'selected' : '' }}>
+                                                {{ $docente->nombre }} {{ $docente->primerapellido }} {{ $docente->segundoapellido }}
+                                            </option>
+                                        @endforeach
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="modal-footer py-1">
+                                <button type="button" class="btn btn-sm btn-secondary" data-dismiss="modal">Cancelar</button>
+                                <button type="submit" class="btn btn-sm btn-primary">Guardar Asignación</button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        @endforeach
 
     </div>
 </div>
