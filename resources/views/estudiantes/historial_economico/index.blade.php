@@ -52,8 +52,8 @@
                                     <td style="border: 1px solid #dfe3e8; padding: 0.7rem 0.9rem; font-size: 0.97rem;">{{ $pago->gestion ?? '2023' }}</td>
                                     <td style="border: 1px solid #dfe3e8; padding: 0.7rem 0.9rem; font-size: 0.97rem;">{{ $index + 1 }}</td>
                                     <td style="border: 1px solid #dfe3e8; padding: 0.7rem 0.9rem; font-size: 0.97rem;">{{ $pago->codigo ?? 'MA' }}</td>
-                                    <td style="border: 1px solid #dfe3e8; padding: 0.7rem 0.9rem; font-size: 0.97rem;">{{ $pago->concepto ?? 'MATRICULA' }}</td>
-                                    <td style="border: 1px solid #dfe3e8; padding: 0.7rem 0.9rem; font-size: 0.97rem;">{{ $pago->pagado ?? 'Sí' }}</td>
+                                    <td style="border: 1px solid #dfe3e8; padding: 0.7rem 0.9rem; font-size: 0.97rem;">{{ $pago->concepto ?? '—' }}</td>
+                                    <td style="border: 1px solid #dfe3e8; padding: 0.7rem 0.9rem; font-size: 0.97rem;">{{ $pago->pagado === null ? '—' : ($pago->pagado ? 'Sí' : 'No') }}</td>
                                     <td style="border: 1px solid #dfe3e8; padding: 0.7rem 0.9rem; font-size: 0.97rem;">
                                         {{ $pago->comprobante ?: '—' }}@if ($pago->comprobante && $pago->fecha) [{{ \Carbon\Carbon::parse($pago->fecha)->format('d/m/Y') }}]@endif
                                     </td>

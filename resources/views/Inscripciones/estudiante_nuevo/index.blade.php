@@ -301,10 +301,10 @@
                         </div>
 
                         <div class="col-md-6 mb-3">
-                            <label for="nivelinicio" class="font-weight-bold">Nivel autorizado: <span class="text-danger">*</span></label>
+                            <label for="nivelinicio" class="font-weight-bold">Año que cursará: <span class="text-danger">*</span></label>
                             <select name="nivelinicio" id="nivelinicio" class="form-control custom-select @error('nivelinicio') is-invalid @enderror" required>
-                                @foreach (range(1, 10) as $nivel)
-                                    <option value="{{ $nivel }}" @selected(old('nivelinicio', 1) == $nivel)>{{ $nivel }}° nivel</option>
+                                @foreach (range(1, 3) as $nivel)
+                                    <option value="{{ $nivel }}" @selected(old('nivelinicio', 1) == $nivel)>{{ ['Primer', 'Segundo', 'Tercer'][$nivel - 1] }} año</option>
                                 @endforeach
                             </select>
                             @error('nivelinicio')

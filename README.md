@@ -178,9 +178,17 @@ También puedes ejecutar cualquiera de los módulos por separado después de apl
 php artisan db:seed --class="Database\Seeders\Modulos\AdministracionSeeder"
 php artisan db:seed --class="Database\Seeders\Modulos\InstitucionalSeeder"
 php artisan db:seed --class="Database\Seeders\Modulos\AcademicoSeeder"
+php artisan db:seed --class="Database\Seeders\Modulos\EstudianteRegularSeeder"
+php artisan db:seed --class="Database\Seeders\Modulos\InscripcionManualGruposSeeder"
 php artisan db:seed --class="Database\Seeders\Modulos\InscripcionesSeeder"
 php artisan db:seed --class="Database\Seeders\Modulos\PagosSeeder"
 ```
+
+`EstudianteRegularSeeder` crea datos ficticios para buscar a una estudiante regular de Sistemas Informáticos con historial de inscripción en segundo año en la gestión 2025; en la gestión siguiente se sugerirá tercer año. Su cuenta de demostración es `andrea_quispe_9843201` / `Andrea2025!`. En Estudiante Regular también se puede añadir otra carrera sin volver a registrar los datos personales. Cada inscripción genera los registros de pago y comprobante que ya utiliza el sistema. El seeder prepara los datos académicos necesarios y puede ejecutarse varias veces sin duplicar esa inscripción.
+
+`InscripcionManualGruposSeeder` crea los grupos abiertos A (mañana) y B (noche) para las materias de segundo año de la carrera activa `SIS-2023` en la gestión vigente. No crea estudiantes ni modifica materias o grupos que ya existan. Ejecútalo después de contar con la carrera, materias de segundo año y gestión vigente.
+
+En **Gestión de Inscriptos**, las inscripciones activas se pueden editar (ficha personal e inscripción seleccionada) o deshabilitar. La deshabilitación conserva la inscripción, el comprobante y los pagos para auditoría, los oculta del portal del estudiante y permite volver a usar el voucher; el historial administrativo muestra su estado. Ejecuta `php artisan migrate` para aplicar esta migración sin borrar la base de datos.
 
 > **Atención:** `php artisan migrate:fresh --seed` elimina todas las tablas y sus datos antes de crearlas nuevamente. Úsalo solo en una base local descartable, nunca en una base con información que quieras conservar.
 

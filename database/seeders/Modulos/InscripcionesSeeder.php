@@ -9,7 +9,9 @@ class InscripcionesSeeder extends Seeder
 {
     public function run(): void
     {
-        $this->call(AcademicoSeeder::class);
-        $this->call(PostulantesDemoSeeder::class);
+        $this->call([
+            EstudianteRegularSeeder::class,
+            PostulantesDemoSeeder::class,
+        ]);
     }
 }

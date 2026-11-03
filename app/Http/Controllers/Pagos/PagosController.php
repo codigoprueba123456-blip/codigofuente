@@ -106,14 +106,16 @@ class PagosController extends Controller
                     $pago->persona_primerapellido ?? $pago->postulante_primerapellido,
                     $pago->persona_segundoapellido ?? $pago->postulante_segundoapellido,
                 ]))),
+                $pago->concepto ?? '—',
                 $pago->usuario_login ?? $pago->usuario_nombre,
                 $pago->monto,
                 $pago->valido === null ? 'Pendiente' : ($pago->valido ? 'Sí' : 'No'),
+                $pago->estado_registro,
             ])->all();
 
             return $this->exportarExcel(
                 'Pagos_'.now()->format('Y-m-d_H-i').'.xlsx',
-                ['Código', 'Depósito', 'Fecha', 'Persona', 'Usuario', 'Monto', 'Válido'],
+                ['Código', 'Depósito', 'Fecha', 'Persona', 'Concepto', 'Usuario', 'Monto', 'Válido', 'Estado'],
                 $rows
             );
         }
@@ -132,6 +134,7 @@ class PagosController extends Controller
         $detalles = DB::table('detalle')
             ->select('id_pago')
             ->selectRaw('MAX(codigo) as codigo')
+            ->selectRaw('MAX(nombre) as concepto')
             ->selectRaw('SUM(monto) as monto')
             ->groupBy('id_pago');
 
@@ -164,6 +167,7 @@ class PagosController extends Controller
                 DB::raw('COALESCE(cb.fecha, i.fecha, po.fecha, pago.created_at) as fecha'),
                 DB::raw('COALESCE(detalle.monto, pago.monto, 0) as monto'),
                 'cb.valido',
+                DB::raw("CASE WHEN pago.estado = 0 OR (i.id_inscrito IS NOT NULL AND i.activo = 0) OR (cb.id_comprobante IS NOT NULL AND cb.activo = 0) THEN 'Deshabilitado' WHEN i.id_inscrito_reemplazo IS NOT NULL THEN 'Reemplazado' ELSE 'Activo' END as estado_registro"),
                 DB::raw('COALESCE(cb.id_gestionacademica, i.id_gestionacademica, po.id_gestionacademica) as id_gestionacademica'),
                 'p.nombre as persona_nombre',
                 'p.primerapellido as persona_primerapellido',
@@ -179,6 +183,7 @@ class PagosController extends Controller
                 'i.codigo as inscrito_codigo',
                 'po.codigo as postulante_codigo',
                 'detalle.codigo as detalle_codigo',
+                'detalle.concepto',
                 'cb.id_comprobante'
             );
     }

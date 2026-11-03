@@ -164,6 +164,8 @@ class PostulanteController extends Controller
 
         $inscrito = DB::table('inscrito')
             ->where('id_postulante_origen', $postulante->id_postulante)
+            ->where('activo', true)
+            ->whereNull('id_inscrito_reemplazo')
             ->exists();
 
         if ($inscrito) {

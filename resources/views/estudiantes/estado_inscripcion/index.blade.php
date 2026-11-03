@@ -20,14 +20,15 @@
         @else
             <div class="mb-4">
                 <h4>Historial de carreras</h4>
-                <p class="text-muted">Aquí aparecen las carreras y niveles registrados en cada gestión. El historial no indica por sí solo si una carrera fue concluida o interrumpida.</p>
+                <p class="text-muted">Aquí aparecen las carreras y años registrados en cada gestión. El historial no indica por sí solo si una carrera fue concluida o interrumpida.</p>
                 <div class="table-responsive">
                     <table class="table table-sm table-bordered table-striped">
                         <thead>
                             <tr>
                                 <th>Carrera</th>
                                 <th>Gestión</th>
-                                <th>Nivel registrado</th>
+                                <th>Año registrado</th>
+                                <th>Estado</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -35,7 +36,14 @@
                                 <tr>
                                     <td>{{ $registro->carrera }}</td>
                                     <td>{{ $registro->gestion }} - Periodo {{ $registro->periodo }}</td>
-                                    <td>{{ $registro->nivelinicio ? $registro->nivelinicio.'°' : 'No registrado' }}</td>
+                                    <td>{{ $registro->nivelinicio ? (['Primer año', 'Segundo año', 'Tercer año'][$registro->nivelinicio - 1] ?? $registro->nivelinicio.'° año') : 'No registrado' }}</td>
+                                    <td>
+                                        @if ($registro->id_inscrito_reemplazo)
+                                            Reemplazada por {{ $registro->carrera_reemplazo ?? 'otra carrera' }}
+                                        @else
+                                            Sin reemplazo
+                                        @endif
+                                    </td>
                                 </tr>
                             @endforeach
                         </tbody>

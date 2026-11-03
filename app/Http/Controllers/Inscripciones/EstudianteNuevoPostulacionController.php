@@ -30,6 +30,7 @@ class EstudianteNuevoPostulacionController extends Controller
             ->whereHas('carrera', fn ($query) => $query->where('activo', true))
             ->whereNotIn('id_postulante', DB::table('inscrito')
                 ->select('id_postulante_origen')
+                ->where('activo', true)
                 ->whereNotNull('id_postulante_origen'))
             ->orderBy('nombre', 'asc')
             ->orderBy('primerapellido', 'asc')
@@ -169,6 +170,7 @@ class EstudianteNuevoPostulacionController extends Controller
                     ->whereHas('carrera', fn ($query) => $query->where('activo', true))
                     ->whereNotIn('id_postulante', DB::table('inscrito')
                         ->select('id_postulante_origen')
+                        ->where('activo', true)
                         ->whereNotNull('id_postulante_origen'))
                     ->lockForUpdate()
                     ->get()
@@ -214,21 +216,19 @@ class EstudianteNuevoPostulacionController extends Controller
                     $duplicadoInscrito = DB::table('inscrito')
                         ->where('deposito', $voucher)
                         ->where('id_gestionacademica', $gestionId)
-                        ->exists();
-                    $duplicadoFichaAnterior = DB::table('estudiante')
-                        ->where('deposito', $voucher)
-                        ->where('id_gestionacademica', $gestionId)
+                        ->where('activo', true)
                         ->exists();
                     $duplicadoComprobante = DB::table('comprobante')
                         ->where('deposito', $voucher)
                         ->where('id_gestionacademica', $gestionId)
+                        ->where('activo', true)
                         ->where(function ($query) use ($ids): void {
                             $query->whereNull('id_postulante')
                                 ->orWhereNotIn('id_postulante', $ids);
                         })
                         ->exists();
 
-                    if ($duplicadoPendiente || $duplicadoInscrito || $duplicadoFichaAnterior || $duplicadoComprobante) {
+                    if ($duplicadoPendiente || $duplicadoInscrito || $duplicadoComprobante) {
                         $indice = $indicePorId[(int) $id];
                         throw ValidationException::withMessages([
                             "postulaciones.$indice.deposito" => 'El voucher ya está registrado en esta gestión.',

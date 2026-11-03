@@ -24,8 +24,37 @@
 
                 <div class="col-md-6 form-group">
                     <div id="resumen_estudiante" class="alert alert-info mb-0" aria-live="polite">
-                        Seleccione un estudiante para confirmar su identidad antes de registrar el cambio.
+                        Seleccione un estudiante para revisar sus inscripciones y elegir cuál cambiar.
                     </div>
+                </div>
+                <div class="col-md-6 form-group">
+                    <label for="id_inscrito_origen">Carrera que se cambiará: <span class="text-danger">*</span></label>
+                    <select name="id_inscrito_origen" id="id_inscrito_origen" class="form-control" required disabled>
+                        <option value="">Primero seleccione un estudiante</option>
+                    </select>
+                    @error('id_inscrito_origen')
+                        <span class="text-danger">{{ $message }}</span>
+                    @enderror
+                </div>
+                <div class="col-md-6 form-group">
+                    <label for="id_carrera">Nueva carrera: <span class="text-danger">*</span></label>
+                    <select name="id_carrera" id="id_carrera" class="form-control" required>
+                        <option value="">Seleccione una carrera</option>
+                        @foreach ($carreras as $carrera)
+                            @php
+                                $resoluciones = $carrera->resolucionesMinisteriales();
+                            @endphp
+                            <option value="{{ $carrera->id_carrera }}" @selected((string) old('id_carrera') === (string) $carrera->id_carrera)>
+                                {{ $carrera->nombre }}
+                                @if($resoluciones)
+                                    · R.M. {{ implode(' / ', $resoluciones) }}
+                                @endif
+                            </option>
+                        @endforeach
+                    </select>
+                    @error('id_carrera')
+                        <span class="text-danger">{{ $message }}</span>
+                    @enderror
                 </div>
 
                 <div class="col-md-4 form-group">
@@ -46,45 +75,19 @@
                 <div class="col-md-4 form-group">
                     <label for="deposito">Comprobante de pago: <span class="text-danger">*</span></label>
                     <input type="text" name="deposito" id="deposito" class="form-control" value="{{ old('deposito') }}" required maxlength="255">
+                    @error('deposito')
+                        <span class="text-danger">{{ $message }}</span>
+                    @enderror
                 </div>
 
                 <div class="col-md-4 form-group">
-                    <label for="traspaso_convalidaciones">Traspaso/Convalidación:</label>
-                    <select name="traspaso_convalidaciones" id="traspaso_convalidaciones" class="form-control">
-                        <option value="No" @selected(old('traspaso_convalidaciones', 'No') === 'No')>No</option>
-                        <option value="Si" @selected(old('traspaso_convalidaciones') === 'Si')>Sí</option>
-                    </select>
+                    <label for="monto">Monto del cambio (Bs.): <span class="text-danger">*</span></label>
+                    <input type="number" name="monto" id="monto" class="form-control" value="{{ old('monto') }}" min="0" max="9999999999.99" step="0.01" required>
+                    @error('monto')
+                        <span class="text-danger">{{ $message }}</span>
+                    @enderror
                 </div>
 
-                <div class="col-md-4 form-group">
-                    <label for="id_carrera">Nueva carrera: <span class="text-danger">*</span></label>
-                    <select name="id_carrera" id="id_carrera" class="form-control" required>
-                        <option value="">Seleccione una carrera</option>
-                        @foreach ($carreras as $carrera)
-                            @php
-                                $resoluciones = $carrera->resolucionesMinisteriales();
-                            @endphp
-                            <option value="{{ $carrera->id_carrera }}" @selected((string) old('id_carrera') === (string) $carrera->id_carrera)>
-                                {{ $carrera->nombre }}
-                                @if($resoluciones)
-                                    · R.M. {{ implode(' / ', $resoluciones) }}
-                                @endif
-                            </option>
-                        @endforeach
-                    </select>
-                </div>
-            </div>
-
-            <div class="row">
-                <div class="col-md-4 form-group">
-                    <label for="id_gestionacademica">Gestión académica: <span class="text-danger">*</span></label>
-                    <select name="id_gestionacademica" id="id_gestionacademica" class="form-control" required>
-                        <option value="">Seleccione una gestión</option>
-                        @foreach ($gestiones as $gestion)
-                            <option value="{{ $gestion->id_gestionacademica }}" @selected((string) old('id_gestionacademica') === (string) $gestion->id_gestionacademica)>{{ $gestion->gestion }} - Periodo {{ $gestion->periodo }}{{ $gestion->vigente ? ' (Vigente)' : '' }}</option>
-                        @endforeach
-                    </select>
-                </div>
             </div>
 
             <!-- Botones de Acción -->
@@ -110,14 +113,31 @@
         const formulario = document.getElementById('formCambioCarrera');
         const entrada = document.getElementById('buscar_estudiante');
         const estudianteId = document.getElementById('id_persona');
+        const inscripcionOrigen = document.getElementById('id_inscrito_origen');
+        const carreraDestino = document.getElementById('id_carrera');
         const sugerencias = document.getElementById('sugerencias_estudiante');
         const resumen = document.getElementById('resumen_estudiante');
         let espera;
 
+        function actualizarCarreraDestino() {
+            const carreraOrigen = inscripcionOrigen.selectedOptions[0]?.dataset.carrera;
+            carreraDestino.querySelectorAll('option').forEach((opcion) => {
+                opcion.disabled = Boolean(carreraOrigen && opcion.value === carreraOrigen);
+            });
+            if (carreraDestino.selectedOptions[0]?.disabled) {
+                carreraDestino.value = '';
+            }
+        }
+
+        inscripcionOrigen.addEventListener('change', actualizarCarreraDestino);
+
         entrada.addEventListener('input', () => {
             window.clearTimeout(espera);
             estudianteId.value = '';
-            resumen.textContent = 'Seleccione un estudiante para confirmar su identidad antes de registrar el cambio.';
+            inscripcionOrigen.replaceChildren(new Option('Primero seleccione un estudiante', ''));
+            inscripcionOrigen.disabled = true;
+            actualizarCarreraDestino();
+            resumen.textContent = 'Seleccione un estudiante para revisar sus inscripciones y elegir cuál cambiar.';
             sugerencias.replaceChildren();
 
             const termino = entrada.value.trim();
@@ -157,15 +177,31 @@
                             const ci = document.createElement('span');
                             ci.className = 'd-block';
                             ci.textContent = `CI: ${estudiante.ci}`;
-                            const carrera = document.createElement('span');
-                            carrera.className = 'd-block';
-                            carrera.textContent = `Carrera actual: ${estudiante.carrera_actual}`;
                             const contacto = document.createElement('span');
                             contacto.className = 'd-block';
                             contacto.textContent = `Celular: ${estudiante.celular || 'No registrado'} · ${estudiante.email || 'Sin correo'}`;
-                            resumen.append(nombre, ci, carrera, contacto);
+                            resumen.append(nombre, ci, contacto);
+                            inscripcionOrigen.replaceChildren(new Option('Seleccione una inscripción', ''));
+                            estudiante.inscripciones.forEach((inscripcion) => {
+                                const opcionInscripcion = new Option(
+                                    `${inscripcion.carrera} · Gestión ${inscripcion.gestion} - Periodo ${inscripcion.periodo}`,
+                                    inscripcion.id
+                                );
+                                opcionInscripcion.dataset.carrera = inscripcion.id_carrera;
+                                inscripcionOrigen.add(opcionInscripcion);
+                            });
+                            inscripcionOrigen.disabled = estudiante.inscripciones.length === 0;
+                            actualizarCarreraDestino();
+                            if (estudiante.inscripciones.length === 0) {
+                                inscripcionOrigen.replaceChildren(new Option('No tiene inscripciones vigentes para cambiar', ''));
+                                const aviso = document.createElement('span');
+                                aviso.className = 'd-block text-warning mt-2';
+                                aviso.textContent = 'No se encontraron carreras vigentes en ninguna gestión.';
+                                resumen.append(aviso);
+                            }
                             sugerencias.replaceChildren();
                         });
+
                         sugerencias.append(opcion);
                     });
                 } catch (error) {
@@ -178,9 +214,13 @@
         });
 
         formulario.addEventListener('submit', (evento) => {
-            if (!estudianteId.value) {
+            if (!estudianteId.value || !inscripcionOrigen.value) {
                 evento.preventDefault();
-                entrada.focus();
+                if (!estudianteId.value) {
+                    entrada.focus();
+                } else {
+                    inscripcionOrigen.focus();
+                }
             }
         });
 

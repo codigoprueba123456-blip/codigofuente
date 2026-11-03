@@ -29,9 +29,11 @@
                 <th>Depósito</th>
                 <th>Fecha</th>
                 <th>Estudiante / Postulante</th>
+                <th>Concepto</th>
                 <th>Usuario</th>
                 <th>Monto (Bs.)</th>
                 <th>Válido</th>
+                <th>Estado</th>
             </tr>
         </thead>
         <tbody>
@@ -49,12 +51,14 @@
                     <td>{{ $pago->deposito ?? '—' }}</td>
                     <td>{{ $pago->fecha ? \Illuminate\Support\Carbon::parse($pago->fecha)->format('d/m/Y') : '—' }}</td>
                     <td>{{ $nombre !== '' ? $nombre : 'Postulante sin nombre' }}</td>
+                    <td>{{ $pago->concepto ?? '—' }}</td>
                     <td>{{ $pago->usuario_login ?? $pago->usuario_nombre ?? $pago->usuario_email ?? '—' }}</td>
                     <td>{{ $pago->monto !== null ? number_format((float) $pago->monto, 2) : '—' }}</td>
                     <td>{{ $pago->valido === null ? 'Pendiente' : ($pago->valido ? 'Sí' : 'No') }}</td>
+                    <td>{{ $pago->estado_registro }}</td>
                 </tr>
             @empty
-                <tr><td colspan="8">No se encontraron pagos para los filtros seleccionados.</td></tr>
+                <tr><td colspan="10">No se encontraron pagos para los filtros seleccionados.</td></tr>
             @endforelse
         </tbody>
     </table>

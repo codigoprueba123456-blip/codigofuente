@@ -54,6 +54,14 @@ class EstudianteRegularController extends Controller
         }
 
         $idsPersona = $personas->pluck('id_persona');
+        $inscripcionesActivas = DB::table('inscrito')
+            ->whereIn('id_persona', $idsPersona)
+            ->where('id_gestionacademica', $gestionActual->id_gestionacademica)
+            ->where('activo', true)
+            ->whereNull('id_inscrito_reemplazo')
+            ->get(['id_persona', 'id_carrera'])
+            ->groupBy('id_persona')
+            ->map(fn ($inscripciones) => $inscripciones->pluck('id_carrera')->map(fn ($id): int => (int) $id));
         $historial = DB::table('inscrito as i')
             ->join('gestionacademica as g', 'g.id_gestionacademica', '=', 'i.id_gestionacademica')
             ->join('carreras as c', 'c.id_carrera', '=', 'i.id_carrera')
@@ -96,7 +104,7 @@ class EstudianteRegularController extends Controller
             ->orderBy('nombre')
             ->get(['id_carrera', 'nombre', 'resolucionministerial1', 'resolucionministerial2', 'resolucionministerial3']);
 
-        return response()->json($personas->map(function ($persona) use ($historial, $historialCursa, $carreras, $gestionActual): array {
+        return response()->json($personas->map(function ($persona) use ($historial, $historialCursa, $inscripcionesActivas, $carreras, $gestionActual): array {
             $nombre = trim(implode(' ', array_filter([
                 $persona->nombre,
                 $persona->primerapellido,
@@ -116,13 +124,18 @@ class EstudianteRegularController extends Controller
                 ->filter()
                 ->map(fn ($id): int => (int) $id)
                 ->unique();
-
             return [
                 'id' => $persona->id_persona,
                 'nombre' => $nombre,
                 'ci' => $persona->ci,
                 'traspaso_convalidacion' => (bool) $persona->traspaso_convalidacion,
-                'carreras' => $carreras->whereIn('id_carrera', $idsCarrerasPersona)->map(function ($carrera) use ($historialPersona, $gestionActual): array {
+                'carreras_disponibles' => $carreras->whereNotIn('id_carrera', $idsCarrerasPersona)
+                    ->map(fn ($carrera): array => [
+                        'id' => (int) $carrera->id_carrera,
+                        'nombre' => $carrera->nombre,
+                        'resoluciones' => $carrera->resolucionesMinisteriales(),
+                    ])->values(),
+                'carreras' => $carreras->whereIn('id_carrera', $idsCarrerasPersona)->map(function ($carrera) use ($historialPersona, $inscripcionesActivas, $persona): array {
                     $registrosCarrera = $historialPersona
                         ->where('id_carrera', (int) $carrera->id_carrera)
                         ->values();
@@ -132,10 +145,10 @@ class EstudianteRegularController extends Controller
                         'id' => (int) $carrera->id_carrera,
                         'nombre' => $carrera->nombre,
                         'resoluciones' => $carrera->resolucionesMinisteriales(),
-                        'ya_inscrito' => $registrosCarrera->contains(
-                            fn ($registro): bool => (int) $registro->id_gestionacademica === (int) $gestionActual->id_gestionacademica
-                        ),
-                        'nivel_sugerido' => max(1, (int) ($registroReciente->nivelinicio ?? 1)),
+                        'ya_inscrito' => $inscripcionesActivas
+                            ->get($persona->id_persona, collect())
+                            ->contains((int) $carrera->id_carrera),
+                        'nivel_sugerido' => min(3, max(1, (int) ($registroReciente->nivelinicio ?? 0) + 1)),
                         'historial' => $registrosCarrera->map(fn ($registro): array => [
                             'gestion' => $registro->gestion,
                             'periodo' => $registro->periodo,
@@ -169,7 +182,8 @@ class EstudianteRegularController extends Controller
                 'distinct',
                 Rule::exists('carreras', 'id_carrera')->where('activo', true),
             ],
-            'inscripciones.*.nivelinicio' => 'nullable|integer|between:1,10',
+            'inscripciones.*.nueva' => 'nullable|boolean',
+            'inscripciones.*.nivelinicio' => 'nullable|integer|between:1,3',
             'inscripciones.*.deposito' => 'nullable|string|max:255',
         ]);
 
@@ -187,7 +201,7 @@ class EstudianteRegularController extends Controller
             if (empty($inscripcion['nivelinicio']) || $voucher === '') {
                 $errors = [];
                 if (empty($inscripcion['nivelinicio'])) {
-                    $errors["inscripciones.$indice.nivelinicio"] = 'Selecciona el nivel autorizado para cada carrera que se va a registrar.';
+                    $errors["inscripciones.$indice.nivelinicio"] = 'Selecciona el año que cursará en cada carrera que se va a registrar.';
                 }
                 if ($voucher === '') {
                     $errors["inscripciones.$indice.deposito"] = 'Ingresa el voucher para cada carrera que se va a registrar.';
@@ -229,9 +243,18 @@ class EstudianteRegularController extends Controller
                 ->unique();
 
             foreach ($validated['inscripciones'] as $indice => $inscripcion) {
-                if (! $carrerasAsociadas->contains((int) $inscripcion['id_carrera'])) {
+                $carreraAsociada = $carrerasAsociadas->contains((int) $inscripcion['id_carrera']);
+                $esNuevaCarrera = (bool) ($inscripcion['nueva'] ?? false);
+
+                if ($esNuevaCarrera && $carreraAsociada) {
                     throw ValidationException::withMessages([
-                        "inscripciones.$indice.id_carrera" => 'Solo puedes registrar carreras asociadas al historial del estudiante.',
+                        "inscripciones.$indice.id_carrera" => 'Esta carrera ya forma parte del historial. Regístrala desde su fila existente.',
+                    ]);
+                }
+
+                if (! $carreraAsociada && ! $esNuevaCarrera) {
+                    throw ValidationException::withMessages([
+                        "inscripciones.$indice.id_carrera" => 'Para agregar otra carrera, selecciónala con el botón Añadir otra carrera.',
                     ]);
                 }
             }
@@ -252,6 +275,8 @@ class EstudianteRegularController extends Controller
                     ->where('id_persona', $validated['id_persona'])
                     ->where('id_carrera', $idCarrera)
                     ->where('id_gestionacademica', $gestionActual->id_gestionacademica)
+                    ->where('activo', true)
+                    ->whereNull('id_inscrito_reemplazo')
                     ->exists()) {
                     throw ValidationException::withMessages([
                         "inscripciones.$indice.id_carrera" => 'El estudiante ya está inscrito en esta carrera durante la gestión actual.',
@@ -260,6 +285,7 @@ class EstudianteRegularController extends Controller
 
                 if (DB::table('inscrito')
                     ->where('id_gestionacademica', $gestionActual->id_gestionacademica)
+                    ->where('activo', true)
                     ->whereRaw('LOWER(deposito) = ?', [mb_strtolower($voucher)])
                     ->exists()) {
                     throw ValidationException::withMessages([
@@ -268,6 +294,7 @@ class EstudianteRegularController extends Controller
                 }
                 if (DB::table('comprobante')
                     ->where('id_gestionacademica', $gestionActual->id_gestionacademica)
+                    ->where('activo', true)
                     ->whereRaw('LOWER(deposito) = ?', [mb_strtolower($voucher)])
                     ->exists()) {
                     throw ValidationException::withMessages([

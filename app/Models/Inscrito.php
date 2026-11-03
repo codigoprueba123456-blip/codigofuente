@@ -10,4 +10,9 @@ class Inscrito extends Model
     protected $primaryKey = 'id_inscrito';
 
     protected $guarded = [];
+
+    protected $casts = [
+        'activo' => 'boolean',
+        'becado' => 'boolean',
+    ];
 }

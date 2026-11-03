@@ -10,7 +10,7 @@
 <div class="card card-default">
     <div class="card-body">
         <p class="mb-1"><strong>Estudiante:</strong> {{ trim($inscripcion->nombre.' '.$inscripcion->primerapellido.' '.$inscripcion->segundoapellido) }}</p>
-        <p class="mb-3"><strong>Carrera:</strong> {{ $inscripcion->carrera }} · Gestión {{ $gestionActual->gestion }} / Periodo {{ $gestionActual->periodo }} · Nivel {{ $inscripcion->nivelinicio }}°</p>
+        <p class="mb-3"><strong>Carrera:</strong> {{ $inscripcion->carrera }} · Gestión {{ $gestionActual->gestion }} / Periodo {{ $gestionActual->periodo }} · Año {{ ['Primer año', 'Segundo año', 'Tercer año'][$inscripcion->nivelinicio - 1] ?? $inscripcion->nivelinicio.'° año' }}</p>
 
         @include('partials.sweetalert-messages')
 
@@ -28,7 +28,7 @@
                 <a href="{{ route('inscripcion_manual.oferta', ['inscrito' => $inscripcion->id_inscrito, 'paralelo' => $opcionParalelo]) }}" class="btn {{ $paralelo === $opcionParalelo ? 'btn-primary' : 'btn-default border' }}">{{ $opcionParalelo }}</a>
             @endforeach
         </div>
-        <p class="text-muted">Se muestran las materias del nivel de inscripción para la gestión actual y el paralelo seleccionado.</p>
+        <p class="text-muted">Se muestran las materias del año de inscripción para la gestión actual y el paralelo seleccionado.</p>
 
         <form id="formOfertaMaterias" method="POST" action="{{ route('inscripcion_manual.guardar', $inscripcion->id_inscrito) }}">
             @csrf

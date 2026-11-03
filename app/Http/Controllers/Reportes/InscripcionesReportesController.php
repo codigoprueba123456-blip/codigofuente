@@ -354,6 +354,8 @@ class InscripcionesReportesController extends Controller
                     ->from('inscrito as otra')
                     ->whereColumn('otra.id_persona', 'i.id_persona')
                     ->whereColumn('otra.id_gestionacademica', 'i.id_gestionacademica')
+                    ->where('otra.activo', true)
+                    ->whereNull('otra.id_inscrito_reemplazo')
                     ->groupBy('otra.id_persona', 'otra.id_gestionacademica')
                     ->havingRaw('COUNT(DISTINCT otra.id_carrera) > 1');
             });
@@ -368,6 +370,8 @@ class InscripcionesReportesController extends Controller
             ->join('personas as p', 'p.id_persona', '=', 'i.id_persona')
             ->join('carreras as c', 'c.id_carrera', '=', 'i.id_carrera')
             ->join('gestionacademica as ga', 'ga.id_gestionacademica', '=', 'i.id_gestionacademica')
+            ->where('i.activo', true)
+            ->whereNull('i.id_inscrito_reemplazo')
             ->select(
                 'i.codigo',
                 'i.fecha',

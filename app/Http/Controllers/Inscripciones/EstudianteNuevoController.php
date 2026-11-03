@@ -93,7 +93,7 @@ class EstudianteNuevoController extends Controller
                 'required',
                 Rule::exists('carreras', 'id_carrera')->where('activo', true),
             ],
-            'nivelinicio' => 'required|integer|between:1,10',
+            'nivelinicio' => 'required|integer|between:1,3',
             'path_bth' => 'nullable|image|mimes:jpg,jpeg,png,webp|max:350',
         ];
 
@@ -171,7 +171,7 @@ class EstudianteNuevoController extends Controller
             'path_bth.image' => 'El certificado BTH debe ser una imagen.',
             'path_bth.mimes' => 'El certificado BTH debe estar en formato JPG, PNG o WebP.',
             'path_bth.max' => 'El certificado BTH no debe superar 350 KB.',
-            'nivelinicio.required' => 'Selecciona el nivel autorizado para esta carrera.',
+            'nivelinicio.required' => 'Selecciona el año que cursará en esta carrera.',
         ]);
 
         $camposDocumento = [
@@ -216,6 +216,8 @@ class EstudianteNuevoController extends Controller
                     ->where('id_persona', $idPersona)
                     ->where('id_carrera', $validated['id_carrera'])
                     ->where('id_gestionacademica', $validated['id_gestionacademica'])
+                    ->where('activo', true)
+                    ->whereNull('id_inscrito_reemplazo')
                     ->exists()) {
                     throw \Illuminate\Validation\ValidationException::withMessages([
                         'id_carrera' => 'Esta persona ya está inscrita en esa carrera durante la gestión seleccionada.',
@@ -223,6 +225,7 @@ class EstudianteNuevoController extends Controller
                 }
                 if (DB::table('inscrito')
                     ->where('id_gestionacademica', $validated['id_gestionacademica'])
+                    ->where('activo', true)
                     ->whereRaw('LOWER(deposito) = ?', [mb_strtolower(trim($validated['deposito']))])
                     ->exists()) {
                     throw \Illuminate\Validation\ValidationException::withMessages([
@@ -231,6 +234,7 @@ class EstudianteNuevoController extends Controller
                 }
                 if (DB::table('comprobante')
                     ->where('id_gestionacademica', $validated['id_gestionacademica'])
+                    ->where('activo', true)
                     ->whereRaw('LOWER(deposito) = ?', [mb_strtolower(trim($validated['deposito']))])
                     ->exists()) {
                     throw \Illuminate\Validation\ValidationException::withMessages([

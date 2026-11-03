@@ -96,9 +96,11 @@
                                 <th style="width: 12%;">Depósito</th>
                                 <th style="width: 12%;">Fecha</th>
                                 <th style="width: 26%;">Estudiante/Postulante</th>
+                                <th style="width: 14%;">Concepto</th>
                                 <th style="width: 12%;">Usuario</th>
                                 <th style="width: 10%;">Monto</th>
                                 <th style="width: 8%;">Valido</th>
+                                <th style="width: 10%;">Estado</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -116,6 +118,7 @@
                                     <td>{{ $pago->deposito ?? '—' }}</td>
                                     <td>{{ $pago->fecha ? \Illuminate\Support\Carbon::parse($pago->fecha)->format('d/m/Y') : '—' }}</td>
                                     <td>{{ $nombre !== '' ? $nombre : 'Postulante sin nombre' }}</td>
+                                    <td>{{ $pago->concepto ?? '—' }}</td>
                                     <td>{{ $pago->usuario_login ?? $pago->usuario_nombre ?? $pago->usuario_email ?? '—' }}</td>
                                     <td>{{ $pago->monto !== null ? number_format((float) $pago->monto, 2) : '—' }}</td>
                                     <td>
@@ -127,10 +130,13 @@
                                             No
                                         @endif
                                     </td>
+                                    <td>
+                                        <span class="badge {{ $pago->estado_registro === 'Activo' ? 'badge-success' : 'badge-secondary' }}">{{ $pago->estado_registro }}</span>
+                                    </td>
                                 </tr>
                             @empty
                                 <tr>
-                                    <td colspan="8" class="text-center text-muted">Ningún registro encontrado.</td>
+                                    <td colspan="9" class="text-center text-muted">Ningún registro encontrado.</td>
                                 </tr>
                             @endforelse
                         </tbody>

@@ -7,6 +7,17 @@
 @stop
 
 @section('content')
+    @if (session('success'))
+        <div class="alert alert-success">{{ session('success') }}</div>
+    @endif
+    @if ($errors->any())
+        <div class="alert alert-danger">
+            @foreach ($errors->all() as $error)
+                <div>{{ $error }}</div>
+            @endforeach
+        </div>
+    @endif
+
     <div class="row">
         <div class="col-lg-3 col-6">
             <div class="small-box bg-info shadow-sm">
@@ -81,11 +92,11 @@
                         </select>
                     </div>
                     <div class="col-12 col-md-4 mb-3">
-                        <label for="nivel" class="font-weight-bold">Nivel de inscripción</label>
+                        <label for="nivel" class="font-weight-bold">Año de inscripción</label>
                         <select name="nivel" id="nivel" class="form-control custom-select">
                             <option value="">-- Todos --</option>
                             @foreach ($niveles as $nivel)
-                                <option value="{{ $nivel }}" {{ request('nivel') == $nivel ? 'selected' : '' }}>{{ $nivel }}°</option>
+                                <option value="{{ $nivel }}" {{ request('nivel') == $nivel ? 'selected' : '' }}>{{ ['Primer año', 'Segundo año', 'Tercer año'][$nivel - 1] ?? $nivel.'° año' }}</option>
                             @endforeach
                         </select>
                     </div>
@@ -125,6 +136,14 @@
                             @endforeach
                         </select>
                     </div>
+                    <div class="col-12 col-md-2 mb-3">
+                        <label for="estado" class="font-weight-bold">Estado</label>
+                        <select name="estado" id="estado" class="form-control custom-select">
+                            <option value="activos" {{ $estado === 'activos' ? 'selected' : '' }}>Activos</option>
+                            <option value="deshabilitados" {{ $estado === 'deshabilitados' ? 'selected' : '' }}>Deshabilitados / reemplazados</option>
+                            <option value="todos" {{ $estado === 'todos' ? 'selected' : '' }}>Todos</option>
+                        </select>
+                    </div>
                     <div class="col-12 col-md-2 mb-3 d-flex align-items-end">
                         <button type="submit" class="btn btn-primary btn-block">
                             <i class="fas fa-filter mr-1"></i> Aplicar filtros
@@ -135,7 +154,7 @@
 
             <div class="row align-items-center mt-2">
                 <form method="GET" action="{{ route('inscriptos.index') }}" class="col-12 col-xl-6 mb-2 mb-xl-0">
-                    @foreach (request()->only(['id_gestionacademica', 'id_carrera', 'nivel', 'bth', 'traspaso_convalidacion', 'turno', 'paralelo']) as $nombre => $valor)
+                    @foreach (request()->only(['id_gestionacademica', 'id_carrera', 'nivel', 'bth', 'traspaso_convalidacion', 'turno', 'paralelo', 'estado']) as $nombre => $valor)
                         @if (is_scalar($valor) && $valor !== '')
                             <input type="hidden" name="{{ $nombre }}" value="{{ $valor }}">
                         @endif
@@ -151,10 +170,10 @@
                 </form>
 
                 <div class="col-12 col-xl-6 d-flex flex-wrap justify-content-xl-end">
-                    <a href="{{ route('inscriptos.index', array_merge(request()->only(['id_gestionacademica', 'id_carrera', 'nivel', 'bth', 'traspaso_convalidacion', 'turno', 'paralelo', 'buscar_rapido']), ['formato' => 'excel'])) }}" class="btn btn-success shadow-sm mr-1 mb-1">
+                    <a href="{{ route('inscriptos.index', array_merge(request()->only(['id_gestionacademica', 'id_carrera', 'nivel', 'bth', 'traspaso_convalidacion', 'turno', 'paralelo', 'buscar_rapido', 'estado']), ['formato' => 'excel'])) }}" class="btn btn-success shadow-sm mr-1 mb-1">
                         <i class="fas fa-file-excel mr-1"></i> Exportar Excel
                     </a>
-                    <a href="{{ route('inscriptos.index', array_merge(request()->only(['id_gestionacademica', 'id_carrera', 'nivel', 'bth', 'traspaso_convalidacion', 'turno', 'paralelo', 'buscar_rapido']), ['formato' => 'pdf'])) }}" target="_blank" rel="noopener" class="btn btn-danger shadow-sm mr-1 mb-1">
+                    <a href="{{ route('inscriptos.index', array_merge(request()->only(['id_gestionacademica', 'id_carrera', 'nivel', 'bth', 'traspaso_convalidacion', 'turno', 'paralelo', 'buscar_rapido', 'estado']), ['formato' => 'pdf'])) }}" target="_blank" rel="noopener" class="btn btn-danger shadow-sm mr-1 mb-1">
                         <i class="fas fa-file-pdf mr-1"></i> Exportar PDF
                     </a>
                     <a href="{{ route('inscriptos.index') }}" class="btn btn-default shadow-sm mb-1" title="Limpiar filtros">
@@ -180,6 +199,7 @@
                             <th>CI</th>
                             <th>Celular</th>
                             <th>Carrera</th>
+                            <th>Estado</th>
                             <th class="text-center">Acciones</th>
                         </tr>
                     </thead>
@@ -210,10 +230,30 @@
                                         </span>
                                     @endif
                                 </td>
+                                <td>
+                                    @if ($inscrito->id_inscrito_reemplazo)
+                                        <span class="badge badge-secondary">Reemplazada</span>
+                                    @elseif ($inscrito->activo)
+                                        <span class="badge badge-success">Activa</span>
+                                    @else
+                                        <span class="badge badge-danger">Deshabilitada</span>
+                                    @endif
+                                </td>
                                 <td class="text-center">
                                     <button type="button" class="btn btn-xs btn-info" data-toggle="modal" data-target="#modalExpediente{{ $inscrito->id_inscrito }}" title="Ver expediente">
                                         <i class="fas fa-eye"></i> Expediente
                                     </button>
+                                    @if ($inscrito->activo && ! $inscrito->id_inscrito_reemplazo)
+                                        <a href="{{ route('inscriptos.edit', $inscrito->id_inscrito) }}" class="btn btn-xs btn-primary">
+                                            <i class="fas fa-edit"></i> Editar
+                                        </a>
+                                        <form method="POST" action="{{ route('inscriptos.deshabilitar', $inscrito->id_inscrito) }}" class="d-inline" onsubmit="return confirm('¿Deshabilitar esta inscripción, su comprobante y sus pagos? Los datos se conservarán en el historial administrativo.');">
+                                            @csrf
+                                            <button type="submit" class="btn btn-xs btn-danger">
+                                                <i class="fas fa-ban"></i> Deshabilitar
+                                            </button>
+                                        </form>
+                                    @endif
                                     @if ($inscrito->carreras_inscritas->count() > 1)
                                         <button type="button" class="btn btn-xs btn-warning" data-toggle="modal" data-target="#modalCarreras{{ $inscrito->id_inscrito }}" title="Ver carreras de este estudiante">
                                             <i class="fas fa-layer-group"></i> {{ $inscrito->carreras_inscritas->count() }} carreras
@@ -223,7 +263,7 @@
                             </tr>
                         @empty
                             <tr>
-                                <td colspan="10" class="text-center text-muted py-4">
+                                <td colspan="11" class="text-center text-muted py-4">
                                     <i class="fas fa-info-circle mr-1"></i> No se encontraron inscripciones con esos criterios.
                                 </td>
                             </tr>

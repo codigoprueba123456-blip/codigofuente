@@ -139,6 +139,9 @@ Route::post('/inscripciones/estudiante_regular', [EstudianteRegularController::c
 
 // Ruta para inscritos
 Route::get('/inscripciones/inscriptos', [InscritosController::class, 'index'])->name('inscriptos.index')->middleware(['auth', 'resource.access']);
+Route::get('/inscripciones/inscriptos/{inscrito}/editar', [InscritosController::class, 'edit'])->name('inscriptos.edit')->middleware(['auth', 'resource.access']);
+Route::put('/inscripciones/inscriptos/{inscrito}', [InscritosController::class, 'update'])->name('inscriptos.update')->middleware(['auth', 'resource.access']);
+Route::post('/inscripciones/inscriptos/{inscrito}/deshabilitar', [InscritosController::class, 'deshabilitar'])->name('inscriptos.deshabilitar')->middleware(['auth', 'resource.access']);
 
 Route::get('/inscripcion/nuevo', [EstudianteNuevoController::class, 'index'])->name('inscripcion.create')->middleware(['auth', 'resource.access']);
 Route::post('/inscripcion/nuevo', [EstudianteNuevoController::class, 'store'])->name('inscripcion.store')->middleware(['auth', 'resource.access']);

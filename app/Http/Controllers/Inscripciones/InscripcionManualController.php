@@ -27,6 +27,8 @@ class InscripcionManualController extends Controller
                 ->join('personas as p', 'p.id_persona', '=', 'i.id_persona')
                 ->join('carreras as c', 'c.id_carrera', '=', 'i.id_carrera')
                 ->where('i.id_gestionacademica', $gestionActual->id_gestionacademica)
+                ->where('i.activo', true)
+                ->whereNull('i.id_inscrito_reemplazo')
                 ->where(function ($query) use ($termino): void {
                     $query->where('p.ci', 'like', '%'.$termino.'%')
                         ->orWhere('p.nombre', 'like', '%'.$termino.'%')
@@ -63,6 +65,8 @@ class InscripcionManualController extends Controller
                 ->join('carreras as c', 'c.id_carrera', '=', 'i.id_carrera')
                 ->where('i.id_persona', $inscripcionSeleccionada->id_persona)
                 ->where('i.id_gestionacademica', $gestionActual->id_gestionacademica)
+                ->where('i.activo', true)
+                ->whereNull('i.id_inscrito_reemplazo')
                 ->orderBy('c.nombre')
                 ->get(['i.id_inscrito', 'i.id_carrera', 'c.nombre as carrera']);
             $materiasActuales = DB::table('inscrito_materia as im')
@@ -118,6 +122,8 @@ class InscripcionManualController extends Controller
                     ->where('cu.id_gestionacademica', '=', $gestionActual->id_gestionacademica);
             })
             ->where('i.id_gestionacademica', $gestionActual->id_gestionacademica)
+            ->where('i.activo', true)
+            ->whereNull('i.id_inscrito_reemplazo')
             ->where(function ($query) use ($palabras): void {
                 foreach ($palabras as $palabra) {
                     $query->where(function ($subquery) use ($palabra): void {
@@ -404,6 +410,8 @@ class InscripcionManualController extends Controller
             ->join('carreras as c', 'c.id_carrera', '=', 'i.id_carrera')
             ->where('i.id_inscrito', $inscrito->id_inscrito)
             ->where('i.id_gestionacademica', $gestionActual->id_gestionacademica)
+            ->where('i.activo', true)
+            ->whereNull('i.id_inscrito_reemplazo')
             ->first([
                 'i.id_inscrito',
                 'i.id_persona',

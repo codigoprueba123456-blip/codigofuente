@@ -37,7 +37,7 @@
     <div class="info-reporte">
         <p><strong>Carrera:</strong> {{ $carreraSeleccionada->nombre ?? 'TODAS LAS CARRERAS' }}</p>
         <p><strong>Gestión Académica:</strong> {{ $gestionSeleccionada ? 'Gestión '.$gestionSeleccionada->gestion.' - Periodo '.$gestionSeleccionada->periodo : 'TODAS LAS GESTIONES' }}</p>
-        <p><strong>Nivel:</strong> {{ request('nivel') ? request('nivel').'°' : 'Todos' }} |
+        <p><strong>Año:</strong> {{ request('nivel') ? (['Primer año', 'Segundo año', 'Tercer año'][(int) request('nivel') - 1] ?? request('nivel').'° año') : 'Todos' }} |
             <strong>Turno:</strong> {{ request('turno') ?: 'Todos' }} |
             <strong>Paralelo:</strong> {{ request('paralelo') ?: 'Todos' }}</p>
         @if (request('buscar_rapido'))
@@ -58,6 +58,7 @@
                 <th width="11%">CI</th>
                 <th width="10%">CELULAR</th>
                 <th width="13%">CARRERA</th>
+                <th width="8%">ESTADO</th>
             </tr>
         </thead>
         <tbody>
@@ -77,10 +78,11 @@
                             (Multi-carrera)
                         @endif
                     </td>
+                    <td>{{ $inscrito->id_inscrito_reemplazo ? 'Reemplazada' : ($inscrito->activo ? 'Activa' : 'Deshabilitada') }}</td>
                 </tr>
             @empty
                 <tr>
-                    <td colspan="9" class="text-center" style="padding: 18px; color: #777;">No se encontraron inscripciones para este reporte.</td>
+                    <td colspan="10" class="text-center" style="padding: 18px; color: #777;">No se encontraron inscripciones para este reporte.</td>
                 </tr>
             @endforelse
         </tbody>

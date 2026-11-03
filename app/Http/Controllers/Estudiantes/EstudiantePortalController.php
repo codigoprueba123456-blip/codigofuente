@@ -26,12 +26,15 @@ class EstudiantePortalController extends Controller
             $inscripciones = DB::table('inscrito as i')
                 ->join('carreras as c', 'c.id_carrera', '=', 'i.id_carrera')
                 ->join('gestionacademica as ga', 'ga.id_gestionacademica', '=', 'i.id_gestionacademica')
+                ->leftJoin('inscrito as ir', 'ir.id_inscrito', '=', 'i.id_inscrito_reemplazo')
+                ->leftJoin('carreras as cr', 'cr.id_carrera', '=', 'ir.id_carrera')
                 ->leftJoin('cursa as cu', function ($join): void {
                     $join->on('cu.id_persona', '=', 'i.id_persona')
                         ->on('cu.id_carrera', '=', 'i.id_carrera')
                         ->on('cu.id_gestionacademica', '=', 'i.id_gestionacademica');
                 })
                 ->where('i.id_persona', $persona->id_persona)
+                ->where('i.activo', true)
                 ->orderByDesc('ga.gestion')
                 ->orderByDesc('ga.periodo')
                 ->orderByDesc('i.id_gestionacademica')
@@ -43,12 +46,15 @@ class EstudiantePortalController extends Controller
                     'ga.gestion',
                     'ga.periodo',
                     'cu.nivelinicio',
+                    'i.id_inscrito_reemplazo',
+                    'cr.nombre as carrera_reemplazo',
                 ]);
 
-            $carrerasPorId = Carrera::whereIn('id_carrera', $inscripciones->pluck('id_carrera')->unique())
+            $inscripcionesVigentes = $inscripciones->whereNull('id_inscrito_reemplazo')->values();
+            $carrerasPorId = Carrera::whereIn('id_carrera', $inscripcionesVigentes->pluck('id_carrera')->unique())
                 ->get()
                 ->keyBy('id_carrera');
-            $carreras = $inscripciones->unique('id_carrera')
+            $carreras = $inscripcionesVigentes->unique('id_carrera')
                 ->map(fn (object $inscripcion): ?Carrera => $carrerasPorId->get($inscripcion->id_carrera))
                 ->filter()
                 ->values();
@@ -57,7 +63,7 @@ class EstudiantePortalController extends Controller
                 $idCarrera = (int) ($carreras->first()->id_carrera ?? 0);
             }
 
-            $gestiones = $inscripciones
+            $gestiones = $inscripcionesVigentes
                 ->where('id_carrera', $idCarrera)
                 ->values();
             $idGestion = (int) $request->query('id_gestionacademica', $gestiones->first()->id_gestionacademica ?? 0);
@@ -71,6 +77,8 @@ class EstudiantePortalController extends Controller
                     ->where('i.id_persona', $persona->id_persona)
                     ->where('i.id_carrera', $idCarrera)
                     ->where('i.id_gestionacademica', $idGestion)
+                    ->where('i.activo', true)
+                    ->whereNull('i.id_inscrito_reemplazo')
                     ->first([
                         'i.id_inscrito',
                         'i.id_carrera',
@@ -112,6 +120,8 @@ class EstudiantePortalController extends Controller
                             ->join('gestionacademica as ga', 'ga.id_gestionacademica', '=', 'i.id_gestionacademica')
                             ->where('i.id_persona', $persona->id_persona)
                             ->where('i.id_carrera', $idCarrera)
+                            ->where('i.activo', true)
+                            ->whereNull('i.id_inscrito_reemplazo')
                             ->where(function ($query) use ($inscripcionSeleccionada): void {
                                 $query->where('ga.gestion', '<', $inscripcionSeleccionada->gestion)
                                     ->orWhere(function ($query) use ($inscripcionSeleccionada): void {
@@ -152,7 +162,11 @@ class EstudiantePortalController extends Controller
         if ($persona?->estudiante) {
             $carreras = Carrera::whereIn(
                 'id_carrera',
-                DB::table('inscrito')->where('id_persona', $persona->id_persona)->select('id_carrera')
+                DB::table('inscrito')
+                    ->where('id_persona', $persona->id_persona)
+                    ->where('activo', true)
+                    ->whereNull('id_inscrito_reemplazo')
+                    ->select('id_carrera')
             )->orderBy('nombre')->get();
 
             $idCarrera = (int) $request->query('id_carrera', $request->query('carreras', 0));
@@ -165,11 +179,14 @@ class EstudiantePortalController extends Controller
             $detalles = DB::table('detalle')
                 ->select('id_pago')
                 ->selectRaw('SUM(monto) as monto')
+                ->selectRaw('MAX(nombre) as nombre')
                 ->groupBy('id_pago');
             $pagosPorInscripcion = DB::table('pago as pago')
                 ->leftJoinSub($detalles, 'detalle', 'detalle.id_pago', '=', 'pago.id_pago')
                 ->select('pago.id_inscrito', 'pago.id_postulante')
                 ->selectRaw('SUM(COALESCE(detalle.monto, pago.monto, 0)) as monto')
+                ->selectRaw('MAX(detalle.nombre) as concepto')
+                ->selectRaw('MIN(pago.pagado) as pagado')
                 ->groupBy('pago.id_inscrito', 'pago.id_postulante');
 
             $pagos = DB::table('comprobante as cb')
@@ -181,6 +198,14 @@ class EstudiantePortalController extends Controller
                         ->orOn('pa.id_postulante', '=', 'cb.id_postulante');
                 })
                 ->where('cb.id_estudiante', $persona->id_persona)
+                ->where('cb.activo', true)
+                ->where(function ($query): void {
+                    $query->whereNull('i.id_inscrito')
+                        ->orWhere(function ($enrollment): void {
+                            $enrollment->where('i.activo', true)
+                                ->whereNull('i.id_inscrito_reemplazo');
+                        });
+                })
                 ->where('cb.id_carrera', $carreraSeleccionada)
                 ->orderByDesc('ga.gestion')
                 ->orderByDesc('ga.periodo')
@@ -188,6 +213,8 @@ class EstudiantePortalController extends Controller
                 ->get([
                     'cb.id_comprobante as id_pago',
                     DB::raw('COALESCE(pa.monto, 0) as monto'),
+                    'pa.concepto',
+                    'pa.pagado',
                     'cb.fecha',
                     'cb.id_gestionacademica',
                     'ga.gestion',
