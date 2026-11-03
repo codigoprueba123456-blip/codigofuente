@@ -86,7 +86,9 @@
                             <td>{{ $actividad->nombre }}</td>
                             <td>{{ $actividad->descripcion ?? '-' }}</td>
                             <td class="text-center">
-                                @if($actividad->funcionalidad)
+                                @if($actividad->funcionalidades->isNotEmpty())
+                                    {{ $actividad->funcionalidades->pluck('nombre')->implode(', ') }}
+                                @elseif($actividad->funcionalidad)
                                     {{ $actividad->funcionalidadRecurso?->nombre ?? 'Sección #' . $actividad->funcionalidad }}
                                 @else
                                     -

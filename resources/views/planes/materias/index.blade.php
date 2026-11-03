@@ -102,7 +102,7 @@
                                 <a href="{{ route('planes.materias.edit', $materia->id_materia) }}" class="btn btn-sm btn-info" title="Editar">
                                     <i class="fas fa-edit"></i>
                                 </a>
-                                <form action="{{ route('planes.materias.destroy', $materia->id_materia) }}" method="POST" class="d-inline" onsubmit="return confirm('¿Deseas eliminar esta materia?');">
+                                <form action="{{ route('planes.materias.destroy', $materia->id_materia) }}" method="POST" class="d-inline" data-confirm-delete="{{ $materia->nombre }}">
                                     @csrf
                                     @method('DELETE')
                                     <button type="submit" class="btn btn-sm btn-danger" title="Eliminar">
@@ -122,4 +122,46 @@
         </div>
     </div>
 </div>
+
+@include('partials.sweetalert-assets')
+
+@push('js')
+<script>
+    document.querySelectorAll('form[data-confirm-delete]').forEach((form) => {
+        form.addEventListener('submit', (event) => {
+            const materia = form.dataset.confirmDelete;
+            const mensaje = `Se eliminará la materia "${materia}". Esta acción no se puede deshacer.`;
+
+            if (form.dataset.confirmed === 'true') {
+                return;
+            }
+
+            if (!window.Swal) {
+                if (!window.confirm(`¿Deseas eliminar esta materia? ${mensaje}`)) {
+                    event.preventDefault();
+                }
+
+                return;
+            }
+
+            event.preventDefault();
+            window.Swal.fire({
+                title: '¿Eliminar materia?',
+                text: mensaje,
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonColor: '#dc3545',
+                confirmButtonText: 'Sí, eliminar',
+                cancelButtonText: 'Cancelar',
+                reverseButtons: true,
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    form.dataset.confirmed = 'true';
+                    form.requestSubmit();
+                }
+            });
+        });
+    });
+</script>
+@endpush
 @stop

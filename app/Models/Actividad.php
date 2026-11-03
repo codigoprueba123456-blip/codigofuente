@@ -18,6 +18,11 @@ class Actividad extends Model
         'id_gestionacademica',
     ];
 
+    protected $casts = [
+        'inicio' => 'datetime',
+        'fin' => 'datetime',
+    ];
+
     public function gestionAcademica()
     {
         return $this->belongsTo(GestionAcademica::class, 'id_gestionacademica', 'id_gestionacademica');
@@ -26,6 +31,18 @@ class Actividad extends Model
     public function funcionalidadRecurso()
     {
         return $this->belongsTo(Recurso::class, 'funcionalidad', 'id_recurso');
+    }
+
+    public function funcionalidades()
+    {
+        return $this->belongsToMany(
+            Recurso::class,
+            'actividad_funcionalidad',
+            'id_actividad',
+            'id_recurso',
+            'id_actividad',
+            'id_recurso'
+        );
     }
 
     public function carreras()

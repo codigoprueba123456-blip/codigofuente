@@ -6,7 +6,7 @@
 
     const toast = window.Swal.mixin({
         toast: true,
-        position: 'top-end',
+        position: 'top-start',
         showConfirmButton: false,
         timer: 4500,
         timerProgressBar: true,
@@ -36,13 +36,20 @@
     };
 
     document.addEventListener('DOMContentLoaded', function () {
+        const shownMessages = new Set();
+
         document.querySelectorAll('[data-sweetalert]').forEach(message => {
             const { kind, title, message: text } = message.dataset;
+            const key = JSON.stringify([kind, title, text]);
 
-            if (kind === 'validation') {
-                window.itsaAlert('error', title, text);
-            } else {
-                window.itsaToast(kind, title, text);
+            if (!shownMessages.has(key)) {
+                shownMessages.add(key);
+
+                if (kind === 'validation') {
+                    window.itsaAlert('error', title, text);
+                } else {
+                    window.itsaToast(kind, title, text);
+                }
             }
 
             message.remove();

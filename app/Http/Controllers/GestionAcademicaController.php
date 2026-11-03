@@ -29,7 +29,7 @@ class GestionAcademicaController extends Controller
 
     public function store(Request $request)
     {
-        $validated = $request->validate($this->rules());
+        $validated = $request->validate($this->rules(), $this->messages());
         GestionAcademica::create($validated);
 
         return redirect()->route('admin.gestionacademica.index')
@@ -46,7 +46,7 @@ class GestionAcademicaController extends Controller
     public function update(Request $request, $id)
     {
         $gestion = GestionAcademica::findOrFail($id);
-        $gestion->update($request->validate($this->rules()));
+        $gestion->update($request->validate($this->rules(), $this->messages()));
 
         return redirect()->route('admin.gestionacademica.index')
             ->with('success', 'Gestión académica actualizada correctamente.');
@@ -70,6 +70,13 @@ class GestionAcademicaController extends Controller
             'fin' => ['nullable', 'date', 'after_or_equal:inicio'],
             'vigente' => ['sometimes', 'boolean'],
             'modalidadevaluacion' => ['nullable', 'integer', 'in:1,2'],
+        ];
+    }
+
+    private function messages(): array
+    {
+        return [
+            'fin.after_or_equal' => 'La fecha de fin no puede ser anterior a la fecha de inicio.',
         ];
     }
 }

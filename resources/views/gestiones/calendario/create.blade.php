@@ -34,20 +34,24 @@
                 </div>
                 <div class="col-md-6 form-group">
                     <label for="fin">Fin</label>
-                    <input type="datetime-local" name="fin" id="fin" class="form-control" value="{{ old('fin') }}">
+                    <input type="datetime-local" name="fin" id="fin" class="form-control @error('fin') is-invalid @enderror" value="{{ old('fin') }}" min="{{ old('inicio') }}">
+                    <div id="fin-date-error" class="invalid-feedback d-block" role="alert" @if(!$errors->has('fin')) hidden @endif>
+                        {{ $errors->first('fin') }}
+                    </div>
                 </div>
             </div>
             <div class="form-group mb-0">
-                <label for="funcionalidad">Habilitar sección</label>
-                <select name="funcionalidad" id="funcionalidad" class="form-control">
-                    <option value="">No habilita una sección</option>
+                <label for="funcionalidades">Habilitar secciones</label>
+                <select name="funcionalidades[]" id="funcionalidades" class="form-control @error('funcionalidades') is-invalid @enderror @error('funcionalidades.*') is-invalid @enderror" multiple size="6">
                     @foreach($funcionalidades as $funcionalidad)
-                        <option value="{{ $funcionalidad->id_recurso }}" @selected(old('funcionalidad') == $funcionalidad->id_recurso)>
+                        <option value="{{ $funcionalidad->id_recurso }}" @selected(in_array((string) $funcionalidad->id_recurso, array_map('strval', old('funcionalidades', [])), true))>
                             Sección {{ $funcionalidad->id_recurso }} - {{ $funcionalidad->nombre }}
                         </option>
                     @endforeach
                 </select>
-                <small class="form-text text-muted">El número se asigna automáticamente a cada módulo. La sección queda habilitada solo durante las fechas indicadas y para la audiencia seleccionada.</small>
+                @error('funcionalidades')<span class="invalid-feedback d-block">{{ $message }}</span>@enderror
+                @error('funcionalidades.*')<span class="invalid-feedback d-block">{{ $message }}</span>@enderror
+                <small class="form-text text-muted">Usa Ctrl (Windows) o Cmd (Mac) para seleccionar varias secciones. Quedan habilitadas durante las fechas indicadas y para la audiencia seleccionada.</small>
             </div>
         </div>
         <div class="card-footer d-flex justify-content-end">
@@ -56,4 +60,9 @@
         </div>
     </form>
 </div>
+@stop
+
+@section('js')
+    @parent
+    @include('gestiones.calendario._validacion-fechas')
 @stop

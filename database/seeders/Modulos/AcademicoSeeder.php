@@ -382,6 +382,8 @@ class AcademicoSeeder extends Seeder
             ],
             ['nivelinicio' => 1]
         );
+
+        $this->call(InscripcionManualGruposSeeder::class);
     }
 
     private function seedCurrentDemoCatalog(int $institutoId): void

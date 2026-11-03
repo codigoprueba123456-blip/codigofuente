@@ -37,14 +37,16 @@ class FunctionalityAccessTest extends TestCase
         $this->post(route('planes.carreras.store'), [
             'codigo' => 'INF-001',
             'nombre' => 'Informática',
-        ])->assertRedirect(route('planes.carreras.index'));
+        ])->assertRedirect(route('planes.carreras.index'))
+            ->assertSessionHas('success', 'Carrera creada correctamente.');
 
         $career = Carrera::where('codigo', 'INF-001')->firstOrFail();
         $this->get(route('planes.carreras.edit', $career->id_carrera))->assertOk();
         $this->put(route('planes.carreras.update', $career->id_carrera), [
             'codigo' => 'INF-001',
             'nombre' => 'Informática actualizada',
-        ])->assertRedirect(route('planes.carreras.index'));
+        ])->assertRedirect(route('planes.carreras.index'))
+            ->assertSessionHas('success', 'Carrera actualizada correctamente.');
 
         $this->get(route('planes.materias.index'))->assertOk();
         $this->get(route('planes.materias.create'))
@@ -53,14 +55,16 @@ class FunctionalityAccessTest extends TestCase
         $this->post(route('planes.materias.store'), [
             'nombre' => 'Programación',
             'id_carrera' => $career->id_carrera,
-        ])->assertRedirect(route('planes.materias.index'));
+        ])->assertRedirect(route('planes.materias.index'))
+            ->assertSessionHas('success', 'Materia creada correctamente.');
 
         $subject = Materia::where('nombre', 'Programación')->firstOrFail();
         $this->get(route('planes.materias.edit', $subject->id_materia))->assertOk();
         $this->put(route('planes.materias.update', $subject->id_materia), [
             'nombre' => 'Programación actualizada',
             'id_carrera' => $career->id_carrera,
-        ])->assertRedirect(route('planes.materias.index'));
+        ])->assertRedirect(route('planes.materias.index'))
+            ->assertSessionHas('success', 'Materia actualizada correctamente.');
         $this->delete(route('planes.materias.destroy', $subject->id_materia))
             ->assertRedirect(route('planes.materias.index'));
 
@@ -102,6 +106,16 @@ class FunctionalityAccessTest extends TestCase
             ->assertSee('Programación')
             ->assertDontSee('Contabilidad')
             ->assertSee('value="' . $primeraCarrera->id_carrera . '" selected', false);
+    }
+
+    public function test_success_messages_are_available_globally_in_the_navigation(): void
+    {
+        $this->actingAs($this->createUser())
+            ->withSession(['success' => 'Carrera creada correctamente.'])
+            ->get(route('planes.carreras.index'))
+            ->assertOk()
+            ->assertSee('data-kind="success"', false)
+            ->assertSee('data-message="Carrera creada correctamente."', false);
     }
 
     public function test_homepage_career_selector_shows_active_career_resolutions(): void
@@ -266,6 +280,120 @@ class FunctionalityAccessTest extends TestCase
         $this->createActivity($resource->id_recurso, $user, now()->subDays(2), now()->subDay());
         $this->post('/planes/inscripciones')
             ->assertForbidden();
+    }
+
+    public function test_one_calendar_activity_can_enable_multiple_sections_until_its_end_date(): void
+    {
+        $admin = $this->createUser();
+        $user = $this->createUser('owner');
+        $menu = config('functionality.menu', []);
+        $menu[] = ['text' => 'Módulo uno', 'url' => 'planes/modulo-uno'];
+        $menu[] = ['text' => 'Módulo dos', 'url' => 'planes/modulo-dos'];
+        config(['functionality.menu' => $menu]);
+        Route::middleware('web')->post('/planes/modulo-uno', fn () => response('módulo uno habilitado'));
+        Route::middleware('web')->post('/planes/modulo-dos', fn () => response('módulo dos habilitado'));
+        MenuResourceSync::sync();
+
+        $recursoUno = Recurso::where('urlpattern', 'planes/modulo-uno')->firstOrFail();
+        $recursoDos = Recurso::where('urlpattern', 'planes/modulo-dos')->firstOrFail();
+        $gestion = GestionAcademica::create([
+            'gestion' => 2026,
+            'periodo' => 1,
+            'regimen' => 1,
+            'vigente' => true,
+        ]);
+        $actividad = Actividad::create([
+            'nombre' => 'Habilitación de dos módulos',
+            'inicio' => now()->subMinute(),
+            'fin' => now()->addHour(),
+            'id_gestionacademica' => $gestion->id_gestionacademica,
+        ]);
+        $actividad->funcionalidades()->sync([$recursoUno->id_recurso, $recursoDos->id_recurso]);
+
+        $this->actingAs($admin)
+            ->get(route('admin.actividad.edit', $actividad->id_actividad))
+            ->assertOk()
+            ->assertSee('multiple', false)
+            ->assertSee('value="' . $recursoUno->id_recurso . '" selected', false)
+            ->assertSee('value="' . $recursoDos->id_recurso . '" selected', false);
+
+        $this->put(route('admin.actividad.update', $actividad->id_actividad), [
+            'nombre' => 'Habilitación de dos módulos',
+            'id_gestionacademica' => $gestion->id_gestionacademica,
+            'audiencia' => 'general',
+            'inicio' => now()->subMinute()->format('Y-m-d\TH:i'),
+            'fin' => now()->addHour()->format('Y-m-d\TH:i'),
+            'funcionalidades' => [$recursoUno->id_recurso, $recursoDos->id_recurso],
+        ])->assertRedirect(route('admin.actividad.index', [
+            'id_gestionacademica' => $gestion->id_gestionacademica,
+        ]));
+        $this->assertSame(
+            [$recursoUno->id_recurso, $recursoDos->id_recurso],
+            $actividad->fresh()->funcionalidades()->orderBy('recurso.id_recurso')->pluck('recurso.id_recurso')->all()
+        );
+        $this->assertNull($actividad->fresh()->funcionalidad);
+
+        $this->actingAs($user)
+            ->post('/planes/modulo-uno')
+            ->assertOk()
+            ->assertSee('módulo uno habilitado');
+
+        $this->post('/planes/modulo-dos')
+            ->assertOk()
+            ->assertSee('módulo dos habilitado');
+
+        $actividad->update(['fin' => now()->subMinute()]);
+        $this->post('/planes/modulo-uno')->assertForbidden();
+        $this->post('/planes/modulo-dos')->assertForbidden();
+    }
+
+    public function test_calendar_rejects_an_end_datetime_before_the_start_datetime(): void
+    {
+        $admin = $this->createUser();
+        $gestion = GestionAcademica::create([
+            'gestion' => 2026,
+            'periodo' => 1,
+            'regimen' => 1,
+            'vigente' => true,
+        ]);
+        $mensaje = 'La fecha de fin no puede ser anterior a la fecha de inicio.';
+        $datos = [
+            'nombre' => 'Periodo de inscripción',
+            'id_gestionacademica' => $gestion->id_gestionacademica,
+            'audiencia' => 'general',
+            'inicio' => '2026-11-05T12:00',
+            'fin' => '2026-11-05T11:59',
+        ];
+
+        $this->actingAs($admin)
+            ->get(route('admin.actividad.create'))
+            ->assertOk()
+            ->assertSee('fin-date-error', false)
+            ->assertSee('setCustomValidity', false);
+
+        $this->from(route('admin.actividad.create'))
+            ->post(route('admin.actividad.store'), $datos)
+            ->assertSessionHasErrors(['fin' => $mensaje])
+            ->assertRedirect(route('admin.actividad.create'));
+        $this->assertDatabaseMissing('actividad', ['nombre' => 'Periodo de inscripción']);
+
+        $actividad = Actividad::create([
+            'nombre' => 'Actividad existente',
+            'inicio' => '2026-11-01 09:00:00',
+            'fin' => '2026-11-06 09:00:00',
+            'id_gestionacademica' => $gestion->id_gestionacademica,
+        ]);
+
+        $this->get(route('admin.actividad.edit', $actividad->id_actividad))
+            ->assertOk()
+            ->assertSee('fin-date-error', false);
+
+        $this->from(route('admin.actividad.edit', $actividad->id_actividad))
+            ->put(route('admin.actividad.update', $actividad->id_actividad), $datos)
+            ->assertSessionHasErrors(['fin' => $mensaje])
+            ->assertRedirect(route('admin.actividad.edit', $actividad->id_actividad));
+
+        $this->assertSame('2026-11-06 09:00:00', $actividad->fresh()->fin->format('Y-m-d H:i:s'));
     }
 
     public function test_administrators_bypass_calendar_and_role_restrictions(): void

@@ -9,6 +9,7 @@ use App\Models\Recurso;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Arr;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 use App\Support\MenuResourceSync;
 
@@ -17,7 +18,7 @@ class ActividadController extends Controller
     public function index(Request $request)
     {
         $gestiones = GestionAcademica::habilitadas()->orderByDesc('gestion')->orderBy('periodo')->get();
-        $query = Actividad::with(['gestionAcademica', 'carreras', 'usuarios', 'funcionalidadRecurso'])
+        $query = Actividad::with(['gestionAcademica', 'carreras', 'usuarios', 'funcionalidadRecurso', 'funcionalidades'])
             ->when($request->filled('id_gestionacademica'), fn ($query) =>
                 $query->where('id_gestionacademica', $request->id_gestionacademica))
             ->when($request->filled('buscar'), fn ($query) =>
@@ -45,10 +46,15 @@ class ActividadController extends Controller
 
     public function store(Request $request)
     {
-        $validated = $request->validate($this->rules());
+        $validated = $request->validate($this->rules(), $this->messages());
         $this->ensureEnabled($validated['id_gestionacademica']);
-        $actividad = Actividad::create(Arr::except($validated, ['audiencia', 'carreras', 'usuarios']));
-        $this->syncVisibility($actividad, $validated);
+        $actividad = DB::transaction(function () use ($validated): Actividad {
+            $actividad = Actividad::create(Arr::except($validated, ['audiencia', 'carreras', 'usuarios', 'funcionalidades']));
+            $this->syncVisibility($actividad, $validated);
+            $actividad->funcionalidades()->sync($validated['funcionalidades'] ?? []);
+
+            return $actividad;
+        });
 
         return redirect()->route('admin.actividad.index', [
             'id_gestionacademica' => $validated['id_gestionacademica'],
@@ -57,24 +63,40 @@ class ActividadController extends Controller
 
     public function edit($id)
     {
-        $actividad = Actividad::with(['carreras', 'usuarios'])->findOrFail($id);
+        $actividad = Actividad::with(['carreras', 'usuarios', 'funcionalidades'])->findOrFail($id);
         $this->ensureEnabled($actividad->id_gestionacademica);
         $gestiones = GestionAcademica::habilitadas()->orderByDesc('gestion')->orderBy('periodo')->get();
         $carreras = Carrera::orderBy('nombre')->get();
         $usuarios = User::with('persona')->orderBy('usuario')->get();
         $funcionalidades = $this->funcionalidades();
+        $funcionalidadesSeleccionadas = $actividad->funcionalidades->pluck('id_recurso')->all();
+        if ($funcionalidadesSeleccionadas === [] && $actividad->funcionalidad !== null) {
+            $funcionalidadesSeleccionadas[] = $actividad->funcionalidad;
+        }
 
-        return view('gestiones.calendario.edit', compact('actividad', 'gestiones', 'carreras', 'usuarios', 'funcionalidades'));
+        return view('gestiones.calendario.edit', compact(
+            'actividad',
+            'gestiones',
+            'carreras',
+            'usuarios',
+            'funcionalidades',
+            'funcionalidadesSeleccionadas'
+        ));
     }
 
     public function update(Request $request, $id)
     {
         $actividad = Actividad::findOrFail($id);
         $this->ensureEnabled($actividad->id_gestionacademica);
-        $validated = $request->validate($this->rules());
+        $validated = $request->validate($this->rules(), $this->messages());
         $this->ensureEnabled($validated['id_gestionacademica']);
-        $actividad->update(Arr::except($validated, ['audiencia', 'carreras', 'usuarios']));
-        $this->syncVisibility($actividad, $validated);
+        DB::transaction(function () use ($actividad, $validated): void {
+            $actividad->update(Arr::except($validated, ['audiencia', 'carreras', 'usuarios', 'funcionalidades']));
+            $actividad->funcionalidad = null;
+            $actividad->save();
+            $this->syncVisibility($actividad, $validated);
+            $actividad->funcionalidades()->sync($validated['funcionalidades'] ?? []);
+        });
 
         return redirect()->route('admin.actividad.index', [
             'id_gestionacademica' => $validated['id_gestionacademica'],
@@ -100,13 +122,21 @@ class ActividadController extends Controller
             'descripcion' => ['nullable', 'string', 'max:255'],
             'inicio' => ['nullable', 'date'],
             'fin' => ['nullable', 'date', 'after_or_equal:inicio'],
-            'funcionalidad' => ['nullable', 'integer', 'exists:recurso,id_recurso'],
+            'funcionalidades' => ['nullable', 'array'],
+            'funcionalidades.*' => ['integer', 'distinct', 'exists:recurso,id_recurso'],
             'id_gestionacademica' => ['required', 'exists:gestionacademica,id_gestionacademica'],
             'audiencia' => ['required', 'in:general,carrera,usuario'],
             'carreras' => ['required_if:audiencia,carrera', 'array'],
             'carreras.*' => ['exists:carreras,id_carrera'],
             'usuarios' => ['required_if:audiencia,usuario', 'array'],
             'usuarios.*' => ['exists:users,id_persona'],
+        ];
+    }
+
+    private function messages(): array
+    {
+        return [
+            'fin.after_or_equal' => 'La fecha de fin no puede ser anterior a la fecha de inicio.',
         ];
     }
 

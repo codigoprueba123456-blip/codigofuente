@@ -110,7 +110,9 @@ class EnsureFunctionalityAccess
         }
 
         return Actividad::query()
-            ->where('funcionalidad', $resourceId)
+            ->where(fn ($query) => $query
+                ->where('funcionalidad', $resourceId)
+                ->orWhereHas('funcionalidades', fn ($recursos) => $recursos->where('recurso.id_recurso', $resourceId)))
             ->where(fn ($query) => $query->whereNull('inicio')->orWhere('inicio', '<=', $now))
             ->where(fn ($query) => $query->whereNull('fin')->orWhere('fin', '>=', $now))
             ->visibleTo($user)

@@ -33,13 +33,14 @@ class InscripcionManualGruposSeeder extends Seeder
 
         $materias = Materia::query()
             ->where('id_carrera', $carrera->id_carrera)
-            ->where('nivel', 2)
+            ->whereNotNull('nivel')
+            ->orderBy('nivel')
             ->orderBy('numero')
             ->orderBy('id_materia')
             ->get();
 
         if ($materias->isEmpty()) {
-            throw new RuntimeException('La carrera activa SIS-2023 no tiene materias de segundo año.');
+            throw new RuntimeException('La carrera activa SIS-2023 no tiene materias con nivel definido.');
         }
 
         foreach ($materias as $materia) {

@@ -38,7 +38,10 @@
                 </div>
                 <div class="col-md-6 form-group">
                     <label for="fin">Fin</label>
-                    <input type="date" name="fin" id="fin" class="form-control" value="{{ old('fin') }}">
+                    <input type="date" name="fin" id="fin" class="form-control @error('fin') is-invalid @enderror" value="{{ old('fin') }}" min="{{ old('inicio') }}">
+                    <div id="fin-date-error" class="invalid-feedback d-block" role="alert" @if(!$errors->has('fin')) hidden @endif>
+                        {{ $errors->first('fin') }}
+                    </div>
                 </div>
                 <div class="col-12 form-group mb-0">
                     <div class="custom-control custom-checkbox">
@@ -55,4 +58,30 @@
         </div>
     </form>
 </div>
+@stop
+
+@section('js')
+    @parent
+    <script>
+        (() => {
+            const inicio = document.getElementById('inicio');
+            const fin = document.getElementById('fin');
+            const error = document.getElementById('fin-date-error');
+            const mensaje = 'La fecha de fin no puede ser anterior a la fecha de inicio.';
+
+            const validarFechas = () => {
+                fin.min = inicio.value;
+                const fechaInvalida = inicio.value && fin.value && fin.value < inicio.value;
+                fin.setCustomValidity(fechaInvalida ? mensaje : '');
+                fin.classList.toggle('is-invalid', Boolean(fechaInvalida));
+                error.textContent = fechaInvalida ? mensaje : '';
+                error.hidden = !fechaInvalida;
+            };
+
+            inicio.addEventListener('change', validarFechas);
+            fin.addEventListener('input', validarFechas);
+            fin.addEventListener('change', validarFechas);
+            validarFechas();
+        })();
+    </script>
 @stop

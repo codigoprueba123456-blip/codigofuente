@@ -73,7 +73,7 @@ class ModuleSeedersTest extends TestCase
         $this->assertDatabaseCount('carreras', 20);
         $this->assertSame(1, GestionAcademica::where('gestion', 2025)->where('periodo', 1)->count());
         $this->assertDatabaseCount('materia', 6);
-        $this->assertDatabaseCount('grupo', 3);
+        $this->assertDatabaseCount('grupo', 6);
     }
 
     public function test_inscriptions_module_seeds_academic_prerequisites_and_postulants(): void

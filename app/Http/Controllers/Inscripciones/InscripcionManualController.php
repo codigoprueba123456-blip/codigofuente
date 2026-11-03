@@ -90,7 +90,12 @@ class InscripcionManualController extends Controller
                     'docente.nombre as docente_nombre',
                     'docente.primerapellido as docente_apellido',
                     'docente.segundoapellido as docente_segundo_apellido',
-                ]);
+                ])
+                ->map(function ($materia) {
+                    $materia->paralelo = $this->nombreParalelo($materia->paralelo);
+
+                    return $materia;
+                });
         }
 
         return view('Inscripciones.inscripcion_manual.index', compact(
@@ -210,7 +215,10 @@ class InscripcionManualController extends Controller
             ->where('m.id_carrera', $contexto['inscripcion']->id_carrera)
             ->where('m.nivel', $contexto['inscripcion']->nivelinicio)
             ->where('g.id_gestionacademica', $contexto['inscripcion']->id_gestionacademica)
-            ->where('g.codigo', $paralelo)
+            ->where(function ($query) use ($paralelo): void {
+                $query->where('g.codigo', $paralelo)
+                    ->orWhere('g.codigo', 'like', '%-'.$paralelo);
+            })
             ->orderBy('m.nivel')
             ->orderBy('m.numero')
             ->orderBy('m.nombre')
@@ -229,7 +237,12 @@ class InscripcionManualController extends Controller
                 'docente.nombre as docente_nombre',
                 'docente.primerapellido as docente_apellido',
                 'docente.segundoapellido as docente_segundo_apellido',
-            ]);
+            ])
+            ->map(function ($grupo) {
+                $grupo->paralelo = $this->nombreParalelo($grupo->paralelo);
+
+                return $grupo;
+            });
         $materiasOferta = $gruposOferta->groupBy('id_materia');
 
         return view('Inscripciones.inscripcion_manual.oferta', [
@@ -270,7 +283,13 @@ class InscripcionManualController extends Controller
             ->groupBy('id_materia')
             ->map(function ($registros) {
                 $materia = $registros->first();
-                $materia->grupos = $registros->whereNotNull('id_grupo')->values();
+                $materia->grupos = $registros->whereNotNull('id_grupo')
+                    ->map(function ($grupo) {
+                        $grupo->paralelo = $this->nombreParalelo($grupo->paralelo);
+
+                        return $grupo;
+                    })
+                    ->values();
 
                 return $materia;
             });
@@ -444,5 +463,16 @@ class InscripcionManualController extends Controller
         return GestionAcademica::where('vigente', true)
             ->orderByDesc('id_gestionacademica')
             ->first() ?? GestionAcademica::orderByDesc('id_gestionacademica')->first();
+    }
+
+    private function nombreParalelo(?string $codigoGrupo): ?string
+    {
+        if ($codigoGrupo === null) {
+            return null;
+        }
+
+        return preg_match('/(?:^|-)([A-D])$/i', $codigoGrupo, $coincidencia)
+            ? strtoupper($coincidencia[1])
+            : $codigoGrupo;
     }
 }
