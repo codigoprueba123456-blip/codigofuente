@@ -33,9 +33,9 @@
 
     <div class="card-body">
         <!-- Formulario de Búsqueda -->
-        <form action="{{ route('planes.carreras.index') }}" method="GET" class="mb-3">
+        <form action="{{ route('planes.carreras.index') }}" method="GET" class="mb-3" data-auto-search>
             <div class="input-group">
-                <input type="text" name="q" value="{{ request('q') }}" class="form-control" placeholder="Buscar...">
+                <input type="search" name="q" value="{{ request('q') }}" class="form-control" placeholder="Buscar..." data-auto-search-input autocomplete="off">
                 <div class="input-group-append">
                     <button class="btn btn-default" type="submit"><i class="fa fa-search"></i></button>
                 </div>
@@ -114,3 +114,5 @@
     </div>
 </div>
 @stop
+
+@include('partials.auto-search')

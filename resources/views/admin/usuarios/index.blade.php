@@ -4,11 +4,11 @@
 @section('content')
 <div class="card mt-3">
     <div class="card-header">
-        <form action="{{ route('admin.usuarios.index') }}" method="GET" class="mb-0">
+        <form action="{{ route('admin.usuarios.index') }}" method="GET" class="mb-0" data-auto-search>
             <div class="row">
                 <div class="col-md-6">
                     <div class="input-group">
-                        <input type="text" name="search" class="form-control" placeholder="Buscar..." value="{{ request('search') }}">
+                        <input type="search" name="search" class="form-control" placeholder="Buscar..." value="{{ request('search') }}" data-auto-search-input autocomplete="off">
                         <div class="input-group-append">
                             <button type="submit" class="btn btn-default"><i class="fa fa-search"></i></button>
                         </div>
@@ -113,3 +113,5 @@
     });
 </script>
 @stop
+
+@include('partials.auto-search')

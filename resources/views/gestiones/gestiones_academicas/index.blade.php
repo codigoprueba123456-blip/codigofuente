@@ -44,12 +44,12 @@
                 </button>
             </div>
 
-            <form action="{{ route('admin.gestionacademica.index') }}" method="GET" class="mb-4">
+            <form action="{{ route('admin.gestionacademica.index') }}" method="GET" class="mb-4" data-auto-search>
                 <div class="input-group input-group-sm">
                     <span class="input-group-text bg-white border-end-0">
                         <i class="fas fa-search text-muted"></i>
                     </span>
-                    <input type="text" name="buscar" class="form-control border-start-0 shadow-none" placeholder="Buscar gestión, periodo o código" value="{{ request('buscar') }}">
+                    <input type="search" name="buscar" class="form-control border-start-0 shadow-none" placeholder="Buscar gestión, periodo o código" value="{{ request('buscar') }}" data-auto-search-input autocomplete="off">
                     <button class="btn btn-outline-primary" type="submit">
                         Buscar
                     </button>
@@ -104,3 +104,5 @@
     </div>
 </div>
 @endsection
+
+@include('partials.auto-search')

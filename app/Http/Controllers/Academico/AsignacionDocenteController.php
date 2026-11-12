@@ -1,7 +1,8 @@
 <?php
 
-namespace App\Http\Controllers;
+namespace App\Http\Controllers\Academico;
 
+use App\Http\Controllers\Controller;
 use App\Models\Carrera;
 use App\Models\GestionAcademica;
 use App\Models\Grupo;
@@ -23,7 +24,18 @@ class AsignacionDocenteController extends Controller
                 $query->whereHas('materia', fn ($materia) =>
                     $materia->where('id_carrera', $request->id_carrera)))
             ->when($request->filled('buscar'), fn ($query) =>
-                $query->where('codigo', 'like', '%' . $request->buscar . '%'))
+                $query->where(function ($search) use ($request): void {
+                    $term = '%'.$request->buscar.'%';
+
+                    $search->where('codigo', 'like', $term)
+                        ->orWhereHas('materia', fn ($materia) => $materia
+                            ->where('nombre', 'like', $term)
+                            ->orWhere('codigo', 'like', $term))
+                        ->orWhereHas('docente', fn ($docente) => $docente
+                            ->where('nombre', 'like', $term)
+                            ->orWhere('primerapellido', 'like', $term)
+                            ->orWhere('segundoapellido', 'like', $term));
+                }))
             ->orderBy('codigo')
             ->get();
 

@@ -30,14 +30,14 @@
         </div>
 
         {{-- Buscador --}}
-        <div class="input-group mb-3">
-            <input type="text" id="searchInput" class="form-control" placeholder="Buscar...">
+        <form action="{{ route('admin.roles.index') }}" method="GET" class="input-group mb-3" data-auto-search>
+            <input type="search" name="q" class="form-control" placeholder="Buscar..." value="{{ request('q') }}" data-auto-search-input autocomplete="off">
             <div class="input-group-append">
-                <button class="btn btn-outline-secondary" type="button">
+                <button class="btn btn-outline-secondary" type="submit">
                     <i class="fas fa-search"></i>
                 </button>
             </div>
-        </div>
+        </form>
 
         <div class="table-responsive">
             <table class="table table-bordered table-hover align-middle">
@@ -105,3 +105,5 @@
         border-bottom: none !important;
     }
 </style>
+
+@include('partials.auto-search')

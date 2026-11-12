@@ -16,8 +16,11 @@
     <div class="card-header bg-light">
         <div class="form-group mb-2">
             <label for="carrera_select" class="font-weight-normal text-muted mb-1">Carrera: *</label>
-            <form action="{{ route('planes.materias.index') }}" method="GET" class="input-group" style="max-width: 450px;">
-                <select name="id_carrera" id="carrera_select" class="form-control">
+            <form action="{{ route('planes.materias.index') }}" method="GET" style="max-width: 450px;">
+                @if(request('q'))
+                    <input type="hidden" name="q" value="{{ request('q') }}">
+                @endif
+                <select name="id_carrera" id="carrera_select" class="form-control" onchange="this.form.submit()">
                     <option value="">Todas las carreras</option>
                     @foreach($carreras as $carrera)
                         @php
@@ -28,9 +31,6 @@
                         </option>
                     @endforeach
                 </select>
-                <div class="input-group-append">
-                    <button type="submit" class="btn btn-primary">Filtrar</button>
-                </div>
             </form>
         </div>
 
@@ -53,9 +53,12 @@
 
     <div class="card-body">
         <!-- Formulario de Búsqueda -->
-        <form action="{{ route('planes.materias.index') }}" method="GET" class="mb-3">
+        <form action="{{ route('planes.materias.index') }}" method="GET" class="mb-3" data-auto-search>
+            @if(request('id_carrera'))
+                <input type="hidden" name="id_carrera" value="{{ request('id_carrera') }}">
+            @endif
             <div class="input-group">
-                <input type="text" name="q" value="{{ request('q') }}" class="form-control" placeholder="Buscar...">
+                <input type="search" name="q" value="{{ request('q') }}" class="form-control" placeholder="Buscar..." data-auto-search-input autocomplete="off">
                 <div class="input-group-append">
                     <button class="btn btn-default" type="submit"><i class="fa fa-search"></i></button>
                 </div>
@@ -165,3 +168,5 @@
 </script>
 @endpush
 @stop
+
+@include('partials.auto-search')

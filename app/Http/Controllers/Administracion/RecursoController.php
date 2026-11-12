@@ -1,7 +1,8 @@
 <?php
 
-namespace App\Http\Controllers;
+namespace App\Http\Controllers\Administracion;
 
+use App\Http\Controllers\Controller;
 use App\Models\Recurso;
 use App\Support\MenuResourceSync;
 use Illuminate\Http\Request;

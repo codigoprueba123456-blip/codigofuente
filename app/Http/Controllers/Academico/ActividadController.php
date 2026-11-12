@@ -1,7 +1,8 @@
 <?php
 
-namespace App\Http\Controllers;
+namespace App\Http\Controllers\Academico;
 
+use App\Http\Controllers\Controller;
 use App\Models\Actividad;
 use App\Models\Carrera;
 use App\Models\GestionAcademica;

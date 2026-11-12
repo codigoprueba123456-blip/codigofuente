@@ -6,9 +6,9 @@
         <a href="{{ route('admin.empleados.index') }}" class="btn btn-default"><i class="fa fa-sync"></i> Actualizar</a>
     </div>
     <div class="card-body">
-        <form action="{{ route('admin.empleados.index') }}" method="GET" class="mb-3">
+        <form action="{{ route('admin.empleados.index') }}" method="GET" class="mb-3" data-auto-search>
             <div class="input-group">
-                <input type="text" name="q" class="form-control" placeholder="Buscar...">
+                <input type="search" name="q" class="form-control" placeholder="Buscar..." value="{{ request('q') }}" data-auto-search-input autocomplete="off">
                 <div class="input-group-append">
                     <button class="btn btn-default" type="submit"><i class="fa fa-search"></i></button>
                 </div>
@@ -123,3 +123,5 @@
 </script>
 @endpush
 @stop
+
+@include('partials.auto-search')

@@ -1,7 +1,8 @@
 <?php
 
-namespace App\Http\Controllers;
+namespace App\Http\Controllers\Administracion;
 
+use App\Http\Controllers\Controller;
 use App\Models\Instituto;
 use App\Models\Empleado;
 use App\Support\CareerCreditageService;

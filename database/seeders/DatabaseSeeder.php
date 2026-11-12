@@ -293,9 +293,9 @@ class DatabaseSeeder extends Seeder
         $actividadUsuario->usuarios()->sync([$usuario->id_persona]);
 
         $this->call([
+            StudentPortalSeeder::class,
             Modulos\AdministracionSeeder::class,
             Modulos\InstitucionalSeeder::class,
-            StudentPortalSeeder::class,
             Modulos\AcademicoSeeder::class,
             Modulos\InscripcionesSeeder::class,
             Modulos\PagosSeeder::class,

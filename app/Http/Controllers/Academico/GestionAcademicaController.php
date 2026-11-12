@@ -1,7 +1,8 @@
 <?php
 
-namespace App\Http\Controllers;
+namespace App\Http\Controllers\Academico;
 
+use App\Http\Controllers\Controller;
 use App\Models\GestionAcademica;
 use Illuminate\Http\Request;
 
@@ -12,8 +13,12 @@ class GestionAcademicaController extends Controller
         $gestiones = GestionAcademica::query()
             ->when($request->filled('buscar'), function ($query) use ($request) {
                 $buscar = $request->string('buscar');
-                $query->where('gestion', 'like', "%{$buscar}%")
-                    ->orWhere('periodo', 'like', "%{$buscar}%");
+                $term = "%{$buscar}%";
+                $query->where(function ($query) use ($term): void {
+                    $query->where('gestion', 'like', $term)
+                        ->orWhere('periodo', 'like', $term)
+                        ->orWhere('id_gestionacademica', 'like', $term);
+                });
             })
             ->orderByDesc('gestion')
             ->orderBy('periodo')

@@ -13,7 +13,7 @@
     <!-- Contenedor Principal -->
     <div class="card border rounded-1 p-3 bg-white" style="border-color: #dcdcdc !important;">
         
-        <form action="{{ route('admin.asignacion-docente.index') }}" method="GET" id="filterForm">
+        <form action="{{ route('admin.asignacion-docente.index') }}" method="GET" id="filterForm" data-auto-search>
             <!-- Filtros: Gestión Académica y Carrera -->
             <div class="row mb-3 g-3">
                 <div class="col-md-4">
@@ -64,7 +64,7 @@
 
             <!-- Buscador -->
             <div class="input-group input-group-sm mb-3">
-                <input type="text" name="buscar" class="form-control shadow-none" placeholder="" value="{{ request('buscar') }}" style="border-color: #ccc;">
+                <input type="search" name="buscar" class="form-control shadow-none" placeholder="Buscar grupo, materia, código o docente" value="{{ request('buscar') }}" data-auto-search-input autocomplete="off" style="border-color: #ccc;">
                 <button class="btn btn-light border shadow-none px-3" type="submit" style="border-color: #ccc; background-color: #f8f9fa;">
                     <i class="fas fa-search text-secondary"></i>
                 </button>
@@ -176,3 +176,5 @@
     </div>
 </div>
 @endsection
+
+@include('partials.auto-search')

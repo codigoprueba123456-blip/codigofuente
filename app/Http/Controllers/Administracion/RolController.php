@@ -1,7 +1,8 @@
 <?php
 
-namespace App\Http\Controllers;
+namespace App\Http\Controllers\Administracion;
 
+use App\Http\Controllers\Controller;
 use App\Models\Recurso;
 use App\Models\Rol;
 use App\Support\MenuResourceSync;
@@ -10,9 +11,16 @@ use Illuminate\Validation\Rule;
 
 class RolController extends Controller
 {
-	public function index()
+	public function index(Request $request)
 	{
-		$roles = Rol::with('recursos')->get();
+		$buscar = trim((string) $request->input('q', ''));
+		$roles = Rol::with('recursos')
+			->when($buscar !== '', fn ($query) => $query->where(function ($query) use ($buscar): void {
+				$term = '%'.$buscar.'%';
+				$query->where('nombre', 'like', $term)
+					->orWhereHas('recursos', fn ($recurso) => $recurso->where('nombre', 'like', $term));
+			}))
+			->get();
 
 		return view('admin.roles.index', compact('roles'));
 	}

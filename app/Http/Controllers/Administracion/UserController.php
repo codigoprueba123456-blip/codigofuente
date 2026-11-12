@@ -1,7 +1,8 @@
 <?php
 
-namespace App\Http\Controllers;
+namespace App\Http\Controllers\Administracion;
 
+use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use App\Models\User;
 use App\Models\Persona;
@@ -13,9 +14,22 @@ use Barryvdh\DomPDF\Facade\Pdf;
 
 class UserController extends Controller
 {
-    public function index()
+    public function index(Request $request)
     {
-        $usuarios = User::with('persona', 'cuenta.rol')->get();
+        $buscar = trim((string) $request->input('search', ''));
+        $usuarios = User::with('persona', 'cuenta.rol')
+            ->when($buscar !== '', fn ($query) => $query->where(function ($query) use ($buscar): void {
+                $term = '%'.$buscar.'%';
+                $query->where('usuario', 'like', $term)
+                    ->orWhereHas('persona', fn ($persona) => $persona
+                        ->where('nombre', 'like', $term)
+                        ->orWhere('primerapellido', 'like', $term)
+                        ->orWhere('segundoapellido', 'like', $term)
+                        ->orWhere('email', 'like', $term))
+                    ->orWhereHas('cuenta.rol', fn ($rol) => $rol->where('nombre', 'like', $term));
+            }))
+            ->get();
+
         return view('admin.usuarios.index', compact('usuarios'));
     }
 

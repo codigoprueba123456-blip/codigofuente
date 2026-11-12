@@ -1,7 +1,8 @@
 <?php
 
-namespace App\Http\Controllers;
+namespace App\Http\Controllers\Academico;
 
+use App\Http\Controllers\Controller;
 use App\Models\Carrera;
 use App\Models\Empleado;
 use App\Models\Instituto;
@@ -12,9 +13,19 @@ use Illuminate\Validation\Rule;
 
 class CarreraController extends Controller
 {
-    public function index()
+    public function index(Request $request)
     {
-        $carreras = Carrera::with(['instituto', 'jefeCarrera.persona'])->get();
+        $buscar = trim((string) $request->input('q', ''));
+        $carreras = Carrera::with(['instituto', 'jefeCarrera.persona'])
+            ->when($buscar !== '', fn ($query) => $query->where(function ($query) use ($buscar): void {
+                $term = '%'.$buscar.'%';
+                $query->where('codigo', 'like', $term)
+                    ->orWhere('nombre', 'like', $term)
+                    ->orWhere('resolucionministerial1', 'like', $term)
+                    ->orWhere('resolucionministerial2', 'like', $term)
+                    ->orWhere('resolucionministerial3', 'like', $term);
+            }))
+            ->get();
         return view('planes.carreras.index', compact('carreras'));
     }
 

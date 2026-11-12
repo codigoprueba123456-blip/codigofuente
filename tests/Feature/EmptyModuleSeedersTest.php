@@ -40,27 +40,40 @@ class EmptyModuleSeedersTest extends TestCase
             'tipo' => 'estudiante',
         ]);
 
+        $usernames = [];
         foreach ([
-            'Administrador' => ['admin_prueba', 'Admin2026!'],
-            'Secretaria' => ['secretaria_prueba', 'Secretaria2026!'],
-            'Docente' => ['docente_prueba', 'Docente2026!'],
-            'Estudiante' => ['estudiante_prueba', 'Estudiante2026!'],
-        ] as $roleName => [$username, $password]) {
+            'Administrador' => 'Admin2026!',
+            'Secretaria' => 'Secretaria2026!',
+            'Docente' => 'Docente2026!',
+            'Estudiante' => 'Estudiante2026!',
+        ] as $roleName => $password) {
             $role = Rol::where('nombre', $roleName)->firstOrFail();
             $account = Cuenta::where('id_rol', $role->id_rol)->firstOrFail();
-            $user = User::where('usuario', $username)->firstOrFail();
+            $user = User::where('id_persona', $account->id_persona)->firstOrFail();
 
-            $this->assertSame($username, $account->usuario);
+            if ($roleName === 'Estudiante') {
+                $this->assertSame('estudiante_prueba', $user->usuario);
+            } else {
+                $this->assertMatchesRegularExpression('/^' . date('Y') . '\d{4}$/', $user->usuario);
+            }
+            $this->assertSame($user->usuario, $account->usuario);
             $this->assertTrue(Hash::check($password, $account->password));
             $this->assertTrue(Hash::check($password, $user->password));
+            $usernames[$roleName] = $user->usuario;
         }
-
-        $studentAccount = User::where('usuario', 'estudiante_prueba')->firstOrFail();
-        $this->assertDatabaseHas('estudiante', ['id_persona' => $studentAccount->id_persona]);
 
         $this->seed(AdministracionSeeder::class);
         $this->assertDatabaseCount('personas', 4);
         $this->assertDatabaseCount('empleados', 3);
         $this->assertDatabaseCount('users', 4);
+
+        foreach ($usernames as $roleName => $username) {
+            $role = Rol::where('nombre', $roleName)->firstOrFail();
+            $account = Cuenta::where('id_rol', $role->id_rol)->firstOrFail();
+            $this->assertSame($username, $account->usuario);
+        }
+
+        $studentAccount = User::where('usuario', 'estudiante_prueba')->firstOrFail();
+        $this->assertDatabaseHas('estudiante', ['id_persona' => $studentAccount->id_persona]);
     }
 }

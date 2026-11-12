@@ -27,7 +27,6 @@ class AdministracionSeeder extends Seeder
         $accounts = [
             [
                 'role' => 'Administrador',
-                'username' => 'admin_prueba',
                 'password' => 'Admin2026!',
                 'ci' => '99000001',
                 'name' => 'Alex',
@@ -50,7 +49,6 @@ class AdministracionSeeder extends Seeder
             ],
             [
                 'role' => 'Secretaria',
-                'username' => 'secretaria_prueba',
                 'password' => 'Secretaria2026!',
                 'ci' => '99000002',
                 'name' => 'Sara',
@@ -73,7 +71,6 @@ class AdministracionSeeder extends Seeder
             ],
             [
                 'role' => 'Docente',
-                'username' => 'docente_prueba',
                 'password' => 'Docente2026!',
                 'ci' => '99000003',
                 'name' => 'Daniel',
@@ -155,10 +152,13 @@ class AdministracionSeeder extends Seeder
             }
 
             $password = Hash::make($account['password']);
+            $username = $account['employee']
+                ? $this->employeeUsername($persona)
+                : $account['username'];
             $user = User::updateOrCreate(
                 ['id_persona' => $persona->id_persona],
                 [
-                    'usuario' => $account['username'],
+                    'usuario' => $username,
                     'password' => $password,
                 ]
             );
@@ -169,7 +169,7 @@ class AdministracionSeeder extends Seeder
                     'id_rol' => $role->id_rol,
                 ],
                 [
-                    'usuario' => $account['username'],
+                    'usuario' => $username,
                     'password' => $password,
                 ]
             );
@@ -178,5 +178,23 @@ class AdministracionSeeder extends Seeder
                 $role->recursos()->sync(Recurso::query()->pluck('id_recurso')->all());
             }
         }
+    }
+
+    private function employeeUsername(Persona $persona): string
+    {
+        $year = date('Y');
+        $existingUsername = User::where('id_persona', $persona->id_persona)->value('usuario');
+
+        if (is_string($existingUsername) && preg_match('/^' . preg_quote($year, '/') . '\d{4}$/', $existingUsername)) {
+            return $existingUsername;
+        }
+
+        $lastUsername = User::where('usuario', 'LIKE', $year . '%')
+            ->orderByDesc('usuario')
+            ->value('usuario');
+
+        $counter = $lastUsername ? ((int) substr($lastUsername, 4)) + 1 : 1;
+
+        return $year . str_pad((string) $counter, 4, '0', STR_PAD_LEFT);
     }
 }

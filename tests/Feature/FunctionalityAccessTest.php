@@ -5,7 +5,9 @@ namespace Tests\Feature;
 use App\Models\Actividad;
 use App\Models\Carrera;
 use App\Models\Cuenta;
+use App\Models\Empleado;
 use App\Models\GestionAcademica;
+use App\Models\Grupo;
 use App\Models\Instituto;
 use App\Models\Materia;
 use App\Models\Persona;
@@ -105,7 +107,202 @@ class FunctionalityAccessTest extends TestCase
             ->assertSee('Administración · R.M. 123/2024')
             ->assertSee('Programación')
             ->assertDontSee('Contabilidad')
-            ->assertSee('value="' . $primeraCarrera->id_carrera . '" selected', false);
+            ->assertSee('value="' . $primeraCarrera->id_carrera . '" selected', false)
+            ->assertSee('onchange="this.form.submit()"', false)
+            ->assertDontSee('>Filtrar</button>', false);
+    }
+
+    public function test_administration_and_study_plan_searches_filter_results(): void
+    {
+        $user = $this->createUser('search-target');
+        $otherUser = $this->createUser('search-other');
+        $instituto = Instituto::create(['nombreinstituto' => 'Instituto de Prueba']);
+        $career = Carrera::create([
+            'codigo' => 'SEARCH-CAREER',
+            'nombre' => 'Carrera de Búsqueda',
+            'id_instituto' => $instituto->id_instituto,
+        ]);
+        $otherCareer = Carrera::create([
+            'codigo' => 'OTHER-CAREER',
+            'nombre' => 'Otra Carrera',
+            'id_instituto' => $instituto->id_instituto,
+        ]);
+        Materia::create([
+            'codigo' => 'SEARCH-SUBJECT',
+            'nombre' => 'Materia de Búsqueda',
+            'id_carrera' => $career->id_carrera,
+        ]);
+        Materia::create([
+            'codigo' => 'OTHER-SUBJECT',
+            'nombre' => 'Otra Materia',
+            'id_carrera' => $otherCareer->id_carrera,
+        ]);
+
+        $employeePersona = Persona::create([
+            'nombre' => 'Empleado Buscable',
+            'primerapellido' => 'Prueba',
+            'ci' => 'SEARCH-CI',
+            'tipo' => 'empleado',
+        ]);
+        Empleado::create(['id_persona' => $employeePersona->id_persona, 'codigo' => 'SEARCH-EMP']);
+        $otherEmployeePersona = Persona::create([
+            'nombre' => 'Otro Empleado',
+            'primerapellido' => 'Prueba',
+            'ci' => 'OTHER-CI',
+            'tipo' => 'empleado',
+        ]);
+        Empleado::create(['id_persona' => $otherEmployeePersona->id_persona, 'codigo' => 'OTHER-EMP']);
+
+        Rol::create(['nombre' => 'Rol de Búsqueda']);
+        Rol::create(['nombre' => 'Otro Rol']);
+
+        $this->actingAs($user)
+            ->get(route('admin.usuarios.index', ['search' => $user->usuario]))
+            ->assertOk()
+            ->assertSee($user->usuario)
+            ->assertDontSee($otherUser->usuario);
+
+        $this->get(route('admin.empleados.index', ['q' => 'SEARCH-CI']))
+            ->assertOk()
+            ->assertSee('Empleado Buscable')
+            ->assertDontSee('Otro Empleado');
+
+        $this->get(route('admin.roles.index', ['q' => 'Rol de Búsqueda']))
+            ->assertOk()
+            ->assertSee('Rol de Búsqueda')
+            ->assertDontSee('Otro Rol');
+
+        $this->get(route('planes.carreras.index', ['q' => 'SEARCH-CAREER']))
+            ->assertOk()
+            ->assertSee('Carrera de Búsqueda')
+            ->assertDontSee('Otra Carrera');
+
+        $this->get(route('planes.materias.index', [
+            'id_carrera' => $career->id_carrera,
+            'q' => 'SEARCH-SUBJECT',
+        ]))
+            ->assertOk()
+            ->assertSee('Materia de Búsqueda')
+            ->assertDontSee('Otra Materia')
+            ->assertSee('name="id_carrera"', false)
+            ->assertSee('data-auto-search-input', false);
+    }
+
+    public function test_group_search_matches_group_and_subject_fields(): void
+    {
+        $user = $this->createUser();
+        $instituto = Instituto::create(['nombreinstituto' => 'Instituto de Prueba']);
+        $carrera = Carrera::create([
+            'codigo' => 'INF-001',
+            'nombre' => 'Informática',
+            'id_instituto' => $instituto->id_instituto,
+        ]);
+        $gestion = GestionAcademica::create([
+            'gestion' => 2026,
+            'periodo' => 1,
+            'regimen' => 1,
+            'vigente' => true,
+        ]);
+        $materia = Materia::create([
+            'codigo' => 'INF-101',
+            'nombre' => 'Programación Web',
+            'id_carrera' => $carrera->id_carrera,
+        ]);
+        $otraMateria = Materia::create([
+            'codigo' => 'INF-102',
+            'nombre' => 'Base de Datos',
+            'id_carrera' => $carrera->id_carrera,
+        ]);
+        Grupo::create([
+            'codigo' => 'GRUPO-PW-A',
+            'id_gestionacademica' => $gestion->id_gestionacademica,
+            'id_materia' => $materia->id_materia,
+            'id_persona' => $user->id_persona,
+        ]);
+        Grupo::create([
+            'codigo' => 'GRUPO-BD-A',
+            'id_gestionacademica' => $gestion->id_gestionacademica,
+            'id_materia' => $otraMateria->id_materia,
+        ]);
+
+        $this->actingAs($user)
+            ->get(route('admin.grupos.index', ['buscar' => 'Programación Web']))
+            ->assertOk()
+            ->assertSee('GRUPO-PW-A')
+            ->assertDontSee('GRUPO-BD-A');
+
+        $this->get(route('admin.grupos.index', ['buscar' => 'INF-102']))
+            ->assertOk()
+            ->assertSee('GRUPO-BD-A')
+            ->assertDontSee('GRUPO-PW-A');
+
+        $this->get(route('admin.grupos.index'))
+            ->assertOk()
+            ->assertSee('setTimeout')
+            ->assertSee('400')
+            ->assertSee('requestSubmit');
+
+        $this->get(route('admin.gestionacademica.index'))
+            ->assertOk()
+            ->assertSee('data-auto-search-input', false);
+
+        $this->get(route('admin.actividad.index'))
+            ->assertOk()
+            ->assertSee('data-auto-search-input', false);
+
+        $this->get(route('admin.asignacion-docente.index', ['buscar' => 'Admin']))
+            ->assertOk()
+            ->assertSee('GRUPO-PW-A')
+            ->assertDontSee('GRUPO-BD-A')
+            ->assertSee('data-auto-search-input', false);
+    }
+
+    public function test_subject_creation_limits_prerequisites_to_the_selected_career(): void
+    {
+        $user = $this->createUser();
+        $instituto = Instituto::create(['nombreinstituto' => 'Instituto de Prueba']);
+        $carrera = Carrera::create([
+            'codigo' => 'INF-001',
+            'nombre' => 'Informática',
+            'id_instituto' => $instituto->id_instituto,
+        ]);
+        $otraCarrera = Carrera::create([
+            'codigo' => 'ADM-001',
+            'nombre' => 'Administración',
+            'id_instituto' => $instituto->id_instituto,
+        ]);
+        $materiaDeCarrera = Materia::create([
+            'codigo' => 'INF-101',
+            'nombre' => 'Programación I',
+            'id_carrera' => $carrera->id_carrera,
+        ]);
+        $materiaDeOtraCarrera = Materia::create([
+            'codigo' => 'ADM-101',
+            'nombre' => 'Administración I',
+            'id_carrera' => $otraCarrera->id_carrera,
+        ]);
+
+        $this->actingAs($user)
+            ->get(route('planes.materias.create'))
+            ->assertOk()
+            ->assertSee('data-carrera-id="' . $carrera->id_carrera . '"', false)
+            ->assertSee('data-carrera-id="' . $otraCarrera->id_carrera . '"', false)
+            ->assertSee('Seleccione una carrera para ver sus materias.')
+            ->assertSee('filtrarPrerequisitos');
+
+        $this->post(route('planes.materias.store'), [
+            'nombre' => 'Programación II',
+            'id_carrera' => $carrera->id_carrera,
+            'prerequisitos' => [$materiaDeOtraCarrera->id_materia],
+        ])->assertSessionHasErrors('prerequisitos.0');
+
+        $this->assertDatabaseMissing('materia', [
+            'nombre' => 'Programación II',
+            'id_carrera' => $carrera->id_carrera,
+        ]);
+        $this->assertDatabaseHas('materia', [
+            'id_materia' => $materiaDeCarrera->id_materia,
+        ]);
     }
 
     public function test_success_messages_are_available_globally_in_the_navigation(): void

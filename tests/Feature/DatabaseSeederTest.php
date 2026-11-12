@@ -27,8 +27,8 @@ class DatabaseSeederTest extends TestCase
         $this->assertDatabaseCount('instituto', 1);
         $this->assertDatabaseCount('carreras', 20);
         $this->assertDatabaseCount('gestionacademica', 1);
-        $this->assertDatabaseCount('materia', 6);
-        $this->assertDatabaseCount('grupo', 3);
+        $this->assertDatabaseCount('materia', 76);
+        $this->assertDatabaseCount('grupo', 146);
         $this->assertDatabaseCount('actividad', 4);
         $this->assertDatabaseCount('postulante', 3);
         $this->assertDatabaseCount('pago', 3);
@@ -36,7 +36,9 @@ class DatabaseSeederTest extends TestCase
         $this->assertDatabaseCount('detalle', 3);
         $this->assertDatabaseCount('cursa', 1);
 
-        $this->assertDatabaseHas('users', ['usuario' => 'admin_prueba']);
+        $adminPersonaId = Persona::where('ci', '99000001')->value('id_persona');
+        $adminUser = User::where('id_persona', $adminPersonaId)->firstOrFail();
+        $this->assertMatchesRegularExpression('/^'.date('Y').'\d{4}$/', $adminUser->usuario);
         $this->assertDatabaseHas('users', ['usuario' => '20260003']);
         $this->assertDatabaseHas('carreras', ['codigo' => 'SIS-2023', 'regimen' => 1]);
         $this->assertDatabaseHas('postulante', [
@@ -47,8 +49,6 @@ class DatabaseSeederTest extends TestCase
             'path_nacimiento' => 'demo/valeria_quispe_certificado_nacimiento.jpg',
             'path_diploma' => 'demo/valeria_quispe_diploma_bachiller.jpg',
         ]);
-        $this->assertDatabaseHas('materia', ['codigo' => 'SIS-2023-201']);
-        $this->assertDatabaseHas('grupo', ['codigo' => 'SIS-2023-201-A']);
         $this->assertDatabaseHas('pago', ['id_postulante' => Postulante::where('codigo', 'DEMO-POST-001')->value('id_postulante')]);
 
         $this->assertDatabaseHas('carreras', [
@@ -92,13 +92,27 @@ class DatabaseSeederTest extends TestCase
         $this->assertDatabaseCount('instituto', 1);
         $this->assertDatabaseCount('carreras', 20);
         $this->assertDatabaseCount('gestionacademica', 1);
-        $this->assertDatabaseCount('materia', 6);
-        $this->assertDatabaseCount('grupo', 3);
+        $this->assertDatabaseCount('materia', 76);
+        $this->assertDatabaseCount('grupo', 146);
         $this->assertDatabaseCount('actividad', 4);
         $this->assertDatabaseCount('postulante', 3);
         $this->assertDatabaseCount('pago', 3);
         $this->assertDatabaseCount('comprobante', 3);
         $this->assertDatabaseCount('detalle', 3);
         $this->assertDatabaseCount('cursa', 1);
+    }
+
+    public function test_database_seeder_keeps_employee_usernames_unique_and_in_registration_format(): void
+    {
+        $this->seed(DatabaseSeeder::class);
+
+        foreach (['99000001', '99000002', '99000003'] as $ci) {
+            $persona = Persona::where('ci', $ci)->firstOrFail();
+            $user = User::where('id_persona', $persona->id_persona)->firstOrFail();
+
+            $this->assertMatchesRegularExpression('/^'.date('Y').'\d{4}$/', $user->usuario);
+        }
+
+        $this->assertSame(User::count(), User::query()->distinct('usuario')->count('usuario'));
     }
 }

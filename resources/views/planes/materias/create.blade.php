@@ -77,14 +77,19 @@
                         <h5 class="card-title mb-0">Prerrequisitos</h5>
                     </div>
                     <div class="card-body">
-                        @forelse($materiasDisponibles as $materia)
-                            <div class="form-check">
-                                <input class="form-check-input" type="checkbox" name="prerequisitos[]" value="{{ $materia->id_materia }}" id="pre_{{ $materia->id_materia }}">
+                        <p id="prerequisitos-seleccione-carrera" class="text-muted mb-2" {{ old('id_carrera') ? 'hidden' : '' }}>
+                            Seleccione una carrera para ver sus materias.
+                        </p>
+                        <p id="prerequisitos-vacios" class="text-muted mb-0" hidden>
+                            No hay otras materias disponibles para esta carrera.
+                        </p>
+                        @foreach($materiasDisponibles as $materia)
+                            <div class="form-check prerequisito-opcion" data-carrera-id="{{ $materia->id_carrera }}" hidden>
+                                <input class="form-check-input" type="checkbox" name="prerequisitos[]" value="{{ $materia->id_materia }}" id="pre_{{ $materia->id_materia }}"
+                                    {{ in_array($materia->id_materia, old('prerequisitos', [])) ? 'checked' : '' }}>
                                 <label class="form-check-label" for="pre_{{ $materia->id_materia }}">{{ $materia->nombre }} {{ $materia->codigo ? '(' . $materia->codigo . ')' : '' }}</label>
                             </div>
-                        @empty
-                            <p class="text-muted mb-0">No hay otras materias disponibles para asociar como prerequisitos.</p>
-                        @endforelse
+                        @endforeach
                     </div>
                 </div>
             </div>
@@ -97,3 +102,35 @@
     </div>
 </div>
 @endsection
+
+@push('js')
+<script>
+    document.addEventListener('DOMContentLoaded', () => {
+        const carrera = document.getElementById('id_carrera');
+        const opciones = Array.from(document.querySelectorAll('.prerequisito-opcion'));
+        const mensajeSeleccion = document.getElementById('prerequisitos-seleccione-carrera');
+        const mensajeVacio = document.getElementById('prerequisitos-vacios');
+
+        const filtrarPrerequisitos = () => {
+            const carreraId = carrera.value;
+            let opcionesVisibles = 0;
+
+            opciones.forEach((opcion) => {
+                const disponible = carreraId !== '' && opcion.dataset.carreraId === carreraId;
+                opcion.hidden = !disponible;
+                if (!disponible) {
+                    opcion.querySelector('input').checked = false;
+                } else {
+                    opcionesVisibles++;
+                }
+            });
+
+            mensajeSeleccion.hidden = carreraId !== '';
+            mensajeVacio.hidden = carreraId === '' || opcionesVisibles > 0;
+        };
+
+        carrera.addEventListener('change', filtrarPrerequisitos);
+        filtrarPrerequisitos();
+    });
+</script>
+@endpush

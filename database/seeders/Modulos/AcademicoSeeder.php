@@ -278,8 +278,8 @@ class AcademicoSeeder extends Seeder
             ],
         ];
         $instituto = Instituto::firstOrCreate(
-            ['nombreinstituto' => 'Instituto de Prueba'],
-            ['abreviatura' => 'ITSA-DEMO']
+            ['nombreinstituto' => 'Instituto Tecnologico Sacaba'],
+            ['abreviatura' => 'ITSA', 'preciocredito' => 5]
         );
 
         foreach ($carreras as $datosCarrera) {
@@ -324,40 +324,7 @@ class AcademicoSeeder extends Seeder
             ]
         );
 
-        $materiaInicial = Materia::updateOrCreate(
-            ['codigo' => 'SIS-2023-101', 'id_carrera' => $carrera->id_carrera],
-            [
-                'nombre' => 'Fundamentos de Sistemas (Demo)',
-                'creditajemateria' => 4,
-                'curricular' => true,
-                'horas' => 6,
-                'nivel' => 1,
-                'numero' => 1,
-            ]
-        );
-        $materiaAvanzada = Materia::updateOrCreate(
-            ['codigo' => 'SIS-2023-201', 'id_carrera' => $carrera->id_carrera],
-            [
-                'nombre' => 'Sistemas Avanzados (Demo)',
-                'creditajemateria' => 5,
-                'curricular' => true,
-                'horas' => 6,
-                'nivel' => 2,
-                'numero' => 1,
-            ]
-        );
-        $materiaAvanzada->prerequisitos()->sync([$materiaInicial->id_materia]);
-
-        Grupo::updateOrCreate(
-            ['codigo' => 'SIS-2023-201-A', 'id_gestionacademica' => $gestion->id_gestionacademica],
-            [
-                'capacidad' => 30,
-                'turno' => 1,
-                'abierto' => true,
-                'id_persona' => null,
-                'id_materia' => $materiaAvanzada->id_materia,
-            ]
-        );
+        $this->call(ItSaCurriculumSeeder::class);
 
         $actividad = Actividad::updateOrCreate(
             [
@@ -383,7 +350,6 @@ class AcademicoSeeder extends Seeder
             ['nivelinicio' => 1]
         );
 
-        $this->call(InscripcionManualGruposSeeder::class);
     }
 
     private function seedCurrentDemoCatalog(int $institutoId): void

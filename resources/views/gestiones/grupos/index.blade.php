@@ -16,7 +16,7 @@
 
     <div class="card shadow-sm border-0 rounded-4 overflow-hidden">
         <div class="card-body p-4">
-            <form action="{{ route('admin.grupos.index') }}" method="GET" id="filterForm">
+            <form action="{{ route('admin.grupos.index') }}" method="GET" id="filterForm" data-auto-search>
                 <div class="row g-3 align-items-end mb-4">
                     <div class="col-md-4">
                         <label for="id_gestionacademica" class="form-label fw-semibold text-secondary mb-2">
@@ -69,7 +69,7 @@
                     <span class="input-group-text bg-white border-end-0">
                         <i class="fas fa-search text-muted"></i>
                     </span>
-                    <input type="text" name="buscar" class="form-control border-start-0 shadow-none" placeholder="Buscar grupo, materia o código" value="{{ request('buscar') }}">
+                    <input type="search" name="buscar" id="buscar" class="form-control border-start-0 shadow-none" placeholder="Buscar grupo, materia o código" value="{{ request('buscar') }}" data-auto-search-input autocomplete="off">
                     <button class="btn btn-outline-primary" type="submit">
                         Buscar
                     </button>
@@ -144,3 +144,5 @@
     </div>
 </div>
 @endsection
+
+@include('partials.auto-search')

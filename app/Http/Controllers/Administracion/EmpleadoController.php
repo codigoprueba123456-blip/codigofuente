@@ -1,7 +1,8 @@
 <?php
 
-namespace App\Http\Controllers;
+namespace App\Http\Controllers\Administracion;
 
+use App\Http\Controllers\Controller;
 use App\Models\Cuenta;
 use App\Models\Empleado;
 use App\Models\EmpleadoDocumento;
@@ -17,9 +18,24 @@ use Illuminate\Validation\Rule;
 
 class EmpleadoController extends Controller
 {
-    public function index()
+    public function index(Request $request)
     {
-        $empleados = Empleado::with(['persona', 'documentos'])->get();
+        $buscar = trim((string) $request->input('q', ''));
+        $empleados = Empleado::with(['persona', 'documentos'])
+            ->when($buscar !== '', fn ($query) => $query->where(function ($query) use ($buscar): void {
+                $term = '%'.$buscar.'%';
+                $query->where('codigo', 'like', $term)
+                    ->orWhereHas('persona', fn ($persona) => $persona
+                        ->where('nombre', 'like', $term)
+                        ->orWhere('primerapellido', 'like', $term)
+                        ->orWhere('segundoapellido', 'like', $term)
+                        ->orWhere('ci', 'like', $term)
+                        ->orWhere('direccion', 'like', $term)
+                        ->orWhere('telefono', 'like', $term)
+                        ->orWhere('celular', 'like', $term)
+                        ->orWhere('email', 'like', $term));
+            }))
+            ->get();
 
         return view('admin.empleados.index', compact('empleados'));
     }

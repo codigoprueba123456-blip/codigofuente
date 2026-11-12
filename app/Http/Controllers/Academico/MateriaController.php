@@ -1,7 +1,8 @@
 <?php
 
-namespace App\Http\Controllers;
+namespace App\Http\Controllers\Academico;
 
+use App\Http\Controllers\Controller;
 use App\Models\Carrera;
 use App\Models\Materia;
 use App\Support\PlanEstudiosImporter;
@@ -10,13 +11,20 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\ValidationException;
+use Illuminate\Validation\Rule;
 use RuntimeException;
 
 class MateriaController extends Controller
 {
     public function index()
     {
-        $query = Materia::with(['carrera', 'prerequisitos'])->orderBy('nombre');
+        $query = Materia::with(['carrera', 'prerequisitos'])
+            ->when(request()->filled('q'), fn ($query) => $query->where(function ($query): void {
+                $term = '%'.request('q').'%';
+                $query->where('nombre', 'like', $term)
+                    ->orWhere('codigo', 'like', $term);
+            }))
+            ->orderBy('nombre');
         if (request()->filled('id_carrera')) {
             $query->where('id_carrera', request('id_carrera'));
         }
@@ -137,7 +145,11 @@ class MateriaController extends Controller
             'numero' => ['nullable', 'integer', 'min:0'],
             'id_carrera' => ['required', 'exists:carreras,id_carrera'],
             'prerequisitos' => ['nullable', 'array'],
-            'prerequisitos.*' => ['exists:materia,id_materia'],
+            'prerequisitos.*' => [
+                'integer',
+                Rule::exists('materia', 'id_materia')
+                    ->where(fn ($query) => $query->where('id_carrera', $request->input('id_carrera'))),
+            ],
         ]);
 
         DB::transaction(function () use ($validated, $request, $creditage): void {
