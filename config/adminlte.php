@@ -301,13 +301,14 @@ return [
     'menu' => [
         // Navbar items:
         [
-            'type' => 'navbar-search',
-            'text' => 'search',
+            'type' => 'fullscreen-widget',
             'topnav_right' => true,
         ],
         [
-            'type' => 'fullscreen-widget',
-            'topnav_right' => true,
+            'text' => 'Cambiar contraseña',
+            'route' => 'account.password.edit',
+            'icon' => 'fas fa-fw fa-key',
+            'topnav_user' => true,
         ],
         // Sidebar items:
         [
@@ -555,7 +556,7 @@ return [
             ],
         ],
         'Select2' => [
-            'active' => false,
+            'active' => true,
             'files' => [
                 [
                     'type' => 'js',

@@ -15,6 +15,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
 
 class EmpleadoController extends Controller
 {
@@ -42,7 +43,7 @@ class EmpleadoController extends Controller
 
     public function create()
     {
-        $roles = Rol::all();
+        $roles = Rol::activos()->orderBy('nombre')->get();
 
         return view('admin.empleados.create', compact('roles'));
     }
@@ -133,8 +134,12 @@ class EmpleadoController extends Controller
     public function edit($id)
     {
         $empleado = Empleado::with('documentos')->findOrFail($id);
-        $roles = Rol::all();
         $usuario = User::where('id_persona', $empleado->id_persona)->first();
+        $roles = Rol::query()
+            ->where('activo', true)
+            ->orWhere('id_rol', $usuario?->cuenta?->id_rol)
+            ->orderBy('nombre')
+            ->get();
 
         return view('admin.empleados.edit', compact('empleado', 'roles', 'usuario'));
     }
@@ -145,7 +150,11 @@ class EmpleadoController extends Controller
         $persona = $empleado->persona;
         $usuario = User::where('id_persona', $empleado->id_persona)->first();
 
-        $validated = $request->validate($this->rules($persona->id_persona, $usuario?->id_persona));
+        $validated = $request->validate($this->rules(
+            $persona->id_persona,
+            $usuario?->id_persona,
+            $usuario?->cuenta?->id_rol
+        ));
 
         // Actualizar persona
         $persona->update(collect($validated)->only([
@@ -204,20 +213,24 @@ class EmpleadoController extends Controller
         return redirect()->route('admin.empleados.index')->with('success', 'Empleado actualizado exitosamente.');
     }
 
-    public function destroy($id)
+    public function cambiarEstado(Request $request, $id)
     {
         $empleado = Empleado::findOrFail($id);
-        $rutasImagenes = $empleado->documentos()->pluck('ruta')->all();
-        if ($empleado->persona->foto) {
-            $rutasImagenes[] = $empleado->persona->foto;
+        $validated = $request->validate([
+            'activo' => ['required', 'boolean'],
+        ]);
+        if (! $validated['activo'] && (int) auth()->id() === (int) $empleado->id_persona) {
+            throw ValidationException::withMessages([
+                'activo' => 'No puedes deshabilitar tu propio acceso.',
+            ]);
         }
-        $empleado->persona->delete(); // Elimina en cascada empleado y usuario
-        Storage::disk('public')->delete($rutasImagenes);
+        $empleado->update(['activo' => $validated['activo']]);
 
-        return redirect()->route('admin.empleados.index')->with('success', 'Empleado eliminado exitosamente.');
+        return redirect()->route('admin.empleados.index')
+            ->with('success', 'Estado del empleado actualizado correctamente.');
     }
 
-    private function rules(?int $personaId = null, ?int $usuarioId = null): array
+    private function rules(?int $personaId = null, ?int $usuarioId = null, ?int $rolActual = null): array
     {
         return [
             'nombre' => ['required', 'string', 'max:255'],
@@ -238,7 +251,13 @@ class EmpleadoController extends Controller
             'documentos.*' => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp', 'max:5120'],
             'abreviaturaprofesion' => ['nullable', 'string', 'max:100'],
             'codigo' => ['nullable', 'string', 'max:255'],
-            'id_rol' => ['required', 'exists:rol,id_rol'],
+            'id_rol' => [
+                'required',
+                Rule::exists('rol', 'id_rol')
+                    ->where(fn ($query) => $query
+                        ->where('activo', true)
+                        ->orWhere('id_rol', $rolActual)),
+            ],
             'usuario' => [Rule::requiredIf($personaId !== null), 'nullable', 'string', 'max:255', Rule::unique('users', 'usuario')->ignore($usuarioId, 'id_persona')],
             'password' => ['nullable', 'string', 'min:8', 'confirmed'],
         ];

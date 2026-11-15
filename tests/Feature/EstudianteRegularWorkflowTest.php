@@ -59,7 +59,8 @@ class EstudianteRegularWorkflowTest extends TestCase
             ->assertOk()
             ->assertSee('Sistemas Informáticos')
             ->assertSee('R.M. 0001/2020')
-            ->assertSee('Tercer año')
+            ->assertSee('Tercer a\\u00f1o')
+            ->assertSee('Sexto semestre')
             ->assertDontSee('Cuarto año');
 
         $this->get(route('cambio_carrera.index'))
@@ -69,7 +70,8 @@ class EstudianteRegularWorkflowTest extends TestCase
 
         $this->get(route('estudiante_regular.index'))
             ->assertOk()
-            ->assertSee('Año que cursará')
+            ->assertSee('Año que cursará:')
+            ->assertSee('Sexto semestre')
             ->assertSee('Añadir otra carrera');
 
         $this->get(route('postulantes.registrar'))
@@ -328,6 +330,34 @@ class EstudianteRegularWorkflowTest extends TestCase
             'id_carrera' => $fixture['carreraUno']->id_carrera,
             'nivelinicio' => 4,
         ])->assertSessionHasErrors('nivelinicio');
+    }
+
+    public function test_regular_enrollment_accepts_the_sixth_semester_for_a_semestral_career(): void
+    {
+        $this->withoutMiddleware();
+        $fixture = $this->createFixture();
+        $fixture['carreraNoAsociada']->update(['regimen' => Carrera::REGIMEN_SEMESTRAL]);
+
+        $this->post(route('estudiante_regular.store'), [
+            'id_persona' => $fixture['persona']->id_persona,
+            'fecha' => now()->toDateString(),
+            'becado' => 0,
+            'traspaso_convalidacion' => 0,
+            'inscripciones' => [[
+                'registrar' => 1,
+                'nueva' => 1,
+                'id_carrera' => $fixture['carreraNoAsociada']->id_carrera,
+                'nivelinicio' => 6,
+                'deposito' => 'REGULAR-SEMESTER-VOUCHER-001',
+            ]],
+        ])->assertRedirect(route('estudiante_regular.index'));
+
+        $this->assertDatabaseHas('cursa', [
+            'id_persona' => $fixture['persona']->id_persona,
+            'id_carrera' => $fixture['carreraNoAsociada']->id_carrera,
+            'id_gestionacademica' => $fixture['gestionActual']->id_gestionacademica,
+            'nivelinicio' => 6,
+        ]);
     }
 
     private function createFixture(): array

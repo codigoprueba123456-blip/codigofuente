@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Inscripciones;
 
 use App\Http\Controllers\Controller;
+use App\Models\Carrera;
 use App\Models\GestionAcademica;
 use App\Models\Inscrito;
 use App\Models\Materia;
@@ -151,6 +152,7 @@ class InscripcionManualController extends Controller
                 'p.segundoapellido',
                 'p.ci',
                 'c.nombre as carrera',
+                'c.regimen',
                 'cu.nivelinicio',
             ]);
 
@@ -170,6 +172,7 @@ class InscripcionManualController extends Controller
                     'id_carrera' => (int) $registro->id_carrera,
                     'carrera' => $registro->carrera,
                     'nivel' => max(1, (int) ($registro->nivelinicio ?? 1)),
+                    'regimen' => Carrera::regimenEfectivo($registro->regimen),
                 ])->values(),
             ];
         })->values());
@@ -209,12 +212,16 @@ class InscripcionManualController extends Controller
             ->groupBy('id_grupo');
         $gruposOferta = DB::table('grupo as g')
             ->join('materia as m', 'm.id_materia', '=', 'g.id_materia')
+            ->join('carreras as c', 'c.id_carrera', '=', 'm.id_carrera')
             ->leftJoin('empleados as e', 'e.id_persona', '=', 'g.id_persona')
             ->leftJoin('personas as docente', 'docente.id_persona', '=', 'e.id_persona')
             ->leftJoinSub($ocupacion, 'ocupacion', 'ocupacion.id_grupo', '=', 'g.id_grupo')
             ->where('m.id_carrera', $contexto['inscripcion']->id_carrera)
             ->where('m.nivel', $contexto['inscripcion']->nivelinicio)
             ->where('g.id_gestionacademica', $contexto['inscripcion']->id_gestionacademica)
+            ->where('c.activo', true)
+            ->where('m.activo', true)
+            ->where('g.activo', true)
             ->where(function ($query) use ($paralelo): void {
                 $query->where('g.codigo', $paralelo)
                     ->orWhere('g.codigo', 'like', '%-'.$paralelo);
@@ -258,11 +265,15 @@ class InscripcionManualController extends Controller
         $materias = DB::table('materia as m')
             ->leftJoin('grupo as g', function ($join) use ($contexto): void {
                 $join->on('g.id_materia', '=', 'm.id_materia')
-                    ->where('g.id_gestionacademica', '=', $contexto['inscripcion']->id_gestionacademica);
+                    ->where('g.id_gestionacademica', '=', $contexto['inscripcion']->id_gestionacademica)
+                    ->where('g.activo', true);
             })
+            ->join('carreras as c', 'c.id_carrera', '=', 'm.id_carrera')
             ->leftJoin('empleados as e', 'e.id_persona', '=', 'g.id_persona')
             ->leftJoin('personas as docente', 'docente.id_persona', '=', 'e.id_persona')
             ->where('m.id_carrera', $contexto['inscripcion']->id_carrera)
+            ->where('c.activo', true)
+            ->where('m.activo', true)
             ->orderBy('m.nivel')
             ->orderBy('m.numero')
             ->orderBy('m.nombre')
@@ -334,15 +345,19 @@ class InscripcionManualController extends Controller
 
             $grupos = DB::table('grupo as g')
                 ->join('materia as m', 'm.id_materia', '=', 'g.id_materia')
+                ->join('carreras as c', 'c.id_carrera', '=', 'm.id_carrera')
                 ->whereIn('g.id_grupo', $idGrupos)
                 ->get([
                     'g.id_grupo',
                     'g.id_materia',
                     'g.id_gestionacademica',
+                    'g.activo as grupo_activo',
                     'g.abierto',
                     'g.capacidad',
+                    'm.activo as materia_activa',
                     'm.id_carrera',
                     'm.nivel',
+                    'c.activo as carrera_activa',
                 ])
                 ->keyBy('id_grupo');
             $actuales = DB::table('inscrito_materia')
@@ -377,6 +392,15 @@ class InscripcionManualController extends Controller
                 $materiasElegidas[] = (int) $grupo->id_materia;
 
                 $yaAsignado = in_array((int) $grupo->id_grupo, $actuales, true);
+                if (! $yaAsignado && (
+                    ! (bool) $grupo->grupo_activo
+                    || ! (bool) $grupo->materia_activa
+                    || ! (bool) $grupo->carrera_activa
+                )) {
+                    throw ValidationException::withMessages([
+                        'grupos' => 'No se pueden asignar grupos, materias o carreras deshabilitados.',
+                    ]);
+                }
                 if (! $yaAsignado && ! (bool) $grupo->abierto) {
                     throw ValidationException::withMessages([
                         'grupos' => 'Uno de los grupos seleccionados está cerrado.',
@@ -441,6 +465,7 @@ class InscripcionManualController extends Controller
                 'p.segundoapellido',
                 'p.ci',
                 'c.nombre as carrera',
+                'c.regimen',
             ]);
         abort_unless($inscripcion, 404);
         $inscripcion->nivelinicio = DB::table('cursa')

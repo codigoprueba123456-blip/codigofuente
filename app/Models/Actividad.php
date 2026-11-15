@@ -10,6 +10,7 @@ class Actividad extends Model
     protected $table = 'actividad';
     protected $primaryKey = 'id_actividad';
     protected $fillable = [
+        'activo',
         'nombre',
         'descripcion',
         'inicio',
@@ -19,6 +20,7 @@ class Actividad extends Model
     ];
 
     protected $casts = [
+        'activo' => 'boolean',
         'inicio' => 'datetime',
         'fin' => 'datetime',
     ];
@@ -59,7 +61,7 @@ class Actividad extends Model
     {
         $careerIds = $user->carreras()->pluck('carreras.id_carrera');
 
-        return $query->where(function (Builder $visibility) use ($user, $careerIds) {
+        return $query->where('activo', true)->where(function (Builder $visibility) use ($user, $careerIds) {
             $visibility->whereDoesntHave('carreras')
                 ->whereDoesntHave('usuarios')
                 ->orWhereHas('usuarios', fn (Builder $users) => $users->where('users.id_persona', $user->id_persona));

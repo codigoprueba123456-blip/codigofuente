@@ -20,15 +20,32 @@ class GestionAcademica extends Model
         'fin',
         'vigente',
         'modalidadevaluacion',
+        'activo',
     ];
 
     protected $casts = [
         'vigente' => 'boolean',
+        'activo' => 'boolean',
     ];
+
+    public function getEtiquetaAttribute(): string
+    {
+        $periodo = (int) $this->periodo;
+
+        if ((int) $this->regimen === Carrera::REGIMEN_ANUAL) {
+            return 'I' . $this->gestion . 'A';
+        }
+
+        if ((int) $this->regimen === Carrera::REGIMEN_SEMESTRAL && in_array($periodo, [1, 2], true)) {
+            return ($periodo === 1 ? 'I' : 'II') . $this->gestion . 'S';
+        }
+
+        return $this->gestion . ' - Periodo ' . $this->periodo;
+    }
 
     public function scopeHabilitadas($query)
     {
-        return $query->where('vigente', true);
+        return $query->where('vigente', true)->where('activo', true);
     }
 
     public function actividades()

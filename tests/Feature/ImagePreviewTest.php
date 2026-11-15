@@ -76,7 +76,7 @@ class ImagePreviewTest extends TestCase
             ->assertSee('/storage/empleados/documentos/documento-prueba.png', false);
     }
 
-    public function test_employee_delete_confirmation_shows_images_and_removes_them_with_the_record(): void
+    public function test_employee_can_be_disabled_without_removing_images_or_the_record(): void
     {
         Storage::fake('public');
         Storage::disk('public')->put('personas/foto-eliminar.png', 'photo');
@@ -110,16 +110,15 @@ class ImagePreviewTest extends TestCase
         $this->actingAs($admin)
             ->get(route('admin.empleados.index'))
             ->assertOk()
-            ->assertSee('data-target="#deleteEmployeeModal"', false)
-            ->assertSee('foto-eliminar.png')
-            ->assertSee('ci-eliminar.png');
+            ->assertSee('Deshabilitar')
+            ->assertSee('Habilitado');
 
-        $this->delete(route('admin.empleados.destroy', $employee->id_persona))
+        $this->patch(route('admin.empleados.estado', $employee->id_persona), ['activo' => false])
             ->assertRedirect(route('admin.empleados.index'));
 
-        $this->assertDatabaseMissing('empleados', ['id_persona' => $employee->id_persona]);
-        Storage::disk('public')->assertMissing('personas/foto-eliminar.png');
-        Storage::disk('public')->assertMissing('empleados/documentos/ci-eliminar.png');
+        $this->assertDatabaseHas('empleados', ['id_persona' => $employee->id_persona, 'activo' => false]);
+        Storage::disk('public')->assertExists('personas/foto-eliminar.png');
+        Storage::disk('public')->assertExists('empleados/documentos/ci-eliminar.png');
     }
 
     public function test_institute_logo_can_be_removed_and_its_placeholder_stays_visible(): void

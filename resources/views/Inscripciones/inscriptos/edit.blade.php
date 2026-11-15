@@ -123,7 +123,7 @@
                         <label for="id_carrera">Carrera *</label>
                         <select id="id_carrera" name="id_carrera" class="form-control" required>
                             @foreach ($carreras as $carrera)
-                                <option value="{{ $carrera->id_carrera }}" {{ (string) old('id_carrera', $inscripcion->id_carrera) === (string) $carrera->id_carrera ? 'selected' : '' }}>{{ $carrera->nombre }}</option>
+                                <option value="{{ $carrera->id_carrera }}" data-regimen="{{ $carrera->regimen }}" {{ (string) old('id_carrera', $inscripcion->id_carrera) === (string) $carrera->id_carrera ? 'selected' : '' }}>{{ $carrera->nombre }}</option>
                             @endforeach
                         </select>
                     </div>
@@ -132,17 +132,15 @@
                         <select id="id_gestionacademica" name="id_gestionacademica" class="form-control" required>
                             @foreach ($gestiones as $gestion)
                                 <option value="{{ $gestion->id_gestionacademica }}" {{ (string) old('id_gestionacademica', $inscripcion->id_gestionacademica) === (string) $gestion->id_gestionacademica ? 'selected' : '' }}>
-                                    {{ $gestion->gestion }} - Periodo {{ $gestion->periodo }}
+                                    {{ $gestion->etiqueta }}
                                 </option>
                             @endforeach
                         </select>
                     </div>
                     <div class="col-md-4 form-group">
-                        <label for="nivelinicio">Año de estudio *</label>
-                        <select id="nivelinicio" name="nivelinicio" class="form-control" required>
-                            @foreach ([1 => 'Primer año', 2 => 'Segundo año', 3 => 'Tercer año'] as $nivel => $nombreNivel)
-                                <option value="{{ $nivel }}" {{ (string) old('nivelinicio', $inscripcion->nivelinicio ?? 1) === (string) $nivel ? 'selected' : '' }}>{{ $nombreNivel }}</option>
-                            @endforeach
+                        <label for="nivelinicio">Nivel de estudio *</label>
+                        <select id="nivelinicio" name="nivelinicio" class="form-control" data-nivel-carrera="id_carrera" data-initial-value="{{ old('nivelinicio', $inscripcion->nivelinicio ?? 1) }}" data-placeholder="Seleccione un nivel" required>
+                            <option value="">Seleccione un nivel</option>
                         </select>
                     </div>
                     <div class="col-md-4 form-group">
@@ -184,4 +182,5 @@
             </div>
         </div>
     </form>
+    @include('partials.niveles-por-regimen')
 @stop

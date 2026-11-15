@@ -16,6 +16,7 @@ use App\Models\Rol;
 use App\Models\User;
 use App\Support\MenuResourceSync;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Route;
 use Tests\TestCase;
@@ -67,13 +68,17 @@ class FunctionalityAccessTest extends TestCase
             'id_carrera' => $career->id_carrera,
         ])->assertRedirect(route('planes.materias.index'))
             ->assertSessionHas('success', 'Materia actualizada correctamente.');
-        $this->delete(route('planes.materias.destroy', $subject->id_materia))
+        $this->patch(route('planes.materias.estado', $subject->id_materia), ['activo' => false])
             ->assertRedirect(route('planes.materias.index'));
-
-        $this->delete(route('planes.carreras.destroy', $career->id_carrera))
+        $this->patch(route('planes.carreras.estado', $career->id_carrera), ['activo' => false])
             ->assertRedirect(route('planes.carreras.index'));
-        $this->assertDatabaseMissing('carreras', ['id_carrera' => $career->id_carrera]);
-        $this->assertDatabaseMissing('materia', ['id_materia' => $subject->id_materia]);
+        $this->assertDatabaseHas('carreras', ['id_carrera' => $career->id_carrera, 'activo' => false]);
+        $this->assertDatabaseHas('materia', ['id_materia' => $subject->id_materia, 'activo' => false]);
+
+        $this->patch(route('planes.materias.estado', $subject->id_materia), ['activo' => true]);
+        $this->patch(route('planes.carreras.estado', $career->id_carrera), ['activo' => true]);
+        $this->assertDatabaseHas('carreras', ['id_carrera' => $career->id_carrera, 'activo' => true]);
+        $this->assertDatabaseHas('materia', ['id_materia' => $subject->id_materia, 'activo' => true]);
     }
 
     public function test_subject_index_lists_careers_and_filters_subjects_by_career(): void
@@ -110,6 +115,88 @@ class FunctionalityAccessTest extends TestCase
             ->assertSee('value="' . $primeraCarrera->id_carrera . '" selected', false)
             ->assertSee('onchange="this.form.submit()"', false)
             ->assertDontSee('>Filtrar</button>', false);
+    }
+
+    public function test_subject_levels_follow_the_selected_career_regime(): void
+    {
+        $user = $this->createUser();
+        $instituto = Instituto::create(['nombreinstituto' => 'Instituto de Prueba']);
+        $carrera = Carrera::create([
+            'codigo' => 'SEM-001',
+            'nombre' => 'Carrera Semestral',
+            'regimen' => Carrera::REGIMEN_SEMESTRAL,
+            'id_instituto' => $instituto->id_instituto,
+        ]);
+
+        $this->actingAs($user)
+            ->get(route('planes.materias.create'))
+            ->assertOk()
+            ->assertSee('Sexto semestre');
+
+        $this->post(route('planes.materias.store'), [
+            'nombre' => 'Materia de sexto semestre',
+            'id_carrera' => $carrera->id_carrera,
+            'nivel' => 6,
+        ])->assertRedirect(route('planes.materias.index'));
+
+        $this->assertDatabaseHas('materia', [
+            'nombre' => 'Materia de sexto semestre',
+            'id_carrera' => $carrera->id_carrera,
+            'nivel' => 6,
+        ]);
+
+        $this->post(route('planes.materias.store'), [
+            'nombre' => 'Materia fuera de rango',
+            'id_carrera' => $carrera->id_carrera,
+            'nivel' => 7,
+        ])->assertSessionHasErrors('nivel');
+    }
+
+    public function test_group_programming_accepts_semester_levels_for_semestral_careers(): void
+    {
+        $user = $this->createUser();
+        $instituto = Instituto::create(['nombreinstituto' => 'Instituto de Prueba']);
+        $gestion = GestionAcademica::create([
+            'gestion' => 2026,
+            'periodo' => 1,
+            'regimen' => Carrera::REGIMEN_ANUAL,
+            'vigente' => true,
+        ]);
+        $carrera = Carrera::create([
+            'codigo' => 'SEM-GRP-001',
+            'nombre' => 'Carrera Semestral',
+            'regimen' => Carrera::REGIMEN_SEMESTRAL,
+            'id_instituto' => $instituto->id_instituto,
+        ]);
+        Materia::create([
+            'codigo' => 'SEM-601',
+            'nombre' => 'Materia de sexto semestre',
+            'nivel' => 6,
+            'id_carrera' => $carrera->id_carrera,
+        ]);
+
+        $this->actingAs($user)
+            ->get(route('admin.grupos.programar'))
+            ->assertOk()
+            ->assertSee('Sexto semestre');
+
+        $this->post(route('admin.grupos.store'), [
+            'id_carrera' => $carrera->id_carrera,
+            'nivel' => 6,
+        ])->assertRedirect(route('admin.grupos.index', [
+            'id_gestionacademica' => $gestion->id_gestionacademica,
+            'id_carrera' => $carrera->id_carrera,
+        ]));
+
+        $this->assertDatabaseHas('grupo', [
+            'id_gestionacademica' => $gestion->id_gestionacademica,
+            'id_materia' => Materia::where('codigo', 'SEM-601')->value('id_materia'),
+        ]);
+
+        $this->post(route('admin.grupos.store'), [
+            'id_carrera' => $carrera->id_carrera,
+            'nivel' => 7,
+        ])->assertSessionHasErrors('nivel');
     }
 
     public function test_administration_and_study_plan_searches_filter_results(): void
@@ -188,6 +275,44 @@ class FunctionalityAccessTest extends TestCase
             ->assertSee('data-auto-search-input', false);
     }
 
+    public function test_index_gestion_filters_include_all_while_entry_forms_offer_only_current_gestiones(): void
+    {
+        $user = $this->createUser();
+        GestionAcademica::create([
+            'gestion' => 2025,
+            'periodo' => 1,
+            'regimen' => 1,
+            'vigente' => false,
+        ]);
+        GestionAcademica::create([
+            'gestion' => 2026,
+            'periodo' => 1,
+            'regimen' => 1,
+            'vigente' => true,
+        ]);
+
+        $this->actingAs($user)
+            ->get(route('admin.grupos.index'))
+            ->assertOk()
+            ->assertSee('I2025A')
+            ->assertSee('I2026A');
+
+        $this->get(route('admin.actividad.index'))
+            ->assertOk()
+            ->assertSee('I2025A')
+            ->assertSee('I2026A');
+
+        $this->get(route('admin.actividad.create'))
+            ->assertOk()
+            ->assertSee('I2026A')
+            ->assertDontSee('I2025A');
+
+        $this->get(route('estudiante_nuevo.index'))
+            ->assertOk()
+            ->assertSee('I2026A')
+            ->assertDontSee('I2025A');
+    }
+
     public function test_group_search_matches_group_and_subject_fields(): void
     {
         $user = $this->createUser();
@@ -213,8 +338,9 @@ class FunctionalityAccessTest extends TestCase
             'nombre' => 'Base de Datos',
             'id_carrera' => $carrera->id_carrera,
         ]);
-        Grupo::create([
+        $grupo = Grupo::create([
             'codigo' => 'GRUPO-PW-A',
+            'capacidad' => 60,
             'id_gestionacademica' => $gestion->id_gestionacademica,
             'id_materia' => $materia->id_materia,
             'id_persona' => $user->id_persona,
@@ -224,17 +350,58 @@ class FunctionalityAccessTest extends TestCase
             'id_gestionacademica' => $gestion->id_gestionacademica,
             'id_materia' => $otraMateria->id_materia,
         ]);
+        $inscritoId = DB::table('inscrito')->insertGetId([
+            'fecha' => now()->toDateString(),
+            'id_carrera' => $carrera->id_carrera,
+            'id_persona' => $user->id_persona,
+            'id_gestionacademica' => $gestion->id_gestionacademica,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+        DB::table('inscrito_materia')->insert([
+            'id_inscrito' => $inscritoId,
+            'id_materia' => $materia->id_materia,
+            'id_grupo' => $grupo->id_grupo,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
 
         $this->actingAs($user)
-            ->get(route('admin.grupos.index', ['buscar' => 'Programación Web']))
+            ->get(route('admin.grupos.index'))
             ->assertOk()
-            ->assertSee('GRUPO-PW-A')
-            ->assertDontSee('GRUPO-BD-A');
+            ->assertSee('class="thead-light"', false)
+            ->assertDontSee('alert-info')
+            ->assertDontSee('GRUPO-PW-A')
+            ->assertDontSee('Programación Web');
 
-        $this->get(route('admin.grupos.index', ['buscar' => 'INF-102']))
+        $this->get(route('admin.grupos.index', [
+            'id_gestionacademica' => $gestion->id_gestionacademica,
+        ]))
             ->assertOk()
-            ->assertSee('GRUPO-BD-A')
-            ->assertDontSee('GRUPO-PW-A');
+            ->assertDontSee('GRUPO-PW-A')
+            ->assertDontSee('Programación Web');
+
+        $this->get(route('admin.grupos.index', [
+            'id_gestionacademica' => $gestion->id_gestionacademica,
+            'id_carrera' => $carrera->id_carrera,
+            'buscar' => 'Programación Web',
+        ]))
+            ->assertOk()
+            ->assertSee('>a</span>', false)
+            ->assertDontSee('GRUPO-PW-A')
+            ->assertDontSee('GRUPO-BD-A')
+            ->assertSee('Inscritos')
+            ->assertSee('Nivel')
+            ->assertSeeInOrder(['Programación Web', '60', '1', 'Sí']);
+
+        $this->get(route('admin.grupos.index', [
+            'id_gestionacademica' => $gestion->id_gestionacademica,
+            'id_carrera' => $carrera->id_carrera,
+            'buscar' => 'INF-102',
+        ]))
+            ->assertOk()
+            ->assertSee('>a</span>', false)
+            ->assertDontSee('Programación Web');
 
         $this->get(route('admin.grupos.index'))
             ->assertOk()
@@ -287,8 +454,9 @@ class FunctionalityAccessTest extends TestCase
             ->assertOk()
             ->assertSee('data-carrera-id="' . $carrera->id_carrera . '"', false)
             ->assertSee('data-carrera-id="' . $otraCarrera->id_carrera . '"', false)
-            ->assertSee('Seleccione una carrera para ver sus materias.')
-            ->assertSee('filtrarPrerequisitos');
+            ->assertSee('data-prerequisitos-select', false)
+            ->assertSee('multiple', false)
+            ->assertSee('filtrarPrerequisitos(conservarSeleccion)');
 
         $this->post(route('planes.materias.store'), [
             'nombre' => 'Programación II',
@@ -385,14 +553,18 @@ class FunctionalityAccessTest extends TestCase
             ->assertRedirect(route('login'));
     }
 
-    public function test_administration_can_be_edited_and_deleted_without_enabled_functionality(): void
+    public function test_administration_records_can_be_edited_and_disabled_without_enabled_functionality(): void
     {
         $user = $this->createUser();
         MenuResourceSync::sync();
         $role = Rol::create(['nombre' => 'Rol de prueba']);
 
         $this->actingAs($user)
-            ->get(route('admin.roles.edit', $role->id_rol))
+            ->get(route('admin.roles.index'))
+            ->assertOk()
+            ->assertSee('Deshabilitar');
+
+        $this->get(route('admin.roles.edit', $role->id_rol))
             ->assertOk();
 
         $this->put(route('admin.roles.update', $role->id_rol), [
@@ -404,10 +576,91 @@ class FunctionalityAccessTest extends TestCase
             'nombre' => 'Rol actualizado',
         ]);
 
-        $this->delete(route('admin.roles.destroy', $role->id_rol))
+        $this->patch(route('admin.roles.estado', $role->id_rol), ['activo' => false])
             ->assertRedirect(route('admin.roles.index'));
 
-        $this->assertDatabaseMissing('rol', ['id_rol' => $role->id_rol]);
+        $this->assertDatabaseHas('rol', ['id_rol' => $role->id_rol, 'activo' => false]);
+        $this->patch(route('admin.roles.estado', $role->id_rol), ['activo' => true]);
+        $this->assertDatabaseHas('rol', ['id_rol' => $role->id_rol, 'activo' => true]);
+    }
+
+    public function test_groups_activities_and_gestiones_can_be_disabled_without_deleting_them(): void
+    {
+        $user = $this->createUser();
+        $instituto = Instituto::create(['nombreinstituto' => 'Instituto de Prueba']);
+        $carrera = Carrera::create([
+            'codigo' => 'EST-001',
+            'nombre' => 'Estudios',
+            'id_instituto' => $instituto->id_instituto,
+        ]);
+        $gestion = GestionAcademica::create([
+            'gestion' => 2026,
+            'periodo' => 1,
+            'regimen' => 1,
+            'vigente' => true,
+        ]);
+        $materia = Materia::create([
+            'codigo' => 'EST-101',
+            'nombre' => 'Introducción',
+            'id_carrera' => $carrera->id_carrera,
+        ]);
+        $grupo = Grupo::create([
+            'codigo' => 'EST-101-a',
+            'id_gestionacademica' => $gestion->id_gestionacademica,
+            'id_materia' => $materia->id_materia,
+        ]);
+        $actividad = Actividad::create([
+            'nombre' => 'Inscripción',
+            'id_gestionacademica' => $gestion->id_gestionacademica,
+        ]);
+
+        $this->actingAs($user)
+            ->get(route('admin.grupos.index', [
+                'id_gestionacademica' => $gestion->id_gestionacademica,
+                'id_carrera' => $carrera->id_carrera,
+            ]))
+            ->assertOk()
+            ->assertSee('Deshabilitar');
+        $this->get(route('admin.actividad.index', [
+            'id_gestionacademica' => $gestion->id_gestionacademica,
+        ]))
+            ->assertOk()
+            ->assertSee('Deshabilitar');
+        $this->get(route('admin.gestionacademica.index'))
+            ->assertOk()
+            ->assertSee('Deshabilitar');
+        $this->patch(route('admin.grupos.estado', $grupo->id_grupo), ['activo' => false])
+            ->assertRedirect();
+        $this->patch(route('admin.actividad.estado', $actividad->id_actividad), ['activo' => false])
+            ->assertRedirect();
+        $this->patch(route('admin.gestionacademica.estado', $gestion->id_gestionacademica), ['activo' => false])
+            ->assertRedirect();
+
+        $this->assertDatabaseHas('grupo', ['id_grupo' => $grupo->id_grupo, 'activo' => false]);
+        $this->assertDatabaseHas('actividad', ['id_actividad' => $actividad->id_actividad, 'activo' => false]);
+        $this->assertDatabaseHas('gestionacademica', [
+            'id_gestionacademica' => $gestion->id_gestionacademica,
+            'activo' => false,
+            'vigente' => false,
+        ]);
+    }
+
+    public function test_inactive_roles_do_not_grant_role_middleware_access_from_legacy_person_type(): void
+    {
+        $user = $this->createUser();
+        $role = Rol::create(['nombre' => 'Administrador', 'activo' => false]);
+        Cuenta::create([
+            'id_persona' => $user->id_persona,
+            'id_rol' => $role->id_rol,
+            'usuario' => $user->usuario,
+            'password' => $user->password,
+        ]);
+        Route::middleware(['web', 'auth', 'resource.access:admin'])
+            ->get('/test/disabled-role-access', fn () => response('access granted'));
+
+        $this->actingAs($user)
+            ->get('/test/disabled-role-access')
+            ->assertForbidden();
     }
 
     public function test_administration_sections_are_not_offered_as_functionality_toggles(): void

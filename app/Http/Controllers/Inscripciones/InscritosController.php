@@ -19,7 +19,7 @@ class InscritosController extends Controller
         $filters = $request->validate([
             'id_gestionacademica' => ['nullable', 'integer', 'exists:gestionacademica,id_gestionacademica'],
             'id_carrera' => ['nullable', 'integer', 'exists:carreras,id_carrera'],
-            'nivel' => ['nullable', 'integer', 'min:1'],
+            'nivel' => ['nullable', 'integer', 'between:1,6'],
             'bth' => ['nullable', 'in:0,1'],
             'traspaso_convalidacion' => ['nullable', 'in:0,1'],
             'turno' => ['nullable', 'string', 'max:30'],
@@ -175,8 +175,6 @@ class InscritosController extends Controller
 
         $gestiones = GestionAcademica::orderByDesc('id_gestionacademica')->get();
         $carreras = Carrera::orderBy('nombre')->get();
-        $niveles = DB::table('cursa')->whereNotNull('nivelinicio')
-            ->select('nivelinicio')->distinct()->orderBy('nivelinicio')->pluck('nivelinicio');
         $turnos = DB::table('grupo')->whereNotNull('turno')->where('turno', '!=', '')
             ->select('turno')->distinct()->orderBy('turno')->pluck('turno');
         $paralelos = DB::table('grupo')->whereNotNull('codigo')->where('codigo', '!=', '')
@@ -186,7 +184,6 @@ class InscritosController extends Controller
             'inscritos',
             'gestiones',
             'carreras',
-            'niveles',
             'turnos',
             'paralelos',
             'totalInscripciones',
@@ -243,6 +240,7 @@ class InscritosController extends Controller
                 'e.egresocolegio',
                 'e.traspaso_convalidacion',
                 'c.nombre as carrera',
+                'c.regimen',
                 'ga.gestion',
                 'ga.periodo',
                 'cu.nivelinicio',
@@ -253,11 +251,11 @@ class InscritosController extends Controller
             ->where('activo', true)
             ->orWhere('id_carrera', $inscripcion->id_carrera)
             ->orderBy('nombre')
-            ->get(['id_carrera', 'nombre']);
-        $gestiones = GestionAcademica::query()
+            ->get(['id_carrera', 'nombre', 'regimen']);
+        $gestiones = GestionAcademica::habilitadas()
             ->orderByDesc('gestion')
             ->orderByDesc('periodo')
-            ->get(['id_gestionacademica', 'gestion', 'periodo']);
+            ->get();
 
         return view('Inscripciones.inscriptos.edit', compact('inscripcion', 'carreras', 'gestiones'));
     }
@@ -294,7 +292,13 @@ class InscritosController extends Controller
             'deposito' => ['required', 'string', 'max:255'],
             'id_carrera' => ['required', 'integer', 'exists:carreras,id_carrera'],
             'id_gestionacademica' => ['required', 'integer', 'exists:gestionacademica,id_gestionacademica'],
-            'nivelinicio' => ['required', 'integer', 'between:1,3'],
+            'nivelinicio' => [
+                'required',
+                'integer',
+                Rule::in(Carrera::nivelesPorRegimen(
+                    Carrera::whereKey($request->input('id_carrera'))->value('regimen')
+                )),
+            ],
         ]);
 
         DB::transaction(function () use ($validated, $inscrito): void {

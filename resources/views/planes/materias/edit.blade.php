@@ -4,6 +4,9 @@
 
 @section('content')
 <div class="container-fluid pt-3">
+    @php
+        $prerequisitosSeleccionados = old('prerequisitos', $materia->prerequisitos->pluck('id_materia')->all());
+    @endphp
     <div class="card card-warning">
         <div class="card-header">
             <h3 class="card-title">Editar materia: {{ $materia->nombre }}</h3>
@@ -36,7 +39,7 @@
                                 @php
                                     $resoluciones = $carrera->resolucionesMinisteriales();
                                 @endphp
-                                <option value="{{ $carrera->id_carrera }}" {{ old('id_carrera', $materia->id_carrera) == $carrera->id_carrera ? 'selected' : '' }}>
+                                <option value="{{ $carrera->id_carrera }}" data-regimen="{{ $carrera->regimen }}" {{ old('id_carrera', $materia->id_carrera) == $carrera->id_carrera ? 'selected' : '' }}>
                                     {{ $carrera->nombre . ($resoluciones ? ' · R.M. ' . implode(' / ', $resoluciones) : '') }}
                                 </option>
                             @endforeach
@@ -55,7 +58,12 @@
 
                     <div class="col-md-3 form-group">
                         <label for="nivel">Nivel</label>
-                        <input type="number" name="nivel" id="nivel" class="form-control" value="{{ old('nivel', $materia->nivel) }}" min="0">
+                        <select name="nivel" id="nivel" class="form-control custom-select @error('nivel') is-invalid @enderror" data-nivel-carrera="id_carrera" data-initial-value="{{ old('nivel', $materia->nivel) }}" data-placeholder="Seleccione un nivel">
+                            <option value="">Seleccione un nivel</option>
+                        </select>
+                        @error('nivel')
+                            <span class="invalid-feedback d-block">{{ $message }}</span>
+                        @enderror
                     </div>
 
                     <div class="col-md-3 form-group">
@@ -78,17 +86,7 @@
                         <h5 class="card-title mb-0">Prerrequisitos</h5>
                     </div>
                     <div class="card-body">
-                        @forelse($materiasDisponibles as $materiaDisponible)
-                            <div class="form-check">
-                                <input class="form-check-input" type="checkbox" name="prerequisitos[]" value="{{ $materiaDisponible->id_materia }}" id="pre_{{ $materiaDisponible->id_materia }}"
-                                       {{ in_array($materiaDisponible->id_materia, $materia->prerequisitos->pluck('id_materia')->toArray(), true) ? 'checked' : '' }}>
-                                <label class="form-check-label" for="pre_{{ $materiaDisponible->id_materia }}">
-                                    {{ $materiaDisponible->nombre }} {{ $materiaDisponible->codigo ? '(' . $materiaDisponible->codigo . ')' : '' }}
-                                </label>
-                            </div>
-                        @empty
-                            <p class="text-muted mb-0">No hay otras materias disponibles para asociar como prerequisitos.</p>
-                        @endforelse
+                        @include('partials.materia-prerequisitos-select')
                     </div>
                 </div>
             </div>
@@ -101,3 +99,5 @@
     </div>
 </div>
 @endsection
+
+@include('partials.niveles-por-regimen')

@@ -20,14 +20,14 @@
         @else
             <div class="mb-4">
                 <h4>Historial de carreras</h4>
-                <p class="text-muted">Aquí aparecen las carreras y años registrados en cada gestión. El historial no indica por sí solo si una carrera fue concluida o interrumpida.</p>
+                <p class="text-muted">Aquí aparecen las carreras y niveles registrados en cada gestión. El historial no indica por sí solo si una carrera fue concluida o interrumpida.</p>
                 <div class="table-responsive">
                     <table class="table table-sm table-bordered table-striped">
                         <thead>
                             <tr>
                                 <th>Carrera</th>
                                 <th>Gestión</th>
-                                <th>Año registrado</th>
+                                <th>Nivel registrado</th>
                                 <th>Estado</th>
                             </tr>
                         </thead>
@@ -36,7 +36,7 @@
                                 <tr>
                                     <td>{{ $registro->carrera }}</td>
                                     <td>{{ $registro->gestion }} - Periodo {{ $registro->periodo }}</td>
-                                    <td>{{ $registro->nivelinicio ? (['Primer año', 'Segundo año', 'Tercer año'][$registro->nivelinicio - 1] ?? $registro->nivelinicio.'° año') : 'No registrado' }}</td>
+                                    <td>{{ $registro->nivelinicio ? \App\Models\Carrera::etiquetaNivel($registro->regimen, $registro->nivelinicio) : 'No registrado' }}</td>
                                     <td>
                                         @if ($registro->id_inscrito_reemplazo)
                                             Reemplazada por {{ $registro->carrera_reemplazo ?? 'otra carrera' }}
@@ -70,7 +70,7 @@
                     <select name="id_gestionacademica" id="id_gestionacademica" class="form-control" onchange="this.form.submit()">
                         @foreach ($gestiones as $gestion)
                             <option value="{{ $gestion->id_gestionacademica }}" @selected((int) request('id_gestionacademica', $gestiones->first()->id_gestionacademica) === (int) $gestion->id_gestionacademica)>
-                                {{ $gestion->gestion }} - Periodo {{ $gestion->periodo }}
+                                {{ $gestion->etiqueta }}
                             </option>
                         @endforeach
                     </select>
@@ -80,8 +80,7 @@
             @if ($inscripcionSeleccionada)
                 <p class="text-muted">
                     @php
-                        $niveles = [1 => 'PRIMER AÑO', 2 => 'SEGUNDO AÑO', 3 => 'TERCER AÑO', 4 => 'CUARTO AÑO', 5 => 'QUINTO AÑO'];
-                        $nombreNivel = $niveles[(int) $nivel] ?? $nivel . '° AÑO';
+                        $nombreNivel = \App\Models\Carrera::etiquetaNivel($inscripcionSeleccionada->regimen, $nivel);
                     @endphp
                     {{ $inscripciones->firstWhere('id_carrera', $inscripcionSeleccionada->id_carrera)->carrera }}
                     · Gestión {{ $inscripcionSeleccionada->gestion }} · {{ $nombreNivel }}

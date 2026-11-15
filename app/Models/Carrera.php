@@ -26,6 +26,51 @@ class Carrera extends Model
         return $query->where('activo', true);
     }
 
+    public static function etiquetasNivelesPorRegimen(): array
+    {
+        return [
+            self::REGIMEN_ANUAL => [
+                1 => 'Primer año',
+                2 => 'Segundo año',
+                3 => 'Tercer año',
+            ],
+            self::REGIMEN_SEMESTRAL => [
+                1 => 'Primer semestre',
+                2 => 'Segundo semestre',
+                3 => 'Tercer semestre',
+                4 => 'Cuarto semestre',
+                5 => 'Quinto semestre',
+                6 => 'Sexto semestre',
+            ],
+        ];
+    }
+
+    public static function nivelesPorRegimen(int|string|null $regimen): array
+    {
+        $regimen = self::regimenEfectivo($regimen);
+
+        return array_keys(self::etiquetasNivelesPorRegimen()[$regimen] ?? []);
+    }
+
+    public static function etiquetaNivel(int|string|null $regimen, int|string|null $nivel): string
+    {
+        $regimen = self::regimenEfectivo($regimen);
+
+        return self::etiquetasNivelesPorRegimen()[$regimen][(int) $nivel]
+            ?? (string) $nivel;
+    }
+
+    public static function regimenEfectivo(int|string|null $regimen): ?int
+    {
+        if ($regimen === null || $regimen === '') {
+            return self::REGIMEN_ANUAL;
+        }
+
+        $regimen = (int) $regimen;
+
+        return array_key_exists($regimen, self::etiquetasNivelesPorRegimen()) ? $regimen : null;
+    }
+
     public function resolucionesMinisteriales(): array
     {
         return array_values(array_filter(array_map(function (?string $resolucion): ?string {

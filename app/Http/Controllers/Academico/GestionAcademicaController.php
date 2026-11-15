@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Academico;
 use App\Http\Controllers\Controller;
 use App\Models\GestionAcademica;
 use Illuminate\Http\Request;
+use Illuminate\Validation\ValidationException;
 
 class GestionAcademicaController extends Controller
 {
@@ -51,18 +52,31 @@ class GestionAcademicaController extends Controller
     public function update(Request $request, $id)
     {
         $gestion = GestionAcademica::findOrFail($id);
-        $gestion->update($request->validate($this->rules(), $this->messages()));
+        $validated = $request->validate($this->rules(), $this->messages());
+        if (! $gestion->activo && (bool) ($validated['vigente'] ?? false)) {
+            throw ValidationException::withMessages([
+                'vigente' => 'Primero habilita la gestión antes de marcarla como vigente.',
+            ]);
+        }
+        $gestion->update($validated);
 
         return redirect()->route('admin.gestionacademica.index')
             ->with('success', 'Gestión académica actualizada correctamente.');
     }
 
-    public function destroy($id)
+    public function cambiarEstado(Request $request, $id)
     {
-        GestionAcademica::findOrFail($id)->delete();
+        $validated = $request->validate([
+            'activo' => ['required', 'boolean'],
+        ]);
+        $gestion = GestionAcademica::findOrFail($id);
+        $gestion->update([
+            'activo' => $validated['activo'],
+            'vigente' => $validated['activo'] ? $gestion->vigente : false,
+        ]);
 
         return redirect()->route('admin.gestionacademica.index')
-            ->with('success', 'Gestión académica eliminada correctamente.');
+            ->with('success', 'Estado de la gestión académica actualizado correctamente.');
     }
 
     private function rules(): array

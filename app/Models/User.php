@@ -81,6 +81,10 @@ class User extends Authenticatable
     {
         $urlNormalizada = trim((string) $url, '/');
 
+        if (! $this->isActive()) {
+            return false;
+        }
+
         if ($urlNormalizada === '' || $this->isAdministrator()) {
             return true;
         }
@@ -104,18 +108,27 @@ class User extends Authenticatable
         }
 
         return $this->cuentas()
-            ->whereHas('rol.recursos', fn ($query) => $query->where('urlpattern', $urlNormalizada))
+            ->whereHas('rol', fn ($query) => $query->where('activo', true)
+                ->whereHas('recursos', fn ($resource) => $resource->where('urlpattern', $urlNormalizada)))
             ->exists();
     }
 
     public function isAdministrator(): bool
     {
+        if (! $this->isActive()) {
+            return false;
+        }
+
         $roleNames = $this->roleNames();
         if ($roleNames->contains('administrador')) {
             return true;
         }
 
         if ($roleNames->isNotEmpty()) {
+            return false;
+        }
+
+        if ($this->cuentas()->exists()) {
             return false;
         }
 
@@ -127,11 +140,23 @@ class User extends Authenticatable
     private function roleNames(): Collection
     {
         return $this->cuentas()
+            ->whereHas('rol', fn ($query) => $query->where('activo', true))
             ->with('rol:id_rol,nombre')
             ->get()
             ->pluck('rol.nombre')
             ->filter()
             ->map(fn (string $name): string => $this->normalizeRole($name));
+    }
+
+    public function isActive(): bool
+    {
+        return ! $this->empleado()->exists()
+            || $this->empleado()->where('activo', true)->exists();
+    }
+
+    public function empleado()
+    {
+        return $this->hasOne(Empleado::class, 'id_persona', 'id_persona');
     }
 
     public function canAccess($path)

@@ -78,6 +78,7 @@
                         <th>Creditaje materia</th>
                         <th>Curricular</th>
                         <th>Prerrequisitos</th>
+                        <th>Estado</th>
                         <th>Acciones</th>
                     </tr>
                 </thead>
@@ -101,15 +102,21 @@
                             @endif
                         </td>
                         <td class="text-center">
+                            <span class="badge badge-{{ $materia->activo ? 'success' : 'secondary' }}">
+                                {{ $materia->activo ? 'Habilitada' : 'Deshabilitada' }}
+                            </span>
+                        </td>
+                        <td class="text-center">
                             <div class="btn-group" role="group">
                                 <a href="{{ route('planes.materias.edit', $materia->id_materia) }}" class="btn btn-sm btn-info" title="Editar">
                                     <i class="fas fa-edit"></i>
                                 </a>
-                                <form action="{{ route('planes.materias.destroy', $materia->id_materia) }}" method="POST" class="d-inline" data-confirm-delete="{{ $materia->nombre }}">
+                                <form action="{{ route('planes.materias.estado', $materia->id_materia) }}" method="POST" class="d-inline">
                                     @csrf
-                                    @method('DELETE')
-                                    <button type="submit" class="btn btn-sm btn-danger" title="Eliminar">
-                                        <i class="fas fa-trash"></i>
+                                    @method('PATCH')
+                                    <input type="hidden" name="activo" value="{{ $materia->activo ? 0 : 1 }}">
+                                    <button type="submit" class="btn btn-sm btn-{{ $materia->activo ? 'warning' : 'success' }}" title="{{ $materia->activo ? 'Deshabilitar' : 'Habilitar' }}">
+                                        <i class="fas fa-{{ $materia->activo ? 'ban' : 'check' }}"></i>
                                     </button>
                                 </form>
                             </div>
@@ -117,7 +124,7 @@
                     </tr>
                     @empty
                     <tr>
-                        <td colspan="9" class="text-center text-muted py-3">Ningún registro encontrado.</td>
+                        <td colspan="10" class="text-center text-muted py-3">Ningún registro encontrado.</td>
                     </tr>
                     @endforelse
                 </tbody>
@@ -126,47 +133,6 @@
     </div>
 </div>
 
-@include('partials.sweetalert-assets')
-
-@push('js')
-<script>
-    document.querySelectorAll('form[data-confirm-delete]').forEach((form) => {
-        form.addEventListener('submit', (event) => {
-            const materia = form.dataset.confirmDelete;
-            const mensaje = `Se eliminará la materia "${materia}". Esta acción no se puede deshacer.`;
-
-            if (form.dataset.confirmed === 'true') {
-                return;
-            }
-
-            if (!window.Swal) {
-                if (!window.confirm(`¿Deseas eliminar esta materia? ${mensaje}`)) {
-                    event.preventDefault();
-                }
-
-                return;
-            }
-
-            event.preventDefault();
-            window.Swal.fire({
-                title: '¿Eliminar materia?',
-                text: mensaje,
-                icon: 'warning',
-                showCancelButton: true,
-                confirmButtonColor: '#dc3545',
-                confirmButtonText: 'Sí, eliminar',
-                cancelButtonText: 'Cancelar',
-                reverseButtons: true,
-            }).then((result) => {
-                if (result.isConfirmed) {
-                    form.dataset.confirmed = 'true';
-                    form.requestSubmit();
-                }
-            });
-        });
-    });
-</script>
-@endpush
 @stop
 
 @include('partials.auto-search')

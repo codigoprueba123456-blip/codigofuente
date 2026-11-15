@@ -4,6 +4,9 @@
 
 @section('content')
 <div class="container-fluid pt-3">
+    @php
+        $prerequisitosSeleccionados = old('prerequisitos', []);
+    @endphp
     <div class="card card-primary">
         <div class="card-header">
             <h3 class="card-title">Registrar nueva materia</h3>
@@ -35,7 +38,7 @@
                                 @php
                                     $resoluciones = $carrera->resolucionesMinisteriales();
                                 @endphp
-                                <option value="{{ $carrera->id_carrera }}" {{ old('id_carrera') == $carrera->id_carrera ? 'selected' : '' }}>
+                                <option value="{{ $carrera->id_carrera }}" data-regimen="{{ $carrera->regimen }}" {{ old('id_carrera') == $carrera->id_carrera ? 'selected' : '' }}>
                                     {{ $carrera->nombre . ($resoluciones ? ' · R.M. ' . implode(' / ', $resoluciones) : '') }}
                                 </option>
                             @endforeach
@@ -54,7 +57,12 @@
 
                     <div class="col-md-3 form-group">
                         <label for="nivel">Nivel</label>
-                        <input type="number" name="nivel" id="nivel" class="form-control" value="{{ old('nivel') }}" min="0">
+                        <select name="nivel" id="nivel" class="form-control custom-select @error('nivel') is-invalid @enderror" data-nivel-carrera="id_carrera" data-initial-value="{{ old('nivel') }}" data-placeholder="Seleccione un nivel">
+                            <option value="">Seleccione un nivel</option>
+                        </select>
+                        @error('nivel')
+                            <span class="invalid-feedback d-block">{{ $message }}</span>
+                        @enderror
                     </div>
 
                     <div class="col-md-3 form-group">
@@ -77,19 +85,7 @@
                         <h5 class="card-title mb-0">Prerrequisitos</h5>
                     </div>
                     <div class="card-body">
-                        <p id="prerequisitos-seleccione-carrera" class="text-muted mb-2" {{ old('id_carrera') ? 'hidden' : '' }}>
-                            Seleccione una carrera para ver sus materias.
-                        </p>
-                        <p id="prerequisitos-vacios" class="text-muted mb-0" hidden>
-                            No hay otras materias disponibles para esta carrera.
-                        </p>
-                        @foreach($materiasDisponibles as $materia)
-                            <div class="form-check prerequisito-opcion" data-carrera-id="{{ $materia->id_carrera }}" hidden>
-                                <input class="form-check-input" type="checkbox" name="prerequisitos[]" value="{{ $materia->id_materia }}" id="pre_{{ $materia->id_materia }}"
-                                    {{ in_array($materia->id_materia, old('prerequisitos', [])) ? 'checked' : '' }}>
-                                <label class="form-check-label" for="pre_{{ $materia->id_materia }}">{{ $materia->nombre }} {{ $materia->codigo ? '(' . $materia->codigo . ')' : '' }}</label>
-                            </div>
-                        @endforeach
+                        @include('partials.materia-prerequisitos-select')
                     </div>
                 </div>
             </div>
@@ -103,34 +99,4 @@
 </div>
 @endsection
 
-@push('js')
-<script>
-    document.addEventListener('DOMContentLoaded', () => {
-        const carrera = document.getElementById('id_carrera');
-        const opciones = Array.from(document.querySelectorAll('.prerequisito-opcion'));
-        const mensajeSeleccion = document.getElementById('prerequisitos-seleccione-carrera');
-        const mensajeVacio = document.getElementById('prerequisitos-vacios');
-
-        const filtrarPrerequisitos = () => {
-            const carreraId = carrera.value;
-            let opcionesVisibles = 0;
-
-            opciones.forEach((opcion) => {
-                const disponible = carreraId !== '' && opcion.dataset.carreraId === carreraId;
-                opcion.hidden = !disponible;
-                if (!disponible) {
-                    opcion.querySelector('input').checked = false;
-                } else {
-                    opcionesVisibles++;
-                }
-            });
-
-            mensajeSeleccion.hidden = carreraId !== '';
-            mensajeVacio.hidden = carreraId === '' || opcionesVisibles > 0;
-        };
-
-        carrera.addEventListener('change', filtrarPrerequisitos);
-        filtrarPrerequisitos();
-    });
-</script>
-@endpush
+@include('partials.niveles-por-regimen')

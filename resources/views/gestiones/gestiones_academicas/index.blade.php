@@ -69,6 +69,8 @@
                             <th>Inicio</th>
                             <th>Fin</th>
                             <th>Vigente</th>
+                            <th>Estado</th>
+                            <th>Acciones</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -89,10 +91,28 @@
                                         <span class="badge bg-secondary rounded-pill">No</span>
                                     @endif
                                 </td>
+                                <td>
+                                    <span class="badge badge-{{ $item->activo ? 'success' : 'secondary' }}">
+                                        {{ $item->activo ? 'Habilitada' : 'Deshabilitada' }}
+                                    </span>
+                                </td>
+                                <td class="text-nowrap">
+                                    <a href="{{ route('admin.gestionacademica.edit', $item->id_gestionacademica) }}" class="btn btn-outline-primary btn-sm" aria-label="Editar gestión">
+                                        <i class="fas fa-edit"></i>
+                                    </a>
+                                    <form action="{{ route('admin.gestionacademica.estado', $item->id_gestionacademica) }}" method="POST" class="d-inline">
+                                        @csrf
+                                        @method('PATCH')
+                                        <input type="hidden" name="activo" value="{{ $item->activo ? 0 : 1 }}">
+                                        <button type="submit" class="btn btn-{{ $item->activo ? 'warning' : 'success' }} btn-sm">
+                                            {{ $item->activo ? 'Deshabilitar' : 'Habilitar' }}
+                                        </button>
+                                    </form>
+                                </td>
                             </tr>
                         @empty
                             <tr>
-                                <td colspan="9" class="text-start ps-3 py-3 text-muted bg-light">
+                                <td colspan="11" class="text-start ps-3 py-3 text-muted bg-light">
                                     <i class="fas fa-info-circle me-2"></i> Ningún registro encontrado.
                                 </td>
                             </tr>

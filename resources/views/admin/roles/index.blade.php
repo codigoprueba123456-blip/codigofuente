@@ -46,7 +46,8 @@
                         <th style="width: 50px;">N°</th>
                         <th style="width: 220px;">Nombre</th>
                         <th>Recursos</th>
-                        <th style="width: 80px;">Acciones</th>
+                        <th style="width: 130px;">Estado</th>
+                        <th style="width: 180px;">Acciones</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -75,14 +76,27 @@
                                 </div>
                             </td>
                             <td class="text-center align-middle">
+                                <span class="badge badge-{{ $role->activo ? 'success' : 'secondary' }}">
+                                    {{ $role->activo ? 'Habilitado' : 'Deshabilitado' }}
+                                </span>
+                            </td>
+                            <td class="text-center align-middle">
                                 <a href="{{ route('admin.roles.edit', $role->id_rol) }}" class="btn btn-default btn-sm" title="Editar">
                                     <i class="fas fa-edit text-secondary"></i>
                                 </a>
+                                <form action="{{ route('admin.roles.estado', $role->id_rol) }}" method="POST" class="d-inline">
+                                    @csrf
+                                    @method('PATCH')
+                                    <input type="hidden" name="activo" value="{{ $role->activo ? 0 : 1 }}">
+                                    <button type="submit" class="btn btn-{{ $role->activo ? 'warning' : 'success' }} btn-sm">
+                                        {{ $role->activo ? 'Deshabilitar' : 'Habilitar' }}
+                                    </button>
+                                </form>
                             </td>
                         </tr>
                     @empty
                         <tr>
-                            <td colspan="4" class="text-center text-muted py-3">No hay roles registrados.</td>
+                            <td colspan="5" class="text-center text-muted py-3">No hay roles registrados.</td>
                         </tr>
                     @endforelse
                 </tbody>

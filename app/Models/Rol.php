@@ -8,7 +8,14 @@ class Rol extends Model
 {
     protected $table = 'rol';
     protected $primaryKey = 'id_rol';
-    protected $fillable = ['nombre'];
+    protected $fillable = ['nombre', 'activo'];
+
+    protected $casts = ['activo' => 'boolean'];
+
+    public function scopeActivos($query)
+    {
+        return $query->where('activo', true);
+    }
 
     // Relación muchos a muchos con Recurso (a través de la tabla privilegio)
     public function recursos()

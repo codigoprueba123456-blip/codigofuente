@@ -15,7 +15,7 @@
                         <option value="">-- Seleccionar --</option>
                         @foreach($gestiones as $gestion)
                             <option value="{{ $gestion->id_gestionacademica }}" @selected(old('id_gestionacademica', $grupo->id_gestionacademica) == $gestion->id_gestionacademica)>
-                                {{ $gestion->gestion }} - Periodo {{ $gestion->periodo }}
+                                {{ $gestion->etiqueta }}
                             </option>
                         @endforeach
                     </select>

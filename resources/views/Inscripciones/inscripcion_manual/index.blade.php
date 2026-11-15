@@ -38,7 +38,7 @@
             <div id="mensajeBusqueda" class="small text-muted mb-3"></div>
 
             @if ($inscripcionSeleccionada)
-                <p class="text-muted mb-2">{{ trim($inscripcionSeleccionada->nombre.' '.$inscripcionSeleccionada->primerapellido.' '.$inscripcionSeleccionada->segundoapellido) }} · CI {{ $inscripcionSeleccionada->ci }} · {{ $inscripcionSeleccionada->nivelinicio }}° año</p>
+                <p class="text-muted mb-2">{{ trim($inscripcionSeleccionada->nombre.' '.$inscripcionSeleccionada->primerapellido.' '.$inscripcionSeleccionada->segundoapellido) }} · CI {{ $inscripcionSeleccionada->ci }} · {{ \App\Models\Carrera::etiquetaNivel($inscripcionSeleccionada->regimen, $inscripcionSeleccionada->nivelinicio) }}</p>
                 <div class="alert alert-info py-2">
                     Carrera seleccionada: <strong>{{ $inscripcionSeleccionada->carrera }}</strong>
                     · Gestión {{ $gestionActual->gestion }} / Periodo {{ $gestionActual->periodo }}
@@ -121,6 +121,7 @@
         const idInscrito = document.getElementById('id_inscrito');
         const mensaje = document.getElementById('mensajeBusqueda');
         const resumen = document.getElementById('resumenEstudiante');
+        const etiquetasNivelesPorRegimen = @json(\App\Models\Carrera::etiquetasNivelesPorRegimen());
         let espera;
 
         const mostrarCarreras = (estudiante) => {
@@ -134,7 +135,8 @@
             estudiante.inscripciones.forEach((inscripcion) => {
                 const opcion = document.createElement('option');
                 opcion.value = inscripcion.id_inscrito;
-                opcion.textContent = `${inscripcion.carrera} · ${inscripcion.nivel}° año`;
+                const etiquetaNivel = etiquetasNivelesPorRegimen[inscripcion.regimen]?.[inscripcion.nivel] || `Nivel ${inscripcion.nivel}`;
+                opcion.textContent = `${inscripcion.carrera} · ${etiquetaNivel}`;
                 selector.append(opcion);
             });
             entrada.value = `${estudiante.nombre} · CI ${estudiante.ci || 'sin CI'}`;

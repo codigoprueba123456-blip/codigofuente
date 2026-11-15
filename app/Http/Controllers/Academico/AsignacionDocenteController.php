@@ -4,10 +4,12 @@ namespace App\Http\Controllers\Academico;
 
 use App\Http\Controllers\Controller;
 use App\Models\Carrera;
+use App\Models\Empleado;
 use App\Models\GestionAcademica;
 use App\Models\Grupo;
 use App\Models\Persona;
 use Illuminate\Http\Request;
+use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 
 class AsignacionDocenteController extends Controller
@@ -16,8 +18,7 @@ class AsignacionDocenteController extends Controller
     {
         $gestiones = GestionAcademica::orderByDesc('gestion')->orderBy('periodo')->get();
         $carreras = Carrera::orderBy('nombre')->get();
-        $docentes = Persona::where('tipo', 'empleado')->orderBy('primerapellido')->orderBy('nombre')->get();
-        $grupos = Grupo::with(['materia', 'docente'])
+        $grupos = Grupo::with(['materia.carrera', 'docente'])
             ->when($request->filled('id_gestionacademica'), fn ($query) =>
                 $query->where('id_gestionacademica', $request->id_gestionacademica))
             ->when($request->filled('id_carrera'), fn ($query) =>
@@ -38,6 +39,7 @@ class AsignacionDocenteController extends Controller
                 }))
             ->orderBy('codigo')
             ->get();
+        $docentes = $this->docentes($grupos->pluck('id_persona')->filter()->all());
 
         return view('gestiones.asignacion-docente.index', compact(
             'gestiones', 'carreras', 'grupos', 'docentes'
@@ -47,8 +49,8 @@ class AsignacionDocenteController extends Controller
     public function create(Request $request)
     {
         $grupo = Grupo::with('materia')->findOrFail($request->integer('id_grupo'));
-        $this->ensureEnabled($grupo->id_gestionacademica);
-        $docentes = $this->docentes();
+        $this->ensureAssignable($grupo);
+        $docentes = $this->docentes([$grupo->id_persona]);
 
         return view('gestiones.asignacion-docente.create', compact('grupo', 'docentes'));
     }
@@ -56,20 +58,26 @@ class AsignacionDocenteController extends Controller
     public function edit($id)
     {
         $grupo = Grupo::with('materia')->findOrFail($id);
-        $this->ensureEnabled($grupo->id_gestionacademica);
-        $docentes = $this->docentes();
+        $this->ensureAssignable($grupo);
+        $docentes = $this->docentes([$grupo->id_persona]);
 
         return view('gestiones.asignacion-docente.edit', compact('grupo', 'docentes'));
     }
 
     public function asignar(Request $request, $id)
     {
+        $grupo = Grupo::with('materia')->findOrFail($id);
+        $this->ensureAssignable($grupo);
         $validated = $request->validate([
-            'id_persona' => ['nullable', 'exists:personas,id_persona'],
+            'id_persona' => [
+                'nullable',
+                Rule::exists('empleados', 'id_persona')
+                    ->where(fn ($query) => $query
+                        ->where('activo', true)
+                        ->orWhere('id_persona', $grupo->id_persona)),
+            ],
         ]);
 
-        $grupo = Grupo::findOrFail($id);
-        $this->ensureEnabled($grupo->id_gestionacademica);
         $grupo->update(['id_persona' => $validated['id_persona'] ?? null]);
 
         return redirect()->route('admin.asignacion-docente.index', [
@@ -77,19 +85,33 @@ class AsignacionDocenteController extends Controller
         ])->with('success', 'Docente asignado correctamente.');
     }
 
-    private function docentes()
+    private function docentes(array $actuales = [])
     {
+        $empleadosActivos = Empleado::activos()->pluck('id_persona');
+        $actuales = collect($actuales)->filter()->unique()->values();
+
         return Persona::where('tipo', 'empleado')
+            ->where(function ($query) use ($empleadosActivos, $actuales): void {
+                $query->whereIn('id_persona', $empleadosActivos);
+                if ($actuales->isNotEmpty()) {
+                    $query->orWhereIn('id_persona', $actuales);
+                }
+            })
             ->orderBy('primerapellido')
             ->orderBy('nombre')
             ->get();
     }
 
-    private function ensureEnabled(int $idGestion): void
+    private function ensureAssignable(Grupo $grupo): void
     {
-        if (!GestionAcademica::habilitadas()->whereKey($idGestion)->exists()) {
+        if (!GestionAcademica::habilitadas()->whereKey($grupo->id_gestionacademica)->exists()) {
             throw ValidationException::withMessages([
                 'id_gestionacademica' => 'La gestión académica seleccionada está deshabilitada.',
+            ]);
+        }
+        if (! $grupo->activo || ! $grupo->materia?->activo || ! $grupo->materia?->carrera?->activo) {
+            throw ValidationException::withMessages([
+                'id_grupo' => 'No se pueden asignar docentes a grupos, materias o carreras deshabilitados.',
             ]);
         }
     }

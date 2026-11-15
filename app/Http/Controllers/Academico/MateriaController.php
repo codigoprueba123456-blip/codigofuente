@@ -36,8 +36,8 @@ class MateriaController extends Controller
 
     public function create()
     {
-        $carreras = Carrera::orderBy('nombre')->get();
-        $materiasDisponibles = Materia::orderBy('nombre')->get();
+        $carreras = Carrera::activas()->orderBy('nombre')->get();
+        $materiasDisponibles = Materia::activas()->orderBy('nombre')->get();
 
         return view('planes.materias.create', compact('carreras', 'materiasDisponibles'));
     }
@@ -136,19 +136,28 @@ class MateriaController extends Controller
 
     public function store(Request $request, CareerCreditageService $creditage)
     {
+        $nivelesPermitidos = Carrera::nivelesPorRegimen(
+            Carrera::whereKey($request->input('id_carrera'))->value('regimen')
+        );
+
         $validated = $request->validate([
             'codigo' => ['nullable', 'string', 'max:255'],
             'nombre' => ['required', 'string', 'max:255'],
             'curricular' => ['nullable', 'boolean'],
             'horas' => ['nullable', 'integer', 'min:0'],
-            'nivel' => ['nullable', 'integer', 'min:0'],
+            'nivel' => ['nullable', 'integer', Rule::in($nivelesPermitidos)],
             'numero' => ['nullable', 'integer', 'min:0'],
-            'id_carrera' => ['required', 'exists:carreras,id_carrera'],
+            'id_carrera' => [
+                'required',
+                Rule::exists('carreras', 'id_carrera')->where('activo', true),
+            ],
             'prerequisitos' => ['nullable', 'array'],
             'prerequisitos.*' => [
                 'integer',
                 Rule::exists('materia', 'id_materia')
-                    ->where(fn ($query) => $query->where('id_carrera', $request->input('id_carrera'))),
+                    ->where(fn ($query) => $query
+                        ->where('id_carrera', $request->input('id_carrera'))
+                        ->where('activo', true)),
             ],
         ]);
 
@@ -175,26 +184,56 @@ class MateriaController extends Controller
     public function edit($id)
     {
         $materia = Materia::with('prerequisitos')->findOrFail($id);
-        $carreras = Carrera::orderBy('nombre')->get();
-        $materiasDisponibles = Materia::whereKeyNot($id)->orderBy('nombre')->get();
+        $idsPrerequisitos = $materia->prerequisitos->pluck('id_materia');
+        $carreras = Carrera::query()
+            ->where('activo', true)
+            ->orWhere('id_carrera', $materia->id_carrera)
+            ->orderBy('nombre')
+            ->get();
+        $materiasDisponibles = Materia::query()
+            ->where('id_materia', '<>', $id)
+            ->where(function ($query) use ($idsPrerequisitos): void {
+                $query->where('activo', true)->orWhereIn('id_materia', $idsPrerequisitos);
+            })
+            ->orderBy('nombre')
+            ->get();
 
         return view('planes.materias.edit', compact('materia', 'carreras', 'materiasDisponibles'));
     }
 
     public function update(Request $request, $id, CareerCreditageService $creditage)
     {
-        $materia = Materia::findOrFail($id);
+        $materia = Materia::with('prerequisitos')->findOrFail($id);
+        $nivelesPermitidos = Carrera::nivelesPorRegimen(
+            Carrera::whereKey($request->input('id_carrera'))->value('regimen')
+        );
 
         $validated = $request->validate([
             'codigo' => ['nullable', 'string', 'max:255'],
             'nombre' => ['required', 'string', 'max:255'],
             'curricular' => ['nullable', 'boolean'],
             'horas' => ['nullable', 'integer', 'min:0'],
-            'nivel' => ['nullable', 'integer', 'min:0'],
+            'nivel' => ['nullable', 'integer', Rule::in($nivelesPermitidos)],
             'numero' => ['nullable', 'integer', 'min:0'],
-            'id_carrera' => ['required', 'exists:carreras,id_carrera'],
+            'id_carrera' => [
+                'required',
+                Rule::exists('carreras', 'id_carrera')
+                    ->where(fn ($query) => $query
+                        ->where('activo', true)
+                        ->orWhere('id_carrera', $materia->id_carrera)),
+            ],
             'prerequisitos' => ['nullable', 'array'],
-            'prerequisitos.*' => ['exists:materia,id_materia'],
+            'prerequisitos.*' => [
+                'integer',
+                Rule::exists('materia', 'id_materia')
+                    ->where(fn ($query) => $query
+                        ->where('id_carrera', $request->input('id_carrera'))
+                        ->where(function ($query) use ($materia): void {
+                            $query->where('activo', true)
+                                ->orWhereIn('id_materia', $materia->prerequisitos->pluck('id_materia'));
+                        })),
+                Rule::notIn([$materia->id_materia]),
+            ],
         ]);
 
         DB::transaction(function () use ($materia, $validated, $request, $creditage): void {
@@ -219,15 +258,19 @@ class MateriaController extends Controller
         return redirect()->route('planes.materias.index')->with('success', 'Materia actualizada correctamente.');
     }
 
-    public function destroy($id, CareerCreditageService $creditage)
+    public function cambiarEstado(Request $request, $id, CareerCreditageService $creditage)
     {
         $materia = Materia::findOrFail($id);
-        DB::transaction(function () use ($materia, $creditage): void {
-            $carrera = $materia->carrera;
-            $materia->delete();
-            $creditage->syncCareer($carrera);
+        $validated = $request->validate([
+            'activo' => ['required', 'boolean'],
+        ]);
+
+        DB::transaction(function () use ($materia, $validated, $creditage): void {
+            $materia->update(['activo' => $validated['activo']]);
+            $creditage->syncCareer($materia->carrera);
         });
 
-        return redirect()->route('planes.materias.index')->with('success', 'Materia eliminada correctamente.');
+        return redirect()->route('planes.materias.index')
+            ->with('success', 'Estado de la materia actualizado correctamente.');
     }
 }

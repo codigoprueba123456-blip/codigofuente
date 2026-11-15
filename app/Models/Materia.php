@@ -9,6 +9,7 @@ class Materia extends Model
     protected $table = 'materia';
     protected $primaryKey = 'id_materia';
     protected $fillable = [
+        'activo',
         'codigo',
         'nombre',
         'creditajemateria',
@@ -19,7 +20,15 @@ class Materia extends Model
         'id_carrera',
     ];
 
-    protected $casts = ['curricular' => 'boolean'];
+    protected $casts = [
+        'activo' => 'boolean',
+        'curricular' => 'boolean',
+    ];
+
+    public function scopeActivas($query)
+    {
+        return $query->where('activo', true);
+    }
 
     public function carrera()
     {

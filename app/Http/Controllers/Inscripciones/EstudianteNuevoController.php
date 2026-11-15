@@ -18,10 +18,7 @@ class EstudianteNuevoController extends Controller
     public function index()
     {
         // Cargamos las gestiones y carreras para los selectores desplegables
-        $gestiones = GestionAcademica::where('vigente', 1)->orderBy('id_gestionacademica', 'desc')->get();
-        if ($gestiones->isEmpty()) {
-            $gestiones = GestionAcademica::orderBy('id_gestionacademica', 'desc')->get();
-        }
+        $gestiones = GestionAcademica::habilitadas()->orderByDesc('id_gestionacademica')->get();
 
         $carreras = Carrera::activas()->orderBy('nombre', 'asc')->get();
 
@@ -93,7 +90,13 @@ class EstudianteNuevoController extends Controller
                 'required',
                 Rule::exists('carreras', 'id_carrera')->where('activo', true),
             ],
-            'nivelinicio' => 'required|integer|between:1,3',
+            'nivelinicio' => [
+                'required',
+                'integer',
+                Rule::in(Carrera::nivelesPorRegimen(
+                    Carrera::whereKey($request->input('id_carrera'))->value('regimen')
+                )),
+            ],
             'path_bth' => 'nullable|image|mimes:jpg,jpeg,png,webp|max:350',
         ];
 
@@ -171,7 +174,7 @@ class EstudianteNuevoController extends Controller
             'path_bth.image' => 'El certificado BTH debe ser una imagen.',
             'path_bth.mimes' => 'El certificado BTH debe estar en formato JPG, PNG o WebP.',
             'path_bth.max' => 'El certificado BTH no debe superar 350 KB.',
-            'nivelinicio.required' => 'Selecciona el año que cursará en esta carrera.',
+            'nivelinicio.required' => 'Selecciona el nivel que cursará en esta carrera.',
         ]);
 
         $camposDocumento = [

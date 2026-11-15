@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Admisiones;
 
 use App\Http\Controllers\Controller;
 use App\Models\Carrera;
+use App\Models\GestionAcademica;
 use App\Models\Postulante;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -165,7 +166,7 @@ class AdmisionesController extends Controller
             ->appends($request->all());
 
         $carreras = Carrera::orderBy('nombre')->get();
-        $gestiones = DB::table('gestionacademica')->select('id_gestionacademica', 'gestion', 'periodo')->get();
+        $gestiones = GestionAcademica::orderByDesc('gestion')->orderByDesc('periodo')->get();
 
         return view('admisiones.postulantes.index', compact(
             'postulantes',

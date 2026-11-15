@@ -60,7 +60,7 @@
                             <option value="">-- Todas las Gestiones --</option>
                             @foreach ($gestiones as $g)
                                 <option value="{{ $g->id_gestionacademica }}" {{ request('id_gestionacademica') == $g->id_gestionacademica ? 'selected' : '' }}>
-                                    Gestión {{ $g->gestion }} - Periodo {{ $g->periodo }}
+                                    {{ $g->etiqueta }}
                                 </option>
                             @endforeach
                         </select>

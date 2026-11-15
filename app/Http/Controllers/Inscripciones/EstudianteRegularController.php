@@ -78,6 +78,7 @@ class EstudianteRegularController extends Controller
                 'i.id_persona',
                 'i.id_carrera',
                 'c.nombre as carrera',
+                'c.regimen',
                 'i.id_gestionacademica',
                 'cu.nivelinicio',
                 'g.gestion',
@@ -93,6 +94,7 @@ class EstudianteRegularController extends Controller
                 'cu.id_persona',
                 'cu.id_carrera',
                 'c.nombre as carrera',
+                'c.regimen',
                 'cu.id_gestionacademica',
                 'cu.nivelinicio',
                 'g.gestion',
@@ -102,7 +104,7 @@ class EstudianteRegularController extends Controller
 
         $carreras = Carrera::activas()
             ->orderBy('nombre')
-            ->get(['id_carrera', 'nombre', 'resolucionministerial1', 'resolucionministerial2', 'resolucionministerial3']);
+            ->get(['id_carrera', 'nombre', 'regimen', 'resolucionministerial1', 'resolucionministerial2', 'resolucionministerial3']);
 
         return response()->json($personas->map(function ($persona) use ($historial, $historialCursa, $inscripcionesActivas, $carreras, $gestionActual): array {
             $nombre = trim(implode(' ', array_filter([
@@ -133,6 +135,7 @@ class EstudianteRegularController extends Controller
                     ->map(fn ($carrera): array => [
                         'id' => (int) $carrera->id_carrera,
                         'nombre' => $carrera->nombre,
+                        'regimen' => Carrera::regimenEfectivo($carrera->regimen),
                         'resoluciones' => $carrera->resolucionesMinisteriales(),
                     ])->values(),
                 'carreras' => $carreras->whereIn('id_carrera', $idsCarrerasPersona)->map(function ($carrera) use ($historialPersona, $inscripcionesActivas, $persona): array {
@@ -144,15 +147,20 @@ class EstudianteRegularController extends Controller
                     return [
                         'id' => (int) $carrera->id_carrera,
                         'nombre' => $carrera->nombre,
+                        'regimen' => Carrera::regimenEfectivo($carrera->regimen),
                         'resoluciones' => $carrera->resolucionesMinisteriales(),
                         'ya_inscrito' => $inscripcionesActivas
                             ->get($persona->id_persona, collect())
                             ->contains((int) $carrera->id_carrera),
-                        'nivel_sugerido' => min(3, max(1, (int) ($registroReciente->nivelinicio ?? 0) + 1)),
+                        'nivel_sugerido' => min(
+                            count(Carrera::nivelesPorRegimen($carrera->regimen)),
+                            max(1, (int) ($registroReciente->nivelinicio ?? 0) + 1)
+                        ),
                         'historial' => $registrosCarrera->map(fn ($registro): array => [
                             'gestion' => $registro->gestion,
                             'periodo' => $registro->periodo,
                             'nivel' => $registro->nivelinicio,
+                            'regimen' => Carrera::regimenEfectivo($registro->regimen),
                         ])->values(),
                     ];
                 })->values(),
@@ -183,7 +191,7 @@ class EstudianteRegularController extends Controller
                 Rule::exists('carreras', 'id_carrera')->where('activo', true),
             ],
             'inscripciones.*.nueva' => 'nullable|boolean',
-            'inscripciones.*.nivelinicio' => 'nullable|integer|between:1,3',
+            'inscripciones.*.nivelinicio' => 'nullable|integer|between:1,6',
             'inscripciones.*.deposito' => 'nullable|string|max:255',
         ]);
 
@@ -196,18 +204,30 @@ class EstudianteRegularController extends Controller
             ]);
         }
 
+        $carrerasPorId = Carrera::query()
+            ->whereIn('id_carrera', $inscripcionesSolicitadas->pluck('id_carrera'))
+            ->get(['id_carrera', 'regimen'])
+            ->keyBy('id_carrera');
+
         foreach ($inscripcionesSolicitadas as $indice => $inscripcion) {
             $voucher = trim((string) ($inscripcion['deposito'] ?? ''));
             if (empty($inscripcion['nivelinicio']) || $voucher === '') {
                 $errors = [];
                 if (empty($inscripcion['nivelinicio'])) {
-                    $errors["inscripciones.$indice.nivelinicio"] = 'Selecciona el año que cursará en cada carrera que se va a registrar.';
+                    $errors["inscripciones.$indice.nivelinicio"] = 'Selecciona el nivel que cursará en cada carrera que se va a registrar.';
                 }
                 if ($voucher === '') {
                     $errors["inscripciones.$indice.deposito"] = 'Ingresa el voucher para cada carrera que se va a registrar.';
                 }
 
                 throw ValidationException::withMessages($errors);
+            }
+
+            $carrera = $carrerasPorId->get($inscripcion['id_carrera']);
+            if (! in_array((int) $inscripcion['nivelinicio'], Carrera::nivelesPorRegimen($carrera?->regimen), true)) {
+                throw ValidationException::withMessages([
+                    "inscripciones.$indice.nivelinicio" => 'El nivel seleccionado no corresponde al régimen académico de la carrera.',
+                ]);
             }
         }
         $validated['inscripciones'] = $inscripcionesSolicitadas->all();

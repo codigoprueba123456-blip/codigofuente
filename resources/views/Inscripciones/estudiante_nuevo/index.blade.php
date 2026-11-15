@@ -259,7 +259,7 @@
                                 <option value="">-- Seleccionar --</option>
                                 @foreach($gestiones as $g)
                                     <option value="{{ $g->id_gestionacademica }}" @selected(old('id_gestionacademica') == $g->id_gestionacademica)>
-                                        Gestión {{ $g->gestion }} - Periodo {{ $g->periodo }}
+                                        {{ $g->etiqueta }}
                                     </option>
                                 @endforeach
                             </select>
@@ -287,7 +287,7 @@
                                     @php
                                         $resoluciones = $c->resolucionesMinisteriales();
                                     @endphp
-                                    <option value="{{ $c->id_carrera }}" @selected(old('id_carrera') == $c->id_carrera)>
+                                    <option value="{{ $c->id_carrera }}" data-regimen="{{ $c->regimen }}" @selected(old('id_carrera') == $c->id_carrera)>
                                         {{ $c->nombre }}
                                         @if($resoluciones)
                                             · R.M. {{ implode(' / ', $resoluciones) }}
@@ -301,11 +301,9 @@
                         </div>
 
                         <div class="col-md-6 mb-3">
-                            <label for="nivelinicio" class="font-weight-bold">Año que cursará: <span class="text-danger">*</span></label>
-                            <select name="nivelinicio" id="nivelinicio" class="form-control custom-select @error('nivelinicio') is-invalid @enderror" required>
-                                @foreach (range(1, 3) as $nivel)
-                                    <option value="{{ $nivel }}" @selected(old('nivelinicio', 1) == $nivel)>{{ ['Primer', 'Segundo', 'Tercer'][$nivel - 1] }} año</option>
-                                @endforeach
+                            <label for="nivelinicio" class="font-weight-bold">Nivel que cursará: <span class="text-danger">*</span></label>
+                            <select name="nivelinicio" id="nivelinicio" class="form-control custom-select @error('nivelinicio') is-invalid @enderror" data-nivel-carrera="id_carrera" data-initial-value="{{ old('nivelinicio', 1) }}" data-placeholder="Seleccione un nivel" required>
+                                <option value="">Seleccione un nivel</option>
                             </select>
                             @error('nivelinicio')
                                 <div class="invalid-feedback">{{ $message }}</div>
@@ -382,3 +380,5 @@
 @push('js')
 <script src="{{ asset('js/estudiante-nuevo-form.js') }}"></script>
 @endpush
+
+@include('partials.niveles-por-regimen')

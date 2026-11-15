@@ -37,6 +37,7 @@ class CareerCreditageService
 
         $materias = Materia::query()
             ->where('id_carrera', $carrera->id_carrera)
+            ->where('activo', true)
             ->where('curricular', true)
             ->orderBy('nivel')
             ->orderBy('numero')

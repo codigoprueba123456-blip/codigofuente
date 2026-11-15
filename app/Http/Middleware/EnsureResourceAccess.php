@@ -22,6 +22,7 @@ class EnsureResourceAccess
 
         if ($roles !== []) {
             $user = $request->user();
+            $hasAccounts = $user->cuentas()->exists();
             $allowedRoles = array_map(
                 static fn (string $name): string => match (mb_strtolower($name)) {
                     'admin' => 'administrador',
@@ -32,7 +33,7 @@ class EnsureResourceAccess
             );
 
             $roleNames = $user->cuentas()
-                ->whereHas('rol')
+                ->whereHas('rol', fn ($query) => $query->where('activo', true))
                 ->with('rol:id_rol,nombre')
                 ->get()
                 ->pluck('rol.nombre')
@@ -56,7 +57,8 @@ class EnsureResourceAccess
                 $hasStudentRoleOnly = $roleNames->isNotEmpty()
                     && $roleNames->contains('estudiante')
                     && $roleNames->every(static fn (string $role): bool => $role === 'estudiante');
-                $hasLegacyStudentIdentity = $roleNames->isEmpty()
+                $hasLegacyStudentIdentity = ! $hasAccounts
+                    && $roleNames->isEmpty()
                     && in_array($normalizedPersonaType, $allowedRoles, true);
 
                 abort_unless(
@@ -67,7 +69,8 @@ class EnsureResourceAccess
                 $hasMatchingRole = $roleNames->contains(
                     static fn (string $role): bool => in_array($role, $allowedRoles, true)
                 );
-                $hasLegacyMatchingType = $roleNames->isEmpty()
+                $hasLegacyMatchingType = ! $hasAccounts
+                    && $roleNames->isEmpty()
                     && in_array($normalizedPersonaType, $allowedRoles, true);
 
                 abort_unless($hasMatchingRole || $hasLegacyMatchingType, 403);

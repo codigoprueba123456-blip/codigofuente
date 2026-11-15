@@ -37,7 +37,7 @@
     <div class="info-reporte">
         <p><strong>Carrera:</strong> {{ $carreraSeleccionada->nombre ?? 'TODAS LAS CARRERAS' }}</p>
         <p><strong>Gestión Académica:</strong> {{ $gestionSeleccionada ? 'Gestión '.$gestionSeleccionada->gestion.' - Periodo '.$gestionSeleccionada->periodo : 'TODAS LAS GESTIONES' }}</p>
-        <p><strong>Año:</strong> {{ request('nivel') ? (['Primer año', 'Segundo año', 'Tercer año'][(int) request('nivel') - 1] ?? request('nivel').'° año') : 'Todos' }} |
+        <p><strong>Nivel:</strong> {{ request('nivel') ? ($carreraSeleccionada ? \App\Models\Carrera::etiquetaNivel($carreraSeleccionada->regimen, request('nivel')) : 'Nivel '.request('nivel')) : 'Todos' }} |
             <strong>Turno:</strong> {{ request('turno') ?: 'Todos' }} |
             <strong>Paralelo:</strong> {{ request('paralelo') ?: 'Todos' }}</p>
         @if (request('buscar_rapido'))

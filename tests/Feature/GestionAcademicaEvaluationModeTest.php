@@ -13,6 +13,29 @@ class GestionAcademicaEvaluationModeTest extends TestCase
 {
     use RefreshDatabase;
 
+    public function test_academic_management_labels_reflect_regime_and_semester(): void
+    {
+        $annual = new GestionAcademica([
+            'gestion' => 2026,
+            'periodo' => 1,
+            'regimen' => 1,
+        ]);
+        $firstSemester = new GestionAcademica([
+            'gestion' => 2026,
+            'periodo' => 1,
+            'regimen' => 2,
+        ]);
+        $secondSemester = new GestionAcademica([
+            'gestion' => 2026,
+            'periodo' => 2,
+            'regimen' => 2,
+        ]);
+
+        $this->assertSame('I2026A', $annual->etiqueta);
+        $this->assertSame('I2026S', $firstSemester->etiqueta);
+        $this->assertSame('II2026S', $secondSemester->etiqueta);
+    }
+
     public function test_evaluation_modes_can_be_selected_for_annual_and_semester_regimes(): void
     {
         $this->actingAs($this->createAdmin());

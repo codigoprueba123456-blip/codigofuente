@@ -23,7 +23,7 @@
                     <option value="">-- Seleccionar --</option>
                     @foreach($gestiones as $gestion)
                         <option value="{{ $gestion->id_gestionacademica }}" {{ request('id_gestionacademica') == $gestion->id_gestionacademica ? 'selected' : '' }}>
-                            {{ $gestion->gestion }} - Periodo {{ $gestion->periodo }}
+                            {{ $gestion->etiqueta }}
                         </option>
                     @endforeach
                 </select>
@@ -74,6 +74,7 @@
                         <th>Descripcion</th>
                         <th>Funcionalidad</th>
                         <th>Habilitado para</th>
+                        <th>Estado</th>
                         <th style="width: 100px;">Acciones</th>
                     </tr>
                 </thead>
@@ -104,15 +105,21 @@
                                 @endif
                             </td>
                             <td class="text-center">
+                                <span class="badge badge-{{ $actividad->activo ? 'success' : 'secondary' }}">
+                                    {{ $actividad->activo ? 'Habilitada' : 'Deshabilitada' }}
+                                </span>
+                            </td>
+                            <td class="text-center">
                                 <div class="btn-group" role="group">
                                     <a href="{{ route('admin.actividad.edit', $actividad->id_actividad) }}" class="btn btn-sm btn-info" title="Editar">
                                         <i class="fas fa-edit"></i>
                                     </a>
-                                    <form action="{{ route('admin.actividad.destroy', $actividad->id_actividad) }}" method="POST" class="d-inline" onsubmit="return confirm('¿Deseas eliminar esta actividad?');">
+                                    <form action="{{ route('admin.actividad.estado', $actividad->id_actividad) }}" method="POST" class="d-inline">
                                         @csrf
-                                        @method('DELETE')
-                                        <button type="submit" class="btn btn-sm btn-danger" title="Eliminar">
-                                            <i class="fas fa-trash"></i>
+                                        @method('PATCH')
+                                        <input type="hidden" name="activo" value="{{ $actividad->activo ? 0 : 1 }}">
+                                        <button type="submit" class="btn btn-sm btn-{{ $actividad->activo ? 'warning' : 'success' }}" title="{{ $actividad->activo ? 'Deshabilitar' : 'Habilitar' }}">
+                                            <i class="fas fa-{{ $actividad->activo ? 'ban' : 'check' }}"></i>
                                         </button>
                                     </form>
                                 </div>
@@ -120,7 +127,7 @@
                         </tr>
                     @empty
                         <tr>
-                            <td colspan="8" class="text-center text-muted py-3">Ningún registro encontrado.</td>
+                            <td colspan="9" class="text-center text-muted py-3">Ningún registro encontrado.</td>
                         </tr>
                     @endforelse
                 </tbody>

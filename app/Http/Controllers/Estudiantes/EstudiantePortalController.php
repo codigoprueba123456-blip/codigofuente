@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Estudiantes;
 
 use App\Http\Controllers\Controller;
 use App\Models\Carrera;
+use App\Models\GestionAcademica;
 use App\Models\Persona;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -42,6 +43,7 @@ class EstudiantePortalController extends Controller
                 ->get([
                     'i.id_carrera',
                     'c.nombre as carrera',
+                    'c.regimen',
                     'i.id_gestionacademica',
                     'ga.gestion',
                     'ga.periodo',
@@ -63,9 +65,14 @@ class EstudiantePortalController extends Controller
                 $idCarrera = (int) ($carreras->first()->id_carrera ?? 0);
             }
 
-            $gestiones = $inscripcionesVigentes
-                ->where('id_carrera', $idCarrera)
-                ->values();
+            $gestiones = GestionAcademica::query()
+                ->whereIn(
+                    'id_gestionacademica',
+                    $inscripcionesVigentes->where('id_carrera', $idCarrera)->pluck('id_gestionacademica')
+                )
+                ->orderByDesc('gestion')
+                ->orderByDesc('periodo')
+                ->get();
             $idGestion = (int) $request->query('id_gestionacademica', $gestiones->first()->id_gestionacademica ?? 0);
             if (! $gestiones->contains(fn ($gestion): bool => (int) $gestion->id_gestionacademica === $idGestion)) {
                 $idGestion = (int) ($gestiones->first()->id_gestionacademica ?? 0);
@@ -74,6 +81,7 @@ class EstudiantePortalController extends Controller
             if ($idCarrera && $idGestion) {
                 $inscripcionSeleccionada = DB::table('inscrito as i')
                     ->join('gestionacademica as ga', 'ga.id_gestionacademica', '=', 'i.id_gestionacademica')
+                    ->join('carreras as c', 'c.id_carrera', '=', 'i.id_carrera')
                     ->where('i.id_persona', $persona->id_persona)
                     ->where('i.id_carrera', $idCarrera)
                     ->where('i.id_gestionacademica', $idGestion)
@@ -83,6 +91,7 @@ class EstudiantePortalController extends Controller
                         'i.id_inscrito',
                         'i.id_carrera',
                         'i.id_gestionacademica',
+                        'c.regimen',
                         'ga.gestion',
                         'ga.periodo',
                     ]);

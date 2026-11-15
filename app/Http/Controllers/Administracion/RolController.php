@@ -7,7 +7,9 @@ use App\Models\Recurso;
 use App\Models\Rol;
 use App\Support\MenuResourceSync;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
 
 class RolController extends Controller
 {
@@ -81,12 +83,20 @@ class RolController extends Controller
 			->with('success', 'Rol actualizado correctamente.');
 	}
 
-	public function destroy($id)
+	public function cambiarEstado(Request $request, $id)
 	{
+		$validated = $request->validate([
+			'activo' => ['required', 'boolean'],
+		]);
 		$rol = Rol::findOrFail($id);
-		$rol->delete();
+		if (! $validated['activo'] && (int) Auth::user()?->cuenta?->id_rol === (int) $rol->id_rol) {
+			throw ValidationException::withMessages([
+				'activo' => 'No puedes deshabilitar el rol asociado a tu propia cuenta.',
+			]);
+		}
+		$rol->update(['activo' => $validated['activo']]);
 
 		return redirect()->route('admin.roles.index')
-			->with('success', 'Rol eliminado correctamente.');
+			->with('success', 'Estado del rol actualizado correctamente.');
 	}
 }

@@ -114,18 +114,14 @@ class UserController extends Controller
         return $pdf->stream('credenciales-' . $usuario->usuario . '.pdf');
     }
 
-    public function destroy($id_persona)
-    {
-        $usuario = User::findOrFail($id_persona);
-        $usuario->delete();
-
-        return redirect()->route('admin.usuarios.index')->with('success', 'Usuario eliminado correctamente.');
-    }
-
     public function edit($id_persona)
     {
         $usuario = User::with('persona', 'cuenta.rol')->findOrFail($id_persona);
-        $roles = Rol::orderBy('nombre')->get();
+        $roles = Rol::query()
+            ->where('activo', true)
+            ->orWhere('id_rol', $usuario->cuenta?->id_rol)
+            ->orderBy('nombre')
+            ->get();
 
         return view('admin.usuarios.edit', compact('usuario', 'roles'));
     }
@@ -137,7 +133,13 @@ class UserController extends Controller
         $validated = $request->validate([
             'email' => 'required|email|max:255|unique:personas,email,' . $id_persona . ',id_persona',
             'usuario' => 'required|string|max:255|unique:users,usuario,' . $id_persona . ',id_persona',
-            'id_rol' => 'required|exists:rol,id_rol',
+            'id_rol' => [
+                'required',
+                \Illuminate\Validation\Rule::exists('rol', 'id_rol')
+                    ->where(fn ($query) => $query
+                        ->where('activo', true)
+                        ->orWhere('id_rol', $usuario->cuenta?->id_rol)),
+            ],
         ]);
 
         // Actualizar email en personas

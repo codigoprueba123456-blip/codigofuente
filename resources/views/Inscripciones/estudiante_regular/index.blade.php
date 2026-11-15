@@ -89,7 +89,7 @@
                         </div>
 
                         <div class="col-12 mb-3">
-                            <label class="font-weight-bold">Carreras, año que cursará y vouchers <span class="text-danger">*</span></label>
+                        <label class="font-weight-bold">Carreras, nivel que cursará y vouchers <span class="text-danger">*</span></label>
                             <div id="carrerasEstudiante" class="border rounded p-3 text-muted">Busca y selecciona un estudiante para cargar las carreras asociadas a su historial.</div>
                             @error('inscripciones')
                                 <div class="text-danger mt-2">{{ $message }}</div>
@@ -161,6 +161,7 @@
     const carrerasContenedor = document.getElementById('carrerasEstudiante');
     const botonGuardar = document.getElementById('guardarInscripcion');
     const inscripcionesAnteriores = @json(old('inscripciones', []));
+    const etiquetasNivelesPorRegimen = @json(\App\Models\Carrera::etiquetasNivelesPorRegimen());
     let temporizadorBusqueda;
     let solicitudBusqueda = 0;
     let indiceInscripcion = 0;
@@ -305,7 +306,7 @@
             const resumen = document.createElement('small');
             resumen.className = 'd-block text-muted font-weight-normal mt-1';
             resumen.textContent = `Historial: ${carrera.historial.map(registro =>
-                `${registro.gestion}/${registro.periodo} · ${registro.nivel ? nombreAnio(registro.nivel) : 'año sin registrar'}`
+                `${registro.gestion}/${registro.periodo} · ${registro.nivel ? nombreNivel(registro.nivel, registro.regimen) : 'nivel sin registrar'}`
             ).join(', ')}`;
             nombre.appendChild(resumen);
         } else if (nueva) {
@@ -335,16 +336,18 @@
         nivel.className = 'col-md-2';
         const etiquetaNivel = document.createElement('label');
         etiquetaNivel.className = 'font-weight-bold';
-        etiquetaNivel.textContent = 'Año que cursará:';
+        const etiquetasNivel = etiquetasNivelesPorRegimen[carrera.regimen] || {};
+        const esAnual = Number(carrera.regimen) === {{ \App\Models\Carrera::REGIMEN_ANUAL }};
+        etiquetaNivel.textContent = esAnual ? 'Año que cursará:' : 'Semestre que cursará:';
         etiquetaNivel.htmlFor = `nivel-${indice}`;
         const seleccionNivel = document.createElement('select');
         seleccionNivel.id = `nivel-${indice}`;
         seleccionNivel.name = `inscripciones[${indice}][nivelinicio]`;
         seleccionNivel.className = 'form-control';
         seleccionNivel.required = true;
-        seleccionNivel.append(new Option('Selecciona el año...', ''));
-        ['Primer año', 'Segundo año', 'Tercer año'].forEach((anio, posicion) => {
-            seleccionNivel.append(new Option(anio, posicion + 1));
+        seleccionNivel.append(new Option(`Selecciona ${esAnual ? 'el año' : 'el semestre'}...`, ''));
+        Object.entries(etiquetasNivel).forEach(([valor, etiqueta]) => {
+            seleccionNivel.append(new Option(etiqueta, valor));
         });
         seleccionNivel.value = inscripcionAnterior?.nivelinicio || carrera.nivel_sugerido || (nueva ? 1 : '');
         nivel.append(etiquetaNivel, seleccionNivel);
@@ -404,8 +407,8 @@
         carrerasContenedor.appendChild(fila);
     }
 
-    function nombreAnio(nivel) {
-        return ['Primer año', 'Segundo año', 'Tercer año'][Number(nivel) - 1] || `${nivel}° año`;
+    function nombreNivel(nivel, regimen) {
+        return etiquetasNivelesPorRegimen[regimen]?.[nivel] || `Nivel ${nivel}`;
     }
 
     function actualizarBotonGuardar() {

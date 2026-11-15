@@ -10,7 +10,14 @@ class Empleado extends Model
     protected $table = 'empleados';
     protected $primaryKey = 'id_persona';
     public $incrementing = false; // Para indicar que la clave primaria no es auto-incremental
-    protected $fillable = ['id_persona', 'abreviaturaprofesion', 'codigo'];
+    protected $fillable = ['id_persona', 'abreviaturaprofesion', 'codigo', 'activo'];
+
+    protected $casts = ['activo' => 'boolean'];
+
+    public function scopeActivos($query)
+    {
+        return $query->where('activo', true);
+    }
 
     // Relación con Persona (uno a uno)
     public function persona()

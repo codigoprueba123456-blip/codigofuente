@@ -50,10 +50,12 @@ class InscritosManagementWorkflowTest extends TestCase
         $admin = $this->createAdmin();
         $this->actingAs($admin);
         $record = $this->createEnrollment();
+        $record['carrera']->update(['regimen' => Carrera::REGIMEN_SEMESTRAL]);
 
         $this->get(route('inscriptos.edit', $record['inscrito']->id_inscrito))
             ->assertOk()
             ->assertSee('Editar ficha de inscripción')
+            ->assertSee('Sexto semestre')
             ->assertSee('Andrea')
             ->assertDontSee('path_ci_frontal');
 
@@ -84,7 +86,7 @@ class InscritosManagementWorkflowTest extends TestCase
             'deposito' => 'VOUCHER-EDITADO',
             'id_carrera' => $record['carrera']->id_carrera,
             'id_gestionacademica' => $record['gestion']->id_gestionacademica,
-            'nivelinicio' => '2',
+            'nivelinicio' => '6',
         ])->assertRedirect(route('inscriptos.index'));
 
         $this->assertDatabaseHas('personas', [
@@ -111,7 +113,7 @@ class InscritosManagementWorkflowTest extends TestCase
             'id_persona' => $record['persona']->id_persona,
             'id_carrera' => $record['carrera']->id_carrera,
             'id_gestionacademica' => $record['gestion']->id_gestionacademica,
-            'nivelinicio' => 2,
+            'nivelinicio' => 6,
         ]);
         $this->assertDatabaseHas('pago', [
             'id_pago' => $record['pago'],

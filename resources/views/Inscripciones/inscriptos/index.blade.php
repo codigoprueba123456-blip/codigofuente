@@ -72,7 +72,7 @@
                             <option value="">-- Todas las gestiones --</option>
                             @foreach ($gestiones as $gestion)
                                 <option value="{{ $gestion->id_gestionacademica }}" {{ request('id_gestionacademica') == $gestion->id_gestionacademica ? 'selected' : '' }}>
-                                    Gestión {{ $gestion->gestion }} - Periodo {{ $gestion->periodo }}
+                                    {{ $gestion->etiqueta }}
                                 </option>
                             @endforeach
                         </select>
@@ -85,18 +85,18 @@
                                 @php
                                     $resoluciones = $carrera->resolucionesMinisteriales();
                                 @endphp
-                                <option value="{{ $carrera->id_carrera }}" {{ request('id_carrera') == $carrera->id_carrera ? 'selected' : '' }}>
+                                <option value="{{ $carrera->id_carrera }}" data-regimen="{{ $carrera->regimen }}" {{ request('id_carrera') == $carrera->id_carrera ? 'selected' : '' }}>
                                     {{ $carrera->nombre . ($resoluciones ? ' · R.M. ' . implode(' / ', $resoluciones) : '') }}
                                 </option>
                             @endforeach
                         </select>
                     </div>
                     <div class="col-12 col-md-4 mb-3">
-                        <label for="nivel" class="font-weight-bold">Año de inscripción</label>
-                        <select name="nivel" id="nivel" class="form-control custom-select">
+                        <label for="nivel" class="font-weight-bold">Nivel de inscripción</label>
+                        <select name="nivel" id="nivel" class="form-control custom-select" data-nivel-filtro data-initial-value="{{ request('nivel') }}">
                             <option value="">-- Todos --</option>
-                            @foreach ($niveles as $nivel)
-                                <option value="{{ $nivel }}" {{ request('nivel') == $nivel ? 'selected' : '' }}>{{ ['Primer año', 'Segundo año', 'Tercer año'][$nivel - 1] ?? $nivel.'° año' }}</option>
+                            @foreach (range(1, 6) as $nivel)
+                                <option value="{{ $nivel }}" {{ request('nivel') == $nivel ? 'selected' : '' }}>Nivel {{ $nivel }}</option>
                             @endforeach
                         </select>
                     </div>
@@ -380,3 +380,46 @@
         @endif
     @endforeach
 @stop
+
+@push('js')
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        const carrera = document.getElementById('id_carrera');
+        const nivel = document.querySelector('[data-nivel-filtro]');
+        if (!carrera || !nivel) {
+            return;
+        }
+
+        const etiquetasNiveles = @json(\App\Models\Carrera::etiquetasNivelesPorRegimen());
+        let inicial = nivel.dataset.initialValue || '';
+
+        function actualizarNiveles() {
+            const opcionCarrera = carrera.options[carrera.selectedIndex];
+            const regimen = opcionCarrera && opcionCarrera.dataset.regimen
+                ? opcionCarrera.dataset.regimen
+                : {{ \App\Models\Carrera::REGIMEN_ANUAL }};
+            const etiquetas = etiquetasNiveles[regimen];
+            const seleccionado = nivel.value || inicial;
+            nivel.replaceChildren(new Option('-- Todos --', ''));
+
+            if (etiquetas) {
+                Object.entries(etiquetas).forEach(function ([valor, etiqueta]) {
+                    nivel.add(new Option(etiqueta, valor));
+                });
+            } else {
+                for (let valor = 1; valor <= 6; valor++) {
+                    nivel.add(new Option(`Nivel ${valor}`, valor));
+                }
+            }
+
+            if (Array.from(nivel.options).some(option => option.value === seleccionado)) {
+                nivel.value = seleccionado;
+            }
+            inicial = '';
+        }
+
+        carrera.addEventListener('change', actualizarNiveles);
+        actualizarNiveles();
+    });
+</script>
+@endpush

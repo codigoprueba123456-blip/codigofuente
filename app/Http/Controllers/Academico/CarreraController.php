@@ -59,13 +59,15 @@ class CarreraController extends Controller
     {
         $carrera = Carrera::findOrFail($id);
 
-        return view('planes.carreras.edit', array_merge(['carrera' => $carrera], $this->formData()));
+        return view('planes.carreras.edit', array_merge([
+            'carrera' => $carrera,
+        ], $this->formData($carrera->id_jefecarrera)));
     }
 
     public function update(Request $request, $id, CareerCreditageService $creditage)
     {
         $carrera = Carrera::findOrFail($id);
-        $validated = $request->validate($this->rules($carrera->id_carrera));
+        $validated = $request->validate($this->rules($carrera->id_carrera, $carrera->id_jefecarrera));
         $instituto = Instituto::first();
         if (!$instituto) {
             return back()
@@ -82,13 +84,6 @@ class CarreraController extends Controller
         return redirect()->route('planes.carreras.index')->with('success', 'Carrera actualizada correctamente.');
     }
 
-    public function destroy($id)
-    {
-        Carrera::findOrFail($id)->delete();
-
-        return redirect()->route('planes.carreras.index')->with('success', 'Carrera eliminada correctamente.');
-    }
-
     public function cambiarEstado(Request $request, $id)
     {
         $validated = $request->validate([
@@ -102,15 +97,18 @@ class CarreraController extends Controller
             ->with('success', 'Estado de la carrera actualizado correctamente.');
     }
 
-    private function formData(): array
+    private function formData(?int $jefeActual = null): array
     {
         return [
             'instituto' => Instituto::first(),
-            'jefesCarrera' => Empleado::with('persona')->get(),
+            'jefesCarrera' => Empleado::with('persona')
+                ->where('activo', true)
+                ->when($jefeActual, fn ($query) => $query->orWhere('id_persona', $jefeActual))
+                ->get(),
         ];
     }
 
-    private function rules(?int $id = null): array
+    private function rules(?int $id = null, ?int $jefeActual = null): array
     {
         return [
             'codigo' => ['required', 'string', 'max:255', Rule::unique('carreras', 'codigo')->ignore($id, 'id_carrera')],
@@ -128,7 +126,13 @@ class CarreraController extends Controller
             'resolucionministerial2' => ['nullable', 'string', 'max:255'],
             'resolucionministerial3' => ['nullable', 'string', 'max:255'],
             'version' => ['nullable', 'integer', 'min:0'],
-            'id_jefecarrera' => ['nullable', 'exists:empleados,id_persona'],
+            'id_jefecarrera' => [
+                'nullable',
+                Rule::exists('empleados', 'id_persona')
+                    ->where(fn ($query) => $query
+                        ->where('activo', true)
+                        ->orWhere('id_persona', $jefeActual)),
+            ],
         ];
     }
 }

@@ -24,7 +24,7 @@
                         <option value="">-- Seleccionar --</option>
                         @foreach($gestiones as $gestion)
                             <option value="{{ $gestion->id_gestionacademica }}" {{ request('id_gestionacademica') == $gestion->id_gestionacademica ? 'selected' : '' }}>
-                                {{ $gestion->gestion }} - Periodo {{ $gestion->periodo }}
+                                {{ $gestion->etiqueta }}
                             </option>
                         @endforeach
                     </select>
@@ -85,6 +85,7 @@
                         <th>Capacidad</th>
                         <th>Inscritos</th>
                         <th>Abierto</th>
+                        <th>Estado</th>
                         <th style="width: 80px;">Acciones</th>
                     </tr>
                 </thead>
@@ -116,10 +117,16 @@
                                 @endif
                             </td>
                             <td>
+                                <span class="badge badge-{{ $grupo->activo ? 'success' : 'secondary' }}">
+                                    {{ $grupo->activo ? 'Habilitado' : 'Deshabilitado' }}
+                                </span>
+                            </td>
+                            <td>
                                 <!-- Botón para abrir modal de asignación -->
                                 <button type="button" class="btn btn-xs btn-outline-primary border-0 p-0 me-1"
                                         data-toggle="modal"
                                         data-target="#assignModal{{ $grupo->id_grupo }}"
+                                        {{ $grupo->activo && $grupo->materia?->activo && $grupo->materia?->carrera?->activo ? '' : 'disabled' }}
                                         title="Asignar Docente">
                                     <i class="fas fa-user-plus"></i>
                                 </button>
@@ -127,7 +134,7 @@
                         </tr>
                     @empty
                         <tr>
-                            <td colspan="10" class="text-start ps-3 py-2 text-muted" style="background-color: #fff;">
+                            <td colspan="11" class="text-start ps-3 py-2 text-muted" style="background-color: #fff;">
                                 Ningún registro encontrado.
                             </td>
                         </tr>
