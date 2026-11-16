@@ -61,14 +61,14 @@
         @include('partials.sweetalert-messages')
 
         {{-- =====================================================
-             AVISO SEGUNDA CARRERA
+             AVISO DATOS ANTERIORES
         ====================================================== --}}
         @if (isset($postulanteBase) && $postulanteBase)
             <div class="alert alert-info shadow-sm border-left-info mb-4" role="alert">
 
                 <h5 class="fw-bold mb-2">
                     <i class="fas fa-info-circle me-1"></i>
-                    Postulación a una Segunda Carrera
+                    Nueva postulación en la gestión vigente
                 </h5>
 
                 Hola
@@ -77,8 +77,8 @@
                     {{ $postulanteBase->primerapellido }}
                 </strong>,
 
-                tus datos personales y documentos principales ya se encuentran
-                precargados.
+                tus datos personales y documentos disponibles ya se encuentran
+                precargados. La postulación anterior se conservará en su gestión.
 
                 <br>
 
@@ -192,6 +192,11 @@
             data-carreras-inscritas="{{ json_encode($carrerasInscritas ?? ($postulanteBase->carrerasInscritasIds ?? [])) }}">
 
             @csrf
+            <input type="hidden" name="eliminar_foto" id="eliminar_foto" value="{{ old('eliminar_foto', 0) }}">
+            <input type="hidden" name="eliminar_path_ci_frontal" id="eliminar_path_ci_frontal" value="{{ old('eliminar_path_ci_frontal', 0) }}">
+            <input type="hidden" name="eliminar_path_ci_reverso" id="eliminar_path_ci_reverso" value="{{ old('eliminar_path_ci_reverso', 0) }}">
+            <input type="hidden" name="eliminar_path_nacimiento" id="eliminar_path_nacimiento" value="{{ old('eliminar_path_nacimiento', 0) }}">
+            <input type="hidden" name="eliminar_path_diploma" id="eliminar_path_diploma" value="{{ old('eliminar_path_diploma', 0) }}">
 
 
             {{-- =================================================
@@ -220,7 +225,8 @@
 
                             <div class="p-4 d-flex flex-column align-items-center justify-content-center text-center">
 
-                                <div class="photo-preview-box mb-3" id="photoPreview">
+                                <div class="photo-preview-box mb-3" id="photoPreview"
+                                    data-existing-url="{{ $postulanteBase?->foto ? asset('storage/' . $postulanteBase->foto) : '' }}">
 
                                     @if (isset($postulanteBase) && $postulanteBase->foto)
                                         <img id="imgPreviewPhoto"
@@ -252,17 +258,17 @@
                                         class="btn btn-itsa-primary w-100 mb-2 shadow-sm">
                                         <i class="fas fa-upload me-1"></i>
 
-                                        {{ isset($postulanteBase) ? 'Cambiar fotografía (Opcional)' : 'Seleccionar fotografía *' }}
+                                        {{ $postulanteBase?->foto ? 'Cambiar fotografía (Opcional)' : 'Seleccionar fotografía *' }}
                                     </label>
 
 
                                     <input type="file" name="fotografia" id="foto" class="d-none"
                                         accept="image/jpeg,image/png" data-name="Fotografía del postulante"
-                                        @if (!isset($postulanteBase)) required @endif>
+                                        @if (empty($postulanteBase?->foto)) required @endif>
 
 
                                     <button type="button"
-                                        class="btn btn-sm btn-outline-danger w-100 fw-bold d-none mb-2"
+                                        class="btn btn-sm btn-outline-danger w-100 fw-bold mb-2 {{ empty($postulanteBase?->foto) ? 'd-none' : '' }}"
                                         id="btnRemovePhoto">
                                         <i class="fas fa-trash-alt me-1"></i>
                                         Eliminar foto
@@ -836,6 +842,11 @@
                                     @endforeach
 
                                 </select>
+                                @if (($carrerasExcluidasPorHistorial ?? false) && ($carreras ?? collect())->isEmpty())
+                                    <div class="alert alert-warning mt-2 mb-0">
+                                        No hay carreras activas adicionales disponibles para postular.
+                                    </div>
+                                @endif
 
                             </div>
 
@@ -974,7 +985,7 @@
                                         <label for="path_ci_frontal" class="form-label mb-0">
                                             1. Cédula de Identidad (Anverso)
 
-                                            @if (!isset($postulanteBase))
+                                            @if (empty($postulanteBase?->path_ci_frontal))
                                                 <span class="text-danger">*</span>
                                             @endif
                                         </label>
@@ -998,8 +1009,6 @@
                                         </label>
 
                                     </div>
-
-
                                     <small class="text-muted d-block mt-2">
 
                                         @if ($postulanteBase?->path_ci_frontal)
@@ -1015,14 +1024,21 @@
                                     </small>
 
 
-                                    <div id="preview_ci_frontal" class="document-preview mt-3 d-none">
+                                    <div id="preview_ci_frontal" class="document-preview mt-3 {{ empty($postulanteBase?->path_ci_frontal) ? 'd-none' : '' }}"
+                                        data-existing-url="{{ $postulanteBase?->path_ci_frontal ? asset('storage/' . $postulanteBase->path_ci_frontal) : '' }}"
+                                        data-existing-name="{{ $postulanteBase?->path_ci_frontal ? basename($postulanteBase->path_ci_frontal) : '' }}">
 
-                                        <img src="" class="img-fluid rounded d-none"
-                                            alt="Vista previa anverso CI">
+                                        @if ($postulanteBase?->path_ci_frontal)
+                                            <a href="{{ asset('storage/' . $postulanteBase->path_ci_frontal) }}" target="_blank" rel="noopener">
+                                                <img src="{{ asset('storage/' . $postulanteBase->path_ci_frontal) }}" class="img-fluid rounded" alt="Cédula de identidad, anverso">
+                                            </a>
+                                        @else
+                                            <img src="" class="img-fluid rounded d-none" alt="Vista previa anverso CI">
+                                        @endif
 
                                         <div class="d-flex align-items-center justify-content-between mt-2">
 
-                                            <span class="file-name text-truncate fw-bold"></span>
+                                            <span class="file-name text-truncate fw-bold">{{ $postulanteBase?->path_ci_frontal ? basename($postulanteBase->path_ci_frontal) : '' }}</span>
 
                                             <button type="button"
                                                 class="btn btn-sm btn-outline-danger btn-remove-doc"
@@ -1050,7 +1066,7 @@
                                         <label for="path_ci_reverso" class="form-label mb-0">
                                             2. Cédula de Identidad (Reverso)
 
-                                            @if (!isset($postulanteBase))
+                                            @if (empty($postulanteBase?->path_ci_reverso))
                                                 <span class="text-danger">*</span>
                                             @endif
                                         </label>
@@ -1074,8 +1090,6 @@
                                         </label>
 
                                     </div>
-
-
                                     <small class="text-muted d-block mt-2">
 
                                         @if ($postulanteBase?->path_ci_reverso)
@@ -1091,14 +1105,21 @@
                                     </small>
 
 
-                                    <div id="preview_ci_reverso" class="document-preview mt-3 d-none">
+                                    <div id="preview_ci_reverso" class="document-preview mt-3 {{ empty($postulanteBase?->path_ci_reverso) ? 'd-none' : '' }}"
+                                        data-existing-url="{{ $postulanteBase?->path_ci_reverso ? asset('storage/' . $postulanteBase->path_ci_reverso) : '' }}"
+                                        data-existing-name="{{ $postulanteBase?->path_ci_reverso ? basename($postulanteBase->path_ci_reverso) : '' }}">
 
-                                        <img src="" class="img-fluid rounded d-none"
-                                            alt="Vista previa reverso CI">
+                                        @if ($postulanteBase?->path_ci_reverso)
+                                            <a href="{{ asset('storage/' . $postulanteBase->path_ci_reverso) }}" target="_blank" rel="noopener">
+                                                <img src="{{ asset('storage/' . $postulanteBase->path_ci_reverso) }}" class="img-fluid rounded" alt="Cédula de identidad, reverso">
+                                            </a>
+                                        @else
+                                            <img src="" class="img-fluid rounded d-none" alt="Vista previa reverso CI">
+                                        @endif
 
                                         <div class="d-flex align-items-center justify-content-between mt-2">
 
-                                            <span class="file-name text-truncate fw-bold"></span>
+                                            <span class="file-name text-truncate fw-bold">{{ $postulanteBase?->path_ci_reverso ? basename($postulanteBase->path_ci_reverso) : '' }}</span>
 
                                             <button type="button"
                                                 class="btn btn-sm btn-outline-danger btn-remove-doc"
@@ -1126,7 +1147,7 @@
                                         <label for="path_nacimiento" class="form-label mb-0">
                                             3. Certificado de Nacimiento
 
-                                            @if (!isset($postulanteBase))
+                                            @if (empty($postulanteBase?->path_nacimiento))
                                                 <span class="text-danger">*</span>
                                             @endif
                                         </label>
@@ -1150,8 +1171,6 @@
                                         </label>
 
                                     </div>
-
-
                                     <small class="text-muted d-block mt-2">
 
                                         @if ($postulanteBase?->path_nacimiento)
@@ -1167,14 +1186,21 @@
                                     </small>
 
 
-                                    <div id="preview_nacimiento" class="document-preview mt-3 d-none">
+                                    <div id="preview_nacimiento" class="document-preview mt-3 {{ empty($postulanteBase?->path_nacimiento) ? 'd-none' : '' }}"
+                                        data-existing-url="{{ $postulanteBase?->path_nacimiento ? asset('storage/' . $postulanteBase->path_nacimiento) : '' }}"
+                                        data-existing-name="{{ $postulanteBase?->path_nacimiento ? basename($postulanteBase->path_nacimiento) : '' }}">
 
-                                        <img src="" class="img-fluid rounded d-none"
-                                            alt="Vista previa Nacimiento">
+                                        @if ($postulanteBase?->path_nacimiento)
+                                            <a href="{{ asset('storage/' . $postulanteBase->path_nacimiento) }}" target="_blank" rel="noopener">
+                                                <img src="{{ asset('storage/' . $postulanteBase->path_nacimiento) }}" class="img-fluid rounded" alt="Certificado de nacimiento">
+                                            </a>
+                                        @else
+                                            <img src="" class="img-fluid rounded d-none" alt="Vista previa Nacimiento">
+                                        @endif
 
                                         <div class="d-flex align-items-center justify-content-between mt-2">
 
-                                            <span class="file-name text-truncate fw-bold"></span>
+                                            <span class="file-name text-truncate fw-bold">{{ $postulanteBase?->path_nacimiento ? basename($postulanteBase->path_nacimiento) : '' }}</span>
 
                                             <button type="button"
                                                 class="btn btn-sm btn-outline-danger btn-remove-doc"
@@ -1202,7 +1228,7 @@
                                         <label for="path_diploma" class="form-label mb-0">
                                             4. Diploma de Bachiller
 
-                                            @if (!isset($postulanteBase))
+                                            @if (empty($postulanteBase?->path_diploma))
                                                 <span class="text-danger">*</span>
                                             @endif
                                         </label>
@@ -1226,8 +1252,6 @@
                                         </label>
 
                                     </div>
-
-
                                     <small class="text-muted d-block mt-2">
 
                                         @if ($postulanteBase?->path_diploma)
@@ -1243,14 +1267,21 @@
                                     </small>
 
 
-                                    <div id="preview_diploma" class="document-preview mt-3 d-none">
+                                    <div id="preview_diploma" class="document-preview mt-3 {{ empty($postulanteBase?->path_diploma) ? 'd-none' : '' }}"
+                                        data-existing-url="{{ $postulanteBase?->path_diploma ? asset('storage/' . $postulanteBase->path_diploma) : '' }}"
+                                        data-existing-name="{{ $postulanteBase?->path_diploma ? basename($postulanteBase->path_diploma) : '' }}">
 
-                                        <img src="" class="img-fluid rounded d-none"
-                                            alt="Vista previa Diploma">
+                                        @if ($postulanteBase?->path_diploma)
+                                            <a href="{{ asset('storage/' . $postulanteBase->path_diploma) }}" target="_blank" rel="noopener">
+                                                <img src="{{ asset('storage/' . $postulanteBase->path_diploma) }}" class="img-fluid rounded" alt="Diploma de bachiller">
+                                            </a>
+                                        @else
+                                            <img src="" class="img-fluid rounded d-none" alt="Vista previa Diploma">
+                                        @endif
 
                                         <div class="d-flex align-items-center justify-content-between mt-2">
 
-                                            <span class="file-name text-truncate fw-bold"></span>
+                                            <span class="file-name text-truncate fw-bold">{{ $postulanteBase?->path_diploma ? basename($postulanteBase->path_diploma) : '' }}</span>
 
                                             <button type="button"
                                                 class="btn btn-sm btn-outline-danger btn-remove-doc"

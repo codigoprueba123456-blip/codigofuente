@@ -88,6 +88,35 @@ class Carrera extends Model
         ])));
     }
 
+    public function nombreConResolucionMinisterial(): string
+    {
+        return self::formatearNombreConResolucion(
+            $this->nombre,
+            $this->resolucionministerial1,
+            $this->resolucionministerial2,
+            $this->resolucionministerial3
+        );
+    }
+
+    public static function formatearNombreConResolucion(
+        string $nombre,
+        ?string $resolucion1,
+        ?string $resolucion2,
+        ?string $resolucion3
+    ): string {
+        $carrera = new self([
+            'nombre' => $nombre,
+            'resolucionministerial1' => $resolucion1,
+            'resolucionministerial2' => $resolucion2,
+            'resolucionministerial3' => $resolucion3,
+        ]);
+        $resoluciones = $carrera->resolucionesMinisteriales();
+
+        return $nombre.($resoluciones
+            ? ' · R.M. '.implode(' / ', $resoluciones)
+            : '');
+    }
+
     public function instituto()
     {
         return $this->belongsTo(Instituto::class, 'id_instituto', 'id_instituto');

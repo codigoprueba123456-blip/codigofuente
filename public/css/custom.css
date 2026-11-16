@@ -24,6 +24,29 @@
     transition: background-color 0.3s ease, color 0.3s ease;
 }
 
+.main-sidebar .brand-link {
+    display: flex;
+    min-height: 112px;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 0.75rem 0.5rem;
+    background-color: transparent !important;
+    text-align: center;
+}
+
+.main-sidebar .brand-link .brand-text {
+    display: block;
+    margin: 0;
+    line-height: 1.2;
+}
+
+.main-sidebar .brand-link .itsa-brand-word {
+    font-size: 1rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+}
+
 .main-sidebar .nav-sidebar .nav-link:hover,
 .main-sidebar .nav-sidebar .nav-link.active,
 .main-sidebar .nav-sidebar .nav-item.menu-open > .nav-link,
@@ -40,11 +63,32 @@
 
 .main-sidebar .brand-link .brand-image {
     float: none;
-    width: 42px;
+    width: 92px;
     height: auto;
-    max-height: 34px;
+    max-height: 64px;
+    margin: 0 0 0.4rem;
+    border-radius: 0;
+    background-color: transparent !important;
+    box-shadow: none !important;
     object-fit: contain;
-    filter: brightness(0) invert(1);
+    filter: none;
+    opacity: 1 !important;
+}
+
+.sidebar-collapse .main-sidebar .brand-link {
+    min-height: 57px;
+    flex-direction: row;
+    padding: 0.5rem;
+}
+
+.sidebar-collapse .main-sidebar .brand-link .brand-image {
+    width: 32px;
+    max-height: 32px;
+    margin: 0;
+}
+
+.sidebar-collapse .main-sidebar .brand-link .itsa-brand-word {
+    display: none;
 }
 
 /* Navbar */

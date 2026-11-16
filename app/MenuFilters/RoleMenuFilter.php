@@ -15,6 +15,17 @@ class RoleMenuFilter implements FilterInterface
 
         $user = Auth::user();
         $path = trim((string) $item['url'], '/');
+        if ($path === 'reportes/dashboard') {
+            $canViewReportDashboard = $user
+                && ($user->isAdministrator()
+                    || $user->canAccess('reportes/inscripciones/lista-inscritos-carrera'));
+
+            if (! $canViewReportDashboard) {
+                $item['restricted'] = true;
+            }
+
+            return $item;
+        }
 
         if (! $user || ! $user->canAccess($path)) {
             $item['restricted'] = true;

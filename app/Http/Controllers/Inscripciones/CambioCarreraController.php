@@ -53,12 +53,26 @@ class CambioCarreraController extends Controller
                 'p.celular',
             ])
             ->map(function ($estudiante): array {
-                $inscripciones = DB::table('inscrito as i')
+                $consultaInscripciones = DB::table('inscrito as i')
                     ->join('carreras as c', 'c.id_carrera', '=', 'i.id_carrera')
                     ->join('gestionacademica as ga', 'ga.id_gestionacademica', '=', 'i.id_gestionacademica')
                     ->where('i.id_persona', $estudiante->id_persona)
                     ->where('i.activo', true)
-                    ->whereNull('i.id_inscrito_reemplazo')
+                    ->whereNull('i.id_inscrito_reemplazo');
+                $carrerasInscritas = (clone $consultaInscripciones)
+                    ->distinct()
+                    ->orderBy('i.id_carrera')
+                    ->pluck('i.id_carrera')
+                    ->map(fn ($id): int => (int) $id)
+                    ->all();
+                $gestionMasReciente = $this->gestionMasReciente((int) $estudiante->id_persona);
+
+                if ($gestionMasReciente) {
+                    $consultaInscripciones
+                        ->where('i.id_gestionacademica', $gestionMasReciente->id_gestionacademica);
+                }
+
+                $inscripciones = $consultaInscripciones
                     ->orderByDesc('ga.gestion')
                     ->orderByDesc('ga.periodo')
                     ->orderBy('c.nombre')
@@ -66,18 +80,34 @@ class CambioCarreraController extends Controller
                         'i.id_inscrito',
                         'i.id_carrera',
                         'i.id_gestionacademica',
+                        'i.deposito',
                         'c.nombre as carrera',
                         'ga.gestion',
                         'ga.periodo',
                     ])
-                    ->map(fn ($inscripcion): array => [
-                        'id' => (int) $inscripcion->id_inscrito,
-                        'id_carrera' => (int) $inscripcion->id_carrera,
-                        'id_gestionacademica' => (int) $inscripcion->id_gestionacademica,
-                        'carrera' => $inscripcion->carrera,
-                        'gestion' => $inscripcion->gestion,
-                        'periodo' => $inscripcion->periodo,
-                    ])
+                    ->map(function ($inscripcion): array {
+                        $deposito = trim((string) ($inscripcion->deposito ?? ''));
+                        if ($deposito === '') {
+                            $deposito = (string) (DB::table('comprobante')
+                                ->where('id_inscrito', $inscripcion->id_inscrito)
+                                ->where('activo', true)
+                                ->orderByDesc('id_comprobante')
+                                ->value('deposito') ?? '');
+                        }
+
+                        return [
+                            'id' => (int) $inscripcion->id_inscrito,
+                            'id_carrera' => (int) $inscripcion->id_carrera,
+                            'id_gestionacademica' => (int) $inscripcion->id_gestionacademica,
+                            'carrera' => $inscripcion->carrera,
+                            'gestion' => $inscripcion->gestion,
+                            'periodo' => $inscripcion->periodo,
+                            'tiene_materias' => DB::table('inscrito_materia')
+                                ->where('id_inscrito', $inscripcion->id_inscrito)
+                                ->exists(),
+                            'deposito' => $deposito,
+                        ];
+                    })
                     ->all();
 
                 return [
@@ -88,6 +118,7 @@ class CambioCarreraController extends Controller
                         $estudiante->primerapellido,
                         $estudiante->segundoapellido,
                     ]))),
+                    'carreras_inscritas' => $carrerasInscritas,
                     'email' => $estudiante->email ?? '',
                     'celular' => $estudiante->celular ?? '',
                     'inscripciones' => $inscripciones,
@@ -99,14 +130,8 @@ class CambioCarreraController extends Controller
 
     public function store(Request $request)
     {
-        $deposito = $request->input('deposito');
-        if (is_string($deposito)) {
-            $deposito = trim($deposito) ?: null;
-        }
-
         $request->merge([
             'becado' => $this->normalizarBooleano($request->input('becado')),
-            'deposito' => $deposito,
         ]);
 
         $validated = $request->validate([
@@ -114,8 +139,6 @@ class CambioCarreraController extends Controller
             'id_inscrito_origen' => 'required|integer|exists:inscrito,id_inscrito',
             'fecha' => 'required|date',
             'becado' => 'required|boolean',
-            'deposito' => 'required|string|max:255',
-            'monto' => 'required|numeric|min:0|max:9999999999.99|decimal:0,2',
             'id_carrera' => [
                 'required',
                 'integer',
@@ -141,11 +164,31 @@ class CambioCarreraController extends Controller
                 ->where('activo', true)
                 ->whereNull('id_inscrito_reemplazo')
                 ->lockForUpdate()
-                ->first(['id_inscrito', 'id_carrera', 'id_gestionacademica']);
+                ->first(['id_inscrito', 'id_carrera', 'id_gestionacademica', 'deposito']);
 
             if (! $inscripcionOrigen) {
                 throw ValidationException::withMessages([
                     'id_inscrito_origen' => 'La inscripción seleccionada no pertenece al estudiante o ya fue reemplazada.',
+                ]);
+            }
+
+            $gestionId = (int) $inscripcionOrigen->id_gestionacademica;
+            $carreraId = (int) $validated['id_carrera'];
+            $personaId = (int) $estudiante->id_persona;
+            $gestionMasReciente = $this->gestionMasReciente($personaId);
+
+            if (! $gestionMasReciente
+                || $gestionId !== (int) $gestionMasReciente->id_gestionacademica) {
+                throw ValidationException::withMessages([
+                    'id_inscrito_origen' => 'Solo se puede cambiar una inscripción del período más reciente del estudiante.',
+                ]);
+            }
+
+            if (DB::table('inscrito_materia')
+                ->where('id_inscrito', $inscripcionOrigen->id_inscrito)
+                ->exists()) {
+                throw ValidationException::withMessages([
+                    'id_inscrito_origen' => 'Esta inscripción tiene materias asignadas. Retírelas antes de cambiar de carrera.',
                 ]);
             }
 
@@ -155,39 +198,24 @@ class CambioCarreraController extends Controller
                 ]);
             }
 
-            $gestionId = (int) $inscripcionOrigen->id_gestionacademica;
-            $carreraId = (int) $validated['id_carrera'];
-            $personaId = (int) $estudiante->id_persona;
-
             if (DB::table('inscrito')
                 ->where('id_persona', $personaId)
                 ->where('id_carrera', $carreraId)
-                ->where('id_gestionacademica', $gestionId)
                 ->where('activo', true)
                 ->whereNull('id_inscrito_reemplazo')
                 ->exists()) {
                 throw ValidationException::withMessages([
-                    'id_carrera' => 'El estudiante ya está inscrito en esta carrera durante la gestión seleccionada.',
+                    'id_carrera' => 'El estudiante ya tiene una inscripción activa en esta carrera.',
                 ]);
             }
 
-            $deposito = trim($validated['deposito']);
-            $depositoNormalizado = mb_strtolower($deposito);
-            $depositoRegistrado = DB::table('inscrito')
-                ->where('id_gestionacademica', $gestionId)
-                ->where('activo', true)
-                ->whereRaw('LOWER(deposito) = ?', [$depositoNormalizado])
-                ->exists()
-                || DB::table('comprobante')
-                    ->where('id_gestionacademica', $gestionId)
+            $deposito = trim((string) ($inscripcionOrigen->deposito ?? ''));
+            if ($deposito === '') {
+                $deposito = trim((string) (DB::table('comprobante')
+                    ->where('id_inscrito', $inscripcionOrigen->id_inscrito)
                     ->where('activo', true)
-                    ->whereRaw('LOWER(deposito) = ?', [$depositoNormalizado])
-                    ->exists();
-
-            if ($depositoRegistrado) {
-                throw ValidationException::withMessages([
-                    'deposito' => 'Este número de depósito ya está registrado en la gestión seleccionada.',
-                ]);
+                    ->orderByDesc('id_comprobante')
+                    ->value('deposito') ?? ''));
             }
 
             $ahora = now();
@@ -203,7 +231,7 @@ class CambioCarreraController extends Controller
                 'numero' => $numeroInscripcion,
                 'tipo' => 2,
                 'becado' => $becado,
-                'deposito' => $deposito,
+                'deposito' => $deposito !== '' ? $deposito : null,
                 'id_carrera' => $carreraId,
                 'id_persona' => $personaId,
                 'id_gestionacademica' => $gestionId,
@@ -230,36 +258,6 @@ class CambioCarreraController extends Controller
                 ]
             );
 
-            $monto = (float) $validated['monto'];
-            $idPago = DB::table('pago')->insertGetId([
-                'concepto' => null,
-                'monto' => $monto,
-                'pagado' => false,
-                'estado' => true,
-                'id_inscrito' => $idInscrito,
-                'created_at' => $ahora,
-                'updated_at' => $ahora,
-            ]);
-            DB::table('comprobante')->insert([
-                'deposito' => $deposito,
-                'fecha' => $validated['fecha'],
-                'valido' => false,
-                'id_inscrito' => $idInscrito,
-                'id_usuario' => auth()->id(),
-                'id_estudiante' => $personaId,
-                'id_carrera' => $carreraId,
-                'id_gestionacademica' => $gestionId,
-                'created_at' => $ahora,
-                'updated_at' => $ahora,
-            ]);
-            DB::table('detalle')->insert([
-                'nombre' => 'Cambio de carrera',
-                'monto' => $monto,
-                'id_pago' => $idPago,
-                'created_at' => $ahora,
-                'updated_at' => $ahora,
-            ]);
-
             DB::table('estudiante')
                 ->where('id_persona', $personaId)
                 ->where('id_carrera', $inscripcionOrigen->id_carrera)
@@ -276,6 +274,18 @@ class CambioCarreraController extends Controller
         return redirect()
             ->route('cambio_carrera.index')
             ->with('success', 'El cambio de carrera se registró correctamente.');
+    }
+
+    private function gestionMasReciente(int $personaId): ?object
+    {
+        return DB::table('inscrito as i')
+            ->join('gestionacademica as ga', 'ga.id_gestionacademica', '=', 'i.id_gestionacademica')
+            ->where('i.id_persona', $personaId)
+            ->where('i.activo', true)
+            ->whereNull('i.id_inscrito_reemplazo')
+            ->orderByDesc('ga.gestion')
+            ->orderByDesc('ga.periodo')
+            ->first(['ga.id_gestionacademica', 'ga.gestion', 'ga.periodo']);
     }
 
     private function normalizarBooleano(mixed $valor): mixed

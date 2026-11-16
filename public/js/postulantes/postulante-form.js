@@ -14,6 +14,13 @@ document.addEventListener('DOMContentLoaded', function () {
         path_nacimiento: 'preview_nacimiento',
         path_diploma: 'preview_diploma'
     };
+    const removalFlags = {
+        foto: 'eliminar_foto',
+        path_ci_frontal: 'eliminar_path_ci_frontal',
+        path_ci_reverso: 'eliminar_path_ci_reverso',
+        path_nacimiento: 'eliminar_path_nacimiento',
+        path_diploma: 'eliminar_path_diploma'
+    };
     const previewUrls = new Map();
     const pendingInputs = new Set();
     let activeCompressions = 0;
@@ -28,6 +35,11 @@ document.addEventListener('DOMContentLoaded', function () {
         || document.getElementById('formEditarPostulante')
         || document.querySelector('form');
     const submitButtons = form ? form.querySelectorAll('button[type="submit"]') : [];
+
+    function setRemovalFlag(inputName, remove) {
+        const flag = document.getElementById(removalFlags[inputName]);
+        if (flag) flag.value = remove ? '1' : '0';
+    }
 
     function feedbackFor(input) {
         let feedback = input.validationFeedback;
@@ -219,6 +231,8 @@ document.addEventListener('DOMContentLoaded', function () {
             const imageElement = container.querySelector('img');
             imageElement.src = objectUrl;
             imageElement.classList.remove('d-none');
+            const link = imageElement.closest('a');
+            if (link) link.href = objectUrl;
             container.querySelector('.file-name').textContent = file.name;
             container.classList.remove('d-none');
         }
@@ -228,6 +242,8 @@ document.addEventListener('DOMContentLoaded', function () {
         const sourceFile = input.files?.[0];
         if (!sourceFile) return;
 
+        setRemovalFlag(input.name, false);
+        input.required = false;
         clearFieldError(input);
 
         if (!['image/jpeg', 'image/png'].includes(sourceFile.type)) {
@@ -289,8 +305,25 @@ document.addEventListener('DOMContentLoaded', function () {
 
     function resetPhotoPreview() {
         if (photoInput) photoInput.value = '';
-        if (preview) preview.innerHTML = '<i class="fas fa-camera"></i><span>Vista previa</span>';
-        if (btnRemovePhoto) btnRemovePhoto.classList.add('d-none');
+        const removalFlag = document.getElementById(removalFlags.foto);
+        const existingUrl = preview?.dataset.existingUrl || '';
+        const existingStillAvailable = existingUrl && removalFlag?.value !== '1';
+
+        if (preview) {
+            if (existingStillAvailable) {
+                const image = document.createElement('img');
+                image.src = existingUrl;
+                image.alt = 'Fotografía actual del postulante';
+                image.className = 'w-100 h-100 object-fit-cover';
+                preview.replaceChildren(image);
+            } else {
+                preview.innerHTML = '<i class="fas fa-camera"></i><span>Vista previa</span>';
+            }
+        }
+        if (btnRemovePhoto) btnRemovePhoto.classList.toggle('d-none', !existingStillAvailable && !photoInput?.files?.length);
+        if (form?.id === 'formRegistrarPostulante' && photoInput) {
+            photoInput.required = !photoInput.files?.length && (!existingStillAvailable);
+        }
         const photoLabel = document.getElementById('fotografiaGuia');
         if (photoLabel?.dataset.originalText) photoLabel.textContent = photoLabel.dataset.originalText;
         if (photoInput) clearFieldError(photoInput);
@@ -305,16 +338,50 @@ document.addEventListener('DOMContentLoaded', function () {
     photoInput?.addEventListener('change', () => processImageInput(photoInput));
 
     btnRemovePhoto?.addEventListener('click', function () {
+        setRemovalFlag('foto', true);
         resetPhotoPreview();
     });
 
     // ==========================================
     // 2. ETIQUETA, VALIDACIÓN, VISTA PREVIA Y ELIMINACIÓN DE DOCUMENTOS
     // ==========================================
-    function clearDocumentInput(inputId) {
+    function renderStoredDocument(inputId) {
+        const input = document.getElementById(inputId);
+        const container = input ? document.getElementById(filePreviews[input.name]) : null;
+        if (!input || !container) return;
+
+        const existingUrl = container.dataset.existingUrl || '';
+        const removalFlag = document.getElementById(removalFlags[input.name]);
+        const existingStillAvailable = existingUrl && removalFlag?.value !== '1';
+        const image = container.querySelector('img');
+        const link = image?.closest('a');
+        const fileName = container.querySelector('.file-name');
+
+        if (existingStillAvailable) {
+            image.src = existingUrl;
+            image.classList.remove('d-none');
+            if (link) link.href = existingUrl;
+            if (fileName) fileName.textContent = container.dataset.existingName || '';
+            container.classList.remove('d-none');
+        } else {
+            if (image) {
+                image.src = '';
+                image.classList.add('d-none');
+            }
+            if (fileName) fileName.textContent = '';
+            container.classList.add('d-none');
+        }
+
+        if (form?.id === 'formRegistrarPostulante') {
+            input.required = !existingStillAvailable && !input.files?.length;
+        }
+    }
+
+    function clearDocumentInput(inputId, removeExisting = false) {
         const input = document.getElementById(inputId);
         if (!input) return;
-        
+
+        if (removeExisting) setRemovalFlag(input.name, true);
         input.value = '';
         clearFieldError(input);
         
@@ -327,15 +394,7 @@ document.addEventListener('DOMContentLoaded', function () {
         if (oldUrl) URL.revokeObjectURL(oldUrl);
         previewUrls.delete(inputId);
 
-        const containerId = filePreviews[input.name];
-        if (containerId) {
-            const container = document.getElementById(containerId);
-            if (container) {
-                container.classList.add('d-none');
-                const imgPreview = container.querySelector('img');
-                if (imgPreview) imgPreview.src = '';
-            }
-        }
+        renderStoredDocument(inputId);
     }
 
     document.querySelectorAll('.custom-file-input').forEach(input => {
@@ -347,16 +406,26 @@ document.addEventListener('DOMContentLoaded', function () {
         if (btn) {
             const targetId = btn.getAttribute('data-target');
             if (targetId) {
-                clearDocumentInput(targetId);
+                clearDocumentInput(targetId, true);
             }
         }
+    });
+
+    if (photoInput) resetPhotoPreview();
+    Object.keys(filePreviews).forEach(inputName => {
+        const input = document.getElementById(inputName);
+        if (input) renderStoredDocument(input.id);
     });
 
     form?.addEventListener('reset', function () {
         Object.values(filePreviews).forEach(previewId => {
             const input = document.getElementById(previewId.replace('preview_', 'path_'));
-            if (input) clearDocumentInput(input.id);
+            if (input) {
+                setRemovalFlag(input.name, false);
+                clearDocumentInput(input.id);
+            }
         });
+        setRemovalFlag('foto', false);
         resetPhotoPreview();
     });
 

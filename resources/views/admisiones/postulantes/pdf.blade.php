@@ -35,7 +35,7 @@
     </div>
 
     <div class="info-reporte">
-        <p><strong>Carrera:</strong> {{ $carreraSeleccionada->nombre ?? 'TODAS LAS CARRERAS' }}</p>
+        <p><strong>Carrera:</strong> {{ $carreraSeleccionada?->nombreConResolucionMinisterial() ?? 'TODAS LAS CARRERAS' }}</p>
         <p><strong>Gestión Académica:</strong> {{ $gestionSeleccionada ? 'Gestión ' . $gestionSeleccionada->gestion . ' - Periodo ' . $gestionSeleccionada->periodo : 'TODAS LAS GESTIONES' }}</p>
         <p><strong>Fecha de Emisión:</strong> {{ date('d/m/Y H:i') }}</p>
     </div>

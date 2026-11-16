@@ -14,8 +14,8 @@ class PostulantesDemoSeeder extends Seeder
         $gestion = GestionAcademica::where('gestion', now()->year)
             ->where('periodo', 1)
             ->firstOrFail();
-        $sistemas = Carrera::where('codigo', 'DEMO-SIS')->firstOrFail();
-        $mecanica = Carrera::where('codigo', 'DEMO-MTZ')->firstOrFail();
+        $sistemas = Carrera::where('codigo', 'SIS-2023')->where('activo', true)->firstOrFail();
+        $mecanica = Carrera::where('codigo', 'MTZ-2023')->where('activo', true)->firstOrFail();
 
         $postulanteUno = [
             'ci' => 'VALERIA-001',

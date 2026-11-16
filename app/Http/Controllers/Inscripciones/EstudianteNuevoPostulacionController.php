@@ -9,6 +9,9 @@ use App\Models\Postulante;
 use App\Models\Rol;
 use App\Models\User;
 use Barryvdh\DomPDF\Facade\Pdf;
+use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Collection;
+use Illuminate\Database\Query\Builder as QueryBuilder;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
@@ -21,22 +24,94 @@ class EstudianteNuevoPostulacionController extends Controller
     {
         $gestionActual = GestionAcademica::where('vigente', true)
             ->orderByDesc('id_gestionacademica')
-            ->first() ?? GestionAcademica::orderByDesc('id_gestionacademica')->first();
+            ->first();
 
         $gestionSeleccionadaId = $gestionActual?->id_gestionacademica;
 
-        $postulantes = Postulante::with(['carrera', 'gestionAcademica'])
-            ->when($gestionSeleccionadaId, fn ($query) => $query->where('id_gestionacademica', $gestionSeleccionadaId))
+        return view('Inscripciones.estudiante_nuevo_postulacion.index', compact(
+            'gestionActual',
+            'gestionSeleccionadaId'
+        ));
+    }
+
+    public function buscar(Request $request)
+    {
+        $validated = $request->validate([
+            'q' => 'required|string|max:100',
+        ]);
+        $gestionActualId = GestionAcademica::where('vigente', true)
+            ->orderByDesc('id_gestionacademica')
+            ->value('id_gestionacademica');
+
+        $consulta = $this->consultaPostulantes($gestionActualId ? (int) $gestionActualId : null);
+        $terminos = preg_split('/\s+/', mb_strtolower(trim($validated['q'])), -1, PREG_SPLIT_NO_EMPTY);
+
+        foreach ($terminos as $termino) {
+            $consulta->where(function (Builder $query) use ($termino): void {
+                $like = '%'.$termino.'%';
+                $query->whereRaw('LOWER(nombre) LIKE ?', [$like])
+                    ->orWhereRaw('LOWER(primerapellido) LIKE ?', [$like])
+                    ->orWhereRaw('LOWER(segundoapellido) LIKE ?', [$like])
+                    ->orWhereRaw('LOWER(ci) LIKE ?', [$like]);
+            });
+        }
+
+        $postulantes = $consulta
+            ->orderBy('nombre')
+            ->orderBy('primerapellido')
+            ->get();
+
+        return response()
+            ->json(['postulantes' => $this->formatearPostulantes($postulantes)])
+            ->header('Cache-Control', 'no-store, private');
+    }
+
+    private function consultaPostulantes(?int $gestionId): Builder
+    {
+        return Postulante::with(['carrera', 'gestionAcademica'])
+            ->where('id_gestionacademica', $gestionId ?? 0)
             ->whereHas('carrera', fn ($query) => $query->where('activo', true))
+            ->whereNotExists(function (QueryBuilder $query): void {
+                $query->selectRaw('1')
+                    ->from('personas as p')
+                    ->join('estudiante as e', 'e.id_persona', '=', 'p.id_persona')
+                    ->whereRaw('LOWER(p.ci) = LOWER(postulante.ci)')
+                    ->where(function (QueryBuilder $career): void {
+                        $career->whereColumn('e.id_carrera', 'postulante.id_carrera')
+                            ->orWhereExists(function (QueryBuilder $association): void {
+                                $association->selectRaw('1')
+                                    ->from('cursa as cu')
+                                    ->whereColumn('cu.id_persona', 'e.id_persona')
+                                    ->whereColumn('cu.id_carrera', 'postulante.id_carrera');
+                            })
+                            ->orWhereExists(function (QueryBuilder $association): void {
+                                $association->selectRaw('1')
+                                    ->from('inscrito as i')
+                                    ->whereColumn('i.id_persona', 'e.id_persona')
+                                    ->whereColumn('i.id_carrera', 'postulante.id_carrera');
+                            });
+                    });
+            })
             ->whereNotIn('id_postulante', DB::table('inscrito')
                 ->select('id_postulante_origen')
                 ->where('activo', true)
-                ->whereNotNull('id_postulante_origen'))
-            ->orderBy('nombre', 'asc')
-            ->orderBy('primerapellido', 'asc')
-            ->get();
+                ->whereNotNull('id_postulante_origen'));
+    }
 
-        $postulantesData = $postulantes->map(fn (Postulante $postulante): array => [
+    private function formatearPostulantes(Collection $postulantes): array
+    {
+        $usuariosPorCi = DB::table('personas as p')
+            ->join('users as u', 'u.id_persona', '=', 'p.id_persona')
+            ->whereIn('p.ci', $postulantes->pluck('ci')->filter()->unique()->values())
+            ->get(['p.ci', 'u.usuario'])
+            ->keyBy('ci');
+        $estudiantesPorCi = DB::table('personas as p')
+            ->join('estudiante as e', 'e.id_persona', '=', 'p.id_persona')
+            ->whereIn('p.ci', $postulantes->pluck('ci')->filter()->unique()->values())
+            ->pluck('p.ci')
+            ->flip();
+
+        return $postulantes->map(fn (Postulante $postulante): array => [
             'id' => (string) $postulante->id_postulante,
             'nombre' => $postulante->nombre,
             'primerapellido' => $postulante->primerapellido,
@@ -67,15 +142,11 @@ class EstudianteNuevoPostulacionController extends Controller
             'pathciReverso' => $postulante->path_ci_reverso ?? '',
             'pathnac' => $postulante->path_nacimiento ?? '',
             'pathdip' => $postulante->path_diploma ?? '',
+            'estudianteExistente' => $estudiantesPorCi->has($postulante->ci),
             'deposito' => $postulante->deposito ?? '',
-        ]);
-
-        return view('Inscripciones.estudiante_nuevo_postulacion.index', compact(
-            'postulantes',
-            'postulantesData',
-            'gestionActual',
-            'gestionSeleccionadaId'
-        ));
+            'usuarioExistente' => $usuariosPorCi->has($postulante->ci),
+            'usuario' => $usuariosPorCi->get($postulante->ci)?->usuario,
+        ])->all();
     }
 
     private function normalizarSexo(?string $sexo): string
@@ -121,7 +192,8 @@ class EstudianteNuevoPostulacionController extends Controller
         $validated = $request->validate([
             'postulaciones' => 'required|array|min:1',
             'postulaciones.*.id_postulante' => 'required|integer|distinct|exists:postulante,id_postulante',
-            'postulaciones.*.deposito' => 'required|string|max:255',
+            'postulaciones.*.decision' => 'required|in:si,no',
+            'postulaciones.*.deposito' => 'nullable|string|max:255',
             'nombre' => 'required|string|max:255',
             'primerapellido' => 'required|string|max:255',
             'segundoapellido' => 'nullable|string|max:255',
@@ -146,16 +218,16 @@ class EstudianteNuevoPostulacionController extends Controller
             'becado' => 'nullable|boolean',
             'id_gestionacademica' => 'required|exists:gestionacademica,id_gestionacademica',
             'traspaso_convalidacion' => 'nullable|boolean',
+            'accion_credenciales' => 'nullable|in:mantener,regenerar',
         ]);
 
         $gestionActualId = GestionAcademica::where('vigente', true)
             ->orderByDesc('id_gestionacademica')
-            ->value('id_gestionacademica')
-            ?? GestionAcademica::orderByDesc('id_gestionacademica')->value('id_gestionacademica');
+            ->value('id_gestionacademica');
 
-        if ((int) $validated['id_gestionacademica'] !== (int) $gestionActualId) {
+        if (! $gestionActualId || (int) $validated['id_gestionacademica'] !== (int) $gestionActualId) {
             throw ValidationException::withMessages([
-                'id_gestionacademica' => 'Solo se pueden inscribir postulaciones de la gestión vigente.',
+                'id_gestionacademica' => 'No hay una gestión vigente o la gestión seleccionada ya no está vigente.',
             ]);
         }
 
@@ -165,13 +237,8 @@ class EstudianteNuevoPostulacionController extends Controller
                 $enviadas = collect($validated['postulaciones'])
                     ->keyBy(fn (array $postulacion): int => (int) $postulacion['id_postulante']);
                 $ids = $enviadas->keys()->all();
-                $postulaciones = Postulante::where('ci', $validated['ci'])
-                    ->where('id_gestionacademica', $gestionId)
-                    ->whereHas('carrera', fn ($query) => $query->where('activo', true))
-                    ->whereNotIn('id_postulante', DB::table('inscrito')
-                        ->select('id_postulante_origen')
-                        ->where('activo', true)
-                        ->whereNotNull('id_postulante_origen'))
+                $postulaciones = $this->consultaPostulantes($gestionId)
+                    ->where('ci', $validated['ci'])
                     ->lockForUpdate()
                     ->get()
                     ->keyBy('id_postulante');
@@ -184,12 +251,38 @@ class EstudianteNuevoPostulacionController extends Controller
                     ]);
                 }
 
+                $idsSeleccionados = $enviadas
+                    ->filter(fn (array $postulacion): bool => $postulacion['decision'] === 'si')
+                    ->keys()
+                    ->all();
+                if ($idsSeleccionados === []) {
+                    throw ValidationException::withMessages([
+                        'postulaciones' => 'Selecciona al menos una carrera con la opción Sí.',
+                    ]);
+                }
+                $postulaciones = $postulaciones->filter(
+                    fn (Postulante $postulante): bool => in_array(
+                        (int) $postulante->id_postulante,
+                        array_map('intval', $idsSeleccionados),
+                        true
+                    )
+                );
+
                 $voucherPorId = [];
                 $indicePorId = [];
                 $vouchersNormalizados = [];
                 foreach (array_values($validated['postulaciones']) as $indice => $postulacion) {
+                    if ($postulacion['decision'] !== 'si') {
+                        continue;
+                    }
+
                     $idPostulante = (int) $postulacion['id_postulante'];
-                    $voucher = trim($postulacion['deposito']);
+                    $voucher = trim((string) ($postulacion['deposito'] ?? ''));
+                    if ($voucher === '') {
+                        throw ValidationException::withMessages([
+                            "postulaciones.$indice.deposito" => 'El voucher es obligatorio para las carreras seleccionadas con Sí.',
+                        ]);
+                    }
                     $normalizado = mb_strtolower($voucher);
                     if (in_array($normalizado, $vouchersNormalizados, true)) {
                         throw ValidationException::withMessages([
@@ -201,14 +294,15 @@ class EstudianteNuevoPostulacionController extends Controller
                     $indicePorId[$idPostulante] = $indice;
                 }
 
-                foreach ($postulaciones as $id => $postulante) {
+                foreach ($postulaciones as $postulante) {
+                    $idPostulante = (int) $postulante->id_postulante;
                     if ($postulante->ci !== $validated['ci']) {
                         throw ValidationException::withMessages([
                             'postulaciones' => 'Las postulaciones no corresponden a la persona indicada.',
                         ]);
                     }
 
-                    $voucher = $voucherPorId[(int) $id];
+                    $voucher = $voucherPorId[$idPostulante];
                     $duplicadoPendiente = Postulante::where('deposito', $voucher)
                         ->where('id_gestionacademica', $gestionId)
                         ->whereNotIn('id_postulante', $ids)
@@ -243,13 +337,22 @@ class EstudianteNuevoPostulacionController extends Controller
                 $estudianteExistente = $idPersona
                     ? DB::table('estudiante')->where('id_persona', $idPersona)->exists()
                     : false;
-                if ($idPersona && DB::table('inscrito')
-                    ->where('id_persona', $idPersona)
-                    ->where('id_gestionacademica', $gestionId)
-                    ->whereIn('id_carrera', $postulaciones->pluck('id_carrera'))
-                    ->exists()) {
+                $carrerasYaInscritas = $idPersona
+                    ? DB::table('inscrito as i')
+                        ->join('carreras as c', 'c.id_carrera', '=', 'i.id_carrera')
+                        ->where('i.id_persona', $idPersona)
+                        ->where('i.id_gestionacademica', $gestionId)
+                        ->where('i.activo', true)
+                        ->whereNull('i.id_inscrito_reemplazo')
+                        ->whereIn('i.id_carrera', $postulaciones->pluck('id_carrera'))
+                        ->distinct()
+                        ->orderBy('c.nombre')
+                        ->pluck('c.nombre')
+                    : collect();
+                if ($carrerasYaInscritas->isNotEmpty()) {
                     throw ValidationException::withMessages([
-                        'postulaciones' => 'La persona ya tiene una inscripción en una o más carreras de esta gestión.',
+                        'postulaciones' => 'El estudiante ya está inscrito en '.$carrerasYaInscritas->implode(', ')
+                            .' durante esta gestión. No se puede duplicar la inscripción.',
                     ]);
                 }
 
@@ -302,7 +405,14 @@ class EstudianteNuevoPostulacionController extends Controller
 
                 $credenciales = null;
                 $usuario = User::where('id_persona', $idPersona)->lockForUpdate()->first();
+                $usuarioExistente = $usuario !== null;
                 $rolEstudiante = Rol::firstOrCreate(['nombre' => 'Estudiante']);
+
+                if ($usuarioExistente && ! in_array($validated['accion_credenciales'] ?? null, ['mantener', 'regenerar'], true)) {
+                    throw ValidationException::withMessages([
+                        'accion_credenciales' => 'Confirme si desea conservar o restablecer las credenciales de acceso existentes.',
+                    ]);
+                }
 
                 if (! $usuario) {
                     $anio = now()->format('Y');
@@ -345,7 +455,29 @@ class EstudianteNuevoPostulacionController extends Controller
                     ]);
                 }
 
-                foreach ($postulaciones as $id => $postulante) {
+                if ($usuarioExistente && $validated['accion_credenciales'] === 'regenerar') {
+                    $contrasena = Str::password(10, letters: true, numbers: true, symbols: false, spaces: false);
+                    $usuario->password = Hash::make($contrasena);
+                    $usuario->save();
+                    Cuenta::where('id_persona', $idPersona)
+                        ->where('id_rol', $rolEstudiante->id_rol)
+                        ->update([
+                            'usuario' => $usuario->usuario,
+                            'password' => $usuario->password,
+                        ]);
+                    $credenciales = [
+                        'usuario' => $usuario,
+                        'contrasena' => $contrasena,
+                        'rol' => $rolEstudiante,
+                        'persona' => DB::table('personas')->where('id_persona', $idPersona)->first(),
+                        'carrera' => DB::table('carreras')
+                            ->where('id_carrera', $primeraPostulacion->id_carrera)
+                            ->value('nombre'),
+                    ];
+                }
+
+                foreach ($postulaciones as $postulante) {
+                    $idPostulante = (int) $postulante->id_postulante;
                     $inscripcionesPrevias = DB::table('inscrito')
                         ->where('id_persona', $idPersona)
                         ->where('id_carrera', $postulante->id_carrera)
@@ -368,7 +500,7 @@ class EstudianteNuevoPostulacionController extends Controller
                         'numero' => $inscripcionesPrevias + 1,
                         'tipo' => $estudianteExistente ? 2 : 1,
                         'becado' => (int) ($validated['becado'] ?? 0),
-                        'deposito' => $voucherPorId[(int) $id],
+                        'deposito' => $voucherPorId[$idPostulante],
                         'id_postulante_origen' => $postulante->id_postulante,
                         'id_carrera' => $postulante->id_carrera,
                         'id_persona' => $idPersona,
@@ -410,7 +542,7 @@ class EstudianteNuevoPostulacionController extends Controller
                     DB::table('comprobante')
                         ->where('id_postulante', $postulante->id_postulante)
                         ->update([
-                            'deposito' => $voucherPorId[(int) $id],
+                            'deposito' => $voucherPorId[$idPostulante],
                             'fecha' => $validated['fecha'],
                             'id_postulante' => null,
                             'id_inscrito' => $idInscrito,
@@ -421,7 +553,10 @@ class EstudianteNuevoPostulacionController extends Controller
                             'updated_at' => $ahora,
                         ]);
                 }
-                return ['credenciales' => $credenciales];
+                return [
+                    'credenciales' => $credenciales,
+                    'cuentaExistente' => $usuarioExistente,
+                ];
             });
         } catch (ValidationException $exception) {
             throw $exception;
@@ -457,8 +592,12 @@ class EstudianteNuevoPostulacionController extends Controller
                 ->stream('credenciales_'.$credenciales['usuario']->usuario.'.pdf');
         }
 
+        $mensaje = $resultado['cuentaExistente']
+            ? 'Inscripciones registradas. Se conservó la cuenta existente y no se generaron credenciales nuevas.'
+            : 'Inscripciones registradas correctamente.';
+
         return redirect()->route('estudiante_nuevo_postulacion.index', [
             'id_gestionacademica' => $validated['id_gestionacademica'],
-        ])->with('success', 'Inscripciones registradas correctamente.');
+        ])->with('success', $mensaje);
     }
 }

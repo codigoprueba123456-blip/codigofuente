@@ -65,7 +65,7 @@ return [
 
     'logo' => '<span class="itsa-brand-word">ITSA</span>',
     'logo_img' => 'images/logo.png',
-    'logo_img_class' => 'brand-image elevation-3',
+    'logo_img_class' => 'brand-image itsa-sidebar-logo',
     'logo_img_xl' => null,
     'logo_img_xl_class' => 'brand-image-xs',
     'logo_img_alt' => 'ITSA',
@@ -312,6 +312,11 @@ return [
         ],
         // Sidebar items:
         [
+            'text' => 'Inicio',
+            'route' => 'home',
+            'icon' => 'fas fa-fw fa-home',
+        ],
+        [
             'text' => 'Administración',
             'icon' => 'fas fa-fw fa-user-shield',
             'submenu' => [
@@ -379,7 +384,13 @@ return [
                 ],
             ],
         ],
-
+        // INICIO: Módulo temporal de organización del proceso de inscripción.
+        [
+            'text' => 'Inicio de Inscripción',
+            'url' => 'planes/gestiones/inicio-inscripcion',
+            'icon' => 'fas fa-fw fa-door-open',
+        ],
+        // FIN: Módulo temporal de organización del proceso de inscripción.
         [
             'text' => 'Admisiones',
             'icon' => 'fas fa-users',
@@ -447,6 +458,11 @@ return [
                     'text' => 'Malla Curricular',
                     'icon' => 'fas fa-sitemap',
                     'url' => 'reportes/malla-curricular',
+                ],
+                [
+                    'text' => 'Dashboard',
+                    'icon' => 'fas fa-chart-pie',
+                    'url' => 'reportes/dashboard',
                 ],
                 [
                     'text' => 'Inscripciones',

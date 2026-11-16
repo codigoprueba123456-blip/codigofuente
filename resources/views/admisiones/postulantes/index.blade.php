@@ -169,7 +169,7 @@
                                         <span class="text-muted">Sin celular</span>
                                     @endif
                                 </td>
-                                <td>{{ $p->carrera->nombre ?? 'Sin Carrera' }}</td>
+                                <td>{{ $p->carrera?->nombreConResolucionMinisterial() ?? 'Sin Carrera' }}</td>
                                 <td>
                                     @if ($p->inscripcion_origen_exists)
                                         <span class="badge badge-success">Inscrito como estudiante</span>
@@ -235,7 +235,7 @@
                                 <p><strong>CI:</strong> {{ $p->ci }}</p>
                                 <p><strong>Celular:</strong> {{ $p->celular ?? 'No registrado' }}</p>
                                 <p><strong>Colegio:</strong> {{ $p->nombrecolegio ?? 'N/A' }} ({{ $p->egresocolegio ?? '' }})</p>
-                                <p><strong>Carrera:</strong> {{ $p->carrera->nombre ?? 'N/A' }}</p>
+                                <p><strong>Carrera:</strong> {{ $p->carrera?->nombreConResolucionMinisterial() ?? 'N/A' }}</p>
                                 <hr>
                                 @if (!empty($p->celular))
                                     <a href="https://wa.me/{{ $p->celular }}" target="_blank" class="btn btn-success btn-block btn-sm mb-2">

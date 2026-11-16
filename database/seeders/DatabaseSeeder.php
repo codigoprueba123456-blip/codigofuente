@@ -7,9 +7,7 @@ use App\Models\Carrera;
 use App\Models\Cuenta;
 use App\Models\Empleado;
 use App\Models\GestionAcademica;
-use App\Models\Grupo;
 use App\Models\Instituto;
-use App\Models\Materia;
 use App\Models\Persona;
 use App\Models\Recurso;
 use App\Models\Rol;
@@ -131,37 +129,6 @@ class DatabaseSeeder extends Seeder
             ]
         );
 
-        $carrera = Carrera::updateOrCreate(
-            ['codigo' => 'DEMO-SIS'],
-            [
-                'creditajeadmision' => 10,
-                'creditajematricula' => 20,
-                'nivelacademico' => Carrera::NIVEL_TECNICO_SUPERIOR,
-                'nombre' => 'Ingeniería de Sistemas (Prueba)',
-                'regimen' => Carrera::REGIMEN_ANUAL,
-                'resolucionministerial1' => 'R.M. 001/2026',
-                'version' => 1,
-                'id_instituto' => $instituto->id_instituto,
-                'id_jefecarrera' => $docente->id_persona,
-            ]
-        );
-
-        $carreraMecanica = Carrera::updateOrCreate(
-            ['codigo' => 'DEMO-MTZ'],
-            [
-                'creditajeadmision' => 10,
-                'creditajematricula' => 20,
-                'nivelacademico' => Carrera::NIVEL_TECNICO_SUPERIOR,
-                'nombre' => 'Mecánica Automotriz (Prueba)',
-                'activo' => true,
-                'regimen' => Carrera::REGIMEN_ANUAL,
-                'resolucionministerial1' => 'R.M. 001/2026',
-                'version' => 1,
-                'id_instituto' => $instituto->id_instituto,
-                'id_jefecarrera' => $docente->id_persona,
-            ]
-        );
-
         GestionAcademica::updateOrCreate(
             ['gestion' => 2025, 'periodo' => 1],
             [
@@ -184,78 +151,6 @@ class DatabaseSeeder extends Seeder
             ]
         );
 
-        $materiaInicial = Materia::updateOrCreate(
-            ['codigo' => 'DEMO-SIS-101', 'id_carrera' => $carrera->id_carrera],
-            [
-                'nombre' => 'Fundamentos de Programación (Prueba)',
-                'creditajemateria' => 4,
-                'curricular' => true,
-                'horas' => 6,
-                'nivel' => 1,
-                'numero' => 1,
-            ]
-        );
-
-        $materiaAvanzada = Materia::updateOrCreate(
-            ['codigo' => 'DEMO-SIS-201', 'id_carrera' => $carrera->id_carrera],
-            [
-                'nombre' => 'Programación Avanzada (Prueba)',
-                'creditajemateria' => 5,
-                'curricular' => true,
-                'horas' => 6,
-                'nivel' => 2,
-                'numero' => 1,
-            ]
-        );
-        $materiaAvanzada->prerequisitos()->sync([$materiaInicial->id_materia]);
-
-        $materiaMecanicaInicial = Materia::updateOrCreate(
-            ['codigo' => 'DEMO-MTZ-101', 'id_carrera' => $carreraMecanica->id_carrera],
-            [
-                'nombre' => 'Fundamentos de Mecánica Automotriz (Prueba)',
-                'creditajemateria' => 4,
-                'curricular' => true,
-                'horas' => 6,
-                'nivel' => 1,
-                'numero' => 1,
-            ]
-        );
-
-        $materiaMecanicaAvanzada = Materia::updateOrCreate(
-            ['codigo' => 'DEMO-MTZ-201', 'id_carrera' => $carreraMecanica->id_carrera],
-            [
-                'nombre' => 'Sistemas del Motor y Diagnóstico (Prueba)',
-                'creditajemateria' => 5,
-                'curricular' => true,
-                'horas' => 6,
-                'nivel' => 2,
-                'numero' => 1,
-            ]
-        );
-        $materiaMecanicaAvanzada->prerequisitos()->sync([$materiaMecanicaInicial->id_materia]);
-
-        Grupo::updateOrCreate(
-            ['codigo' => 'DEMO-SIS-201-A', 'id_gestionacademica' => $gestion->id_gestionacademica],
-            [
-                'capacidad' => 30,
-                'turno' => 1,
-                'abierto' => true,
-                'id_persona' => $docente->id_persona,
-                'id_materia' => $materiaAvanzada->id_materia,
-            ]
-        );
-
-        Grupo::updateOrCreate(
-            ['codigo' => 'DEMO-MTZ-201-A', 'id_gestionacademica' => $gestion->id_gestionacademica],
-            [
-                'capacidad' => 30,
-                'turno' => 1,
-                'abierto' => true,
-                'id_persona' => $docente->id_persona,
-                'id_materia' => $materiaMecanicaAvanzada->id_materia,
-            ]
-        );
-
         $actividadGeneral = Actividad::updateOrCreate(
             ['nombre' => 'Actividad de prueba general', 'id_gestionacademica' => $gestion->id_gestionacademica],
             [
@@ -267,18 +162,6 @@ class DatabaseSeeder extends Seeder
         );
         $actividadGeneral->carreras()->sync([]);
         $actividadGeneral->usuarios()->sync([]);
-
-        $actividadCarrera = Actividad::updateOrCreate(
-            ['nombre' => 'Actividad de prueba por carrera', 'id_gestionacademica' => $gestion->id_gestionacademica],
-            [
-                'descripcion' => 'Registro de demostración dirigido a una carrera.',
-                'inicio' => now()->startOfDay(),
-                'fin' => now()->addDays(30)->endOfDay(),
-                'funcionalidad' => null,
-            ]
-        );
-        $actividadCarrera->carreras()->sync([$carrera->id_carrera]);
-        $actividadCarrera->usuarios()->sync([]);
 
         $actividadUsuario = Actividad::updateOrCreate(
             ['nombre' => 'Actividad de prueba por usuario', 'id_gestionacademica' => $gestion->id_gestionacademica],
@@ -300,5 +183,29 @@ class DatabaseSeeder extends Seeder
             Modulos\InscripcionesSeeder::class,
             Modulos\PagosSeeder::class,
         ]);
+
+        if (app()->environment(['local', 'testing'])) {
+            $this->call([
+                Modulos\SistemasInformaticasMateriasDemoSeeder::class,
+                Modulos\EstudiantesCasosPruebaSeeder::class,
+                Modulos\InicioInscripcionDemoSeeder::class,
+                Modulos\InscripcionManualGruposSeeder::class,
+                Modulos\VincularDocumentosIdentidadSeeder::class,
+                PostulacionPublicaSeeder::class,
+            ]);
+        }
+
+        $carreraSistemas = Carrera::where('codigo', 'SIS-2023')->firstOrFail();
+        $actividadCarrera = Actividad::updateOrCreate(
+            ['nombre' => 'Actividad de prueba por carrera', 'id_gestionacademica' => $gestion->id_gestionacademica],
+            [
+                'descripcion' => 'Registro de demostración dirigido a una carrera.',
+                'inicio' => now()->startOfDay(),
+                'fin' => now()->addDays(30)->endOfDay(),
+                'funcionalidad' => null,
+            ]
+        );
+        $actividadCarrera->carreras()->sync([$carreraSistemas->id_carrera]);
+        $actividadCarrera->usuarios()->sync([]);
     }
 }

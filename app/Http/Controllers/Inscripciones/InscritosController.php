@@ -8,12 +8,15 @@ use App\Models\GestionAcademica;
 use App\Models\Inscrito;
 use Illuminate\Database\Query\Builder;
 use Illuminate\Http\Request;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 
 class InscritosController extends Controller
 {
+    private const SQL_ORDEN_PARALELO = "CASE WHEN SUBSTR(UPPER(gr.codigo), -2, 1) = '-' THEN SUBSTR(UPPER(gr.codigo), -1) ELSE UPPER(gr.codigo) END";
+
     public function index(Request $request)
     {
         $filters = $request->validate([
@@ -105,6 +108,16 @@ class InscritosController extends Controller
                 'formato' => ['required', 'in:excel,pdf'],
             ]);
             $inscritosData = (clone $query)->orderByDesc('i.fecha')->orderByDesc('i.id_inscrito')->get();
+            $inscritosData->each(function (object $inscrito): void {
+                if ($inscrito->carrera !== null) {
+                    $inscrito->carrera = Carrera::formatearNombreConResolucion(
+                        $inscrito->carrera,
+                        $inscrito->resolucionministerial1,
+                        $inscrito->resolucionministerial2,
+                        $inscrito->resolucionministerial3
+                    );
+                }
+            });
 
             $carreraSeleccionada = ! empty($filters['id_carrera'])
                 ? Carrera::where('id_carrera', $filters['id_carrera'])->first()
@@ -162,10 +175,24 @@ class InscritosController extends Controller
             ->distinct()
             ->count('i.id_persona');
 
-        $inscritos = $query->orderByDesc('i.fecha')
-            ->orderByDesc('i.id_inscrito')
+        $inscritos = $this->ordenarPorTurnoYParalelo($query)
             ->paginate(10)
             ->withQueryString();
+        $gruposPorInscrito = $this->gruposPorInscrito($inscritos->getCollection()->pluck('id_inscrito'));
+        $inscritos->getCollection()->each(function (object $inscrito) use ($gruposPorInscrito): void {
+            if ($inscrito->carrera !== null) {
+                $inscrito->carrera = Carrera::formatearNombreConResolucion(
+                    $inscrito->carrera,
+                    $inscrito->resolucionministerial1,
+                    $inscrito->resolucionministerial2,
+                    $inscrito->resolucionministerial3
+                );
+            }
+            $inscrito->curso = $inscrito->nivelinicio !== null
+                ? Carrera::etiquetaNivel($inscrito->regimen, $inscrito->nivelinicio)
+                : 'Sin curso registrado';
+            $inscrito->grupos_asignados = $gruposPorInscrito[$inscrito->id_inscrito] ?? collect();
+        });
 
         $carrerasPorPersonaGestion = $this->carrerasPorPersonaGestion($inscritos->getCollection());
         foreach ($inscritos as $inscrito) {
@@ -176,7 +203,11 @@ class InscritosController extends Controller
         $gestiones = GestionAcademica::orderByDesc('id_gestionacademica')->get();
         $carreras = Carrera::orderBy('nombre')->get();
         $turnos = DB::table('grupo')->whereNotNull('turno')->where('turno', '!=', '')
-            ->select('turno')->distinct()->orderBy('turno')->pluck('turno');
+            ->select('turno')->distinct()->orderBy('turno')->pluck('turno')
+            ->map(fn ($turno): object => (object) [
+                'valor' => $turno,
+                'etiqueta' => $this->etiquetaTurno($turno),
+            ]);
         $paralelos = DB::table('grupo')->whereNotNull('codigo')->where('codigo', '!=', '')
             ->select('codigo')->distinct()->orderBy('codigo')->pluck('codigo');
 
@@ -251,7 +282,14 @@ class InscritosController extends Controller
             ->where('activo', true)
             ->orWhere('id_carrera', $inscripcion->id_carrera)
             ->orderBy('nombre')
-            ->get(['id_carrera', 'nombre', 'regimen']);
+            ->get([
+                'id_carrera',
+                'nombre',
+                'regimen',
+                'resolucionministerial1',
+                'resolucionministerial2',
+                'resolucionministerial3',
+            ]);
         $gestiones = GestionAcademica::habilitadas()
             ->orderByDesc('gestion')
             ->orderByDesc('periodo')
@@ -507,6 +545,10 @@ class InscritosController extends Controller
                 'p.foto',
                 'c.id_carrera',
                 'c.nombre as carrera',
+                'c.resolucionministerial1',
+                'c.resolucionministerial2',
+                'c.resolucionministerial3',
+                'c.regimen',
                 'g.gestion',
                 'g.periodo',
                 'e.path_ci',
@@ -514,6 +556,41 @@ class InscritosController extends Controller
                 'e.path_nacimiento',
                 'e.path_diploma',
                 'e.path_bth',
+            )
+            ->selectSub(
+                DB::table('cursa as cu')
+                    ->select('cu.nivelinicio')
+                    ->whereColumn('cu.id_persona', 'i.id_persona')
+                    ->whereColumn('cu.id_carrera', 'i.id_carrera')
+                    ->whereColumn('cu.id_gestionacademica', 'i.id_gestionacademica')
+                    ->limit(1),
+                'nivelinicio'
+            )
+            ->selectSub(
+                DB::table('inscrito_materia as im')
+                    ->join('materia as m', 'm.id_materia', '=', 'im.id_materia')
+                    ->join('grupo as gr', 'gr.id_grupo', '=', 'im.id_grupo')
+                    ->whereColumn('im.id_inscrito', 'i.id_inscrito')
+                    ->whereColumn('m.id_carrera', 'i.id_carrera')
+                    ->whereColumn('gr.id_gestionacademica', 'i.id_gestionacademica')
+                    ->orderBy('gr.turno')
+                    ->orderByRaw(self::SQL_ORDEN_PARALELO)
+                    ->select('gr.turno')
+                    ->limit(1),
+                'turno_orden'
+            )
+            ->selectSub(
+                DB::table('inscrito_materia as im')
+                    ->join('materia as m', 'm.id_materia', '=', 'im.id_materia')
+                    ->join('grupo as gr', 'gr.id_grupo', '=', 'im.id_grupo')
+                    ->whereColumn('im.id_inscrito', 'i.id_inscrito')
+                    ->whereColumn('m.id_carrera', 'i.id_carrera')
+                    ->whereColumn('gr.id_gestionacademica', 'i.id_gestionacademica')
+                    ->orderBy('gr.turno')
+                    ->orderByRaw(self::SQL_ORDEN_PARALELO)
+                    ->selectRaw(self::SQL_ORDEN_PARALELO)
+                    ->limit(1),
+                'paralelo_orden'
             )
             ->selectSub(
                 DB::table('inscrito as otra')
@@ -524,6 +601,62 @@ class InscritosController extends Controller
                     ->whereNull('otra.id_inscrito_reemplazo'),
                 'cantidad_carreras_gestion'
             );
+    }
+
+    private function ordenarPorTurnoYParalelo(Builder $query): Builder
+    {
+        return $query
+            ->orderByRaw('CASE WHEN turno_orden IS NULL THEN 1 ELSE 0 END')
+            ->orderBy('turno_orden')
+            ->orderBy('paralelo_orden')
+            ->orderBy('nivelinicio')
+            ->orderByDesc('i.fecha')
+            ->orderByDesc('i.id_inscrito');
+    }
+
+    private function gruposPorInscrito(Collection $idsInscritos): Collection
+    {
+        if ($idsInscritos->isEmpty()) {
+            return collect();
+        }
+
+        return DB::table('inscrito_materia as im')
+            ->join('inscrito as i', 'i.id_inscrito', '=', 'im.id_inscrito')
+            ->join('materia as m', 'm.id_materia', '=', 'im.id_materia')
+            ->join('grupo as gr', 'gr.id_grupo', '=', 'im.id_grupo')
+            ->whereIn('im.id_inscrito', $idsInscritos)
+            ->whereColumn('m.id_carrera', 'i.id_carrera')
+            ->whereColumn('gr.id_gestionacademica', 'i.id_gestionacademica')
+            ->select('im.id_inscrito', 'gr.codigo', 'gr.turno')
+            ->distinct()
+            ->get()
+            ->groupBy('id_inscrito')
+            ->map(fn ($grupos) => $grupos
+                ->map(function (object $grupo): object {
+                    $partes = explode('-', trim($grupo->codigo));
+                    $ultimoSegmento = end($partes);
+                    $grupo->paralelo = is_string($ultimoSegmento) && preg_match('/^[a-z]$/i', $ultimoSegmento)
+                        ? mb_strtoupper($ultimoSegmento)
+                        : $grupo->codigo;
+                    $grupo->turno_etiqueta = $this->etiquetaTurno($grupo->turno);
+
+                    return $grupo;
+                })
+                ->unique(fn (object $grupo): string => $grupo->turno.'|'.$grupo->paralelo)
+                ->sortBy(fn (object $grupo): array => [
+                    (int) $grupo->turno,
+                    mb_strtolower($grupo->paralelo),
+                ])
+                ->values());
+    }
+
+    private function etiquetaTurno(int|string|null $turno): string
+    {
+        return [
+            1 => 'Mañana',
+            2 => 'Tarde',
+            3 => 'Noche',
+        ][(int) $turno] ?? 'Turno no definido';
     }
 
     private function carrerasPorPersonaGestion($inscritos): array
@@ -553,14 +686,29 @@ class InscritosController extends Controller
             ->where('i.activo', true)
             ->whereNull('i.id_inscrito_reemplazo')
             ->orderBy('c.nombre')
-            ->get(['i.id_persona', 'i.id_gestionacademica', 'c.nombre']);
+            ->get([
+                'i.id_persona',
+                'i.id_gestionacademica',
+                'c.nombre',
+                'c.resolucionministerial1',
+                'c.resolucionministerial2',
+                'c.resolucionministerial3',
+            ]);
 
         return $carreras
             ->groupBy(fn ($carrera): string => $this->clavePersonaGestion(
                 $carrera->id_persona,
                 $carrera->id_gestionacademica
             ))
-            ->map(fn ($registros) => $registros->pluck('nombre')->unique()->values())
+            ->map(fn ($registros) => $registros
+                ->map(fn (object $carrera): string => Carrera::formatearNombreConResolucion(
+                    $carrera->nombre,
+                    $carrera->resolucionministerial1,
+                    $carrera->resolucionministerial2,
+                    $carrera->resolucionministerial3
+                ))
+                ->unique()
+                ->values())
             ->all();
     }
 

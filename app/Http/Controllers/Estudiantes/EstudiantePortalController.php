@@ -43,6 +43,9 @@ class EstudiantePortalController extends Controller
                 ->get([
                     'i.id_carrera',
                     'c.nombre as carrera',
+                    'c.resolucionministerial1',
+                    'c.resolucionministerial2',
+                    'c.resolucionministerial3',
                     'c.regimen',
                     'i.id_gestionacademica',
                     'ga.gestion',
@@ -50,7 +53,28 @@ class EstudiantePortalController extends Controller
                     'cu.nivelinicio',
                     'i.id_inscrito_reemplazo',
                     'cr.nombre as carrera_reemplazo',
-                ]);
+                    'cr.resolucionministerial1 as resolucion_reemplazo1',
+                    'cr.resolucionministerial2 as resolucion_reemplazo2',
+                    'cr.resolucionministerial3 as resolucion_reemplazo3',
+                ])
+                ->map(function (object $inscripcion): object {
+                    $inscripcion->carrera = Carrera::formatearNombreConResolucion(
+                        $inscripcion->carrera,
+                        $inscripcion->resolucionministerial1,
+                        $inscripcion->resolucionministerial2,
+                        $inscripcion->resolucionministerial3
+                    );
+                    if ($inscripcion->carrera_reemplazo !== null) {
+                        $inscripcion->carrera_reemplazo = Carrera::formatearNombreConResolucion(
+                            $inscripcion->carrera_reemplazo,
+                            $inscripcion->resolucion_reemplazo1,
+                            $inscripcion->resolucion_reemplazo2,
+                            $inscripcion->resolucion_reemplazo3
+                        );
+                    }
+
+                    return $inscripcion;
+                });
 
             $inscripcionesVigentes = $inscripciones->whereNull('id_inscrito_reemplazo')->values();
             $carrerasPorId = Carrera::whereIn('id_carrera', $inscripcionesVigentes->pluck('id_carrera')->unique())

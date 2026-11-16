@@ -90,7 +90,15 @@ class InscripcionesReportesTest extends TestCase
             ...$filters,
         ]));
         $careerReport->assertOk()->assertSee('Ana')->assertSee('Estudiante');
-        $this->assertCount(1, $careerReport->viewData('filas'));
+        $careerReport->assertSee('Estudiante B');
+        $this->assertCount(2, $careerReport->viewData('filas'));
+
+        $parallelPage = $this->get(route('reportes.inscripciones.index', ['reporte' => 'lista-inscritos-paralelo']));
+        $parallelPage->assertOk();
+        $paralelos = $parallelPage->viewData('opciones')['paralelos']->pluck('valor')->all();
+        $this->assertContains('A', $paralelos);
+        $this->assertContains('B', $paralelos);
+        $this->assertNotContains('MAT-REPORTES-A', $paralelos);
 
         $parallelReport = $this->get(route('reportes.inscripciones.index', [
             'reporte' => 'lista-inscritos-paralelo',
@@ -100,8 +108,21 @@ class InscripcionesReportesTest extends TestCase
             'turno' => 1,
             'paralelo' => 'A',
         ]));
-        $parallelReport->assertOk()->assertSee('Materia de Prueba');
-        $this->assertCount(1, $parallelReport->viewData('filas'));
+        $parallelReport->assertOk()->assertSee('Materia de Prueba')->assertDontSee('Estudiante B');
+        $this->assertCount(2, $parallelReport->viewData('filas'));
+        $this->assertSame(['A', 'A'], $parallelReport->viewData('filas')->pluck('paralelo')->all());
+        $this->assertEqualsCanonicalizing(
+            ['Ana', 'Ana'],
+            $parallelReport->viewData('filas')->pluck('nombre')->all()
+        );
+        foreach ($parallelReport->viewData('filas') as $fila) {
+            $this->assertNotEmpty($fila->codigo);
+            $this->assertNotEmpty($fila->fecha);
+            $this->assertNotEmpty($fila->ci);
+            $this->assertNotEmpty($fila->primerapellido);
+            $this->assertNotEmpty($fila->carrera);
+            $this->assertSame(2026, (int) $fila->gestion);
+        }
 
         $groupReport = $this->get(route('reportes.inscripciones.index', [
             'reporte' => 'lista-inscritos-grupo',
@@ -112,6 +133,8 @@ class InscripcionesReportesTest extends TestCase
         ]));
         $groupReport->assertOk()->assertSee('Materia de Prueba');
         $this->assertCount(1, $groupReport->viewData('filas'));
+        $this->assertSame('MAT-REPORTES-A', $groupReport->viewData('filas')->first()->paralelo);
+        $this->assertSame('Ana', $groupReport->viewData('filas')->first()->nombre);
 
         $bookReport = $this->get(route('reportes.inscripciones.index', [
             'reporte' => 'libro-inscripciones',
@@ -120,7 +143,7 @@ class InscripcionesReportesTest extends TestCase
             'periodo' => $fixture['gestion']->periodo,
         ]));
         $bookReport->assertOk()->assertSee('Ana')->assertSee('Estudiante');
-        $this->assertCount(2, $bookReport->viewData('filas'));
+        $this->assertCount(3, $bookReport->viewData('filas'));
 
         $multicarreraReport = $this->get(route('reportes.inscripciones.index', [
             'reporte' => 'lista-inscritos-multicarrera',
@@ -223,6 +246,21 @@ class InscripcionesReportesTest extends TestCase
             'created_at' => now(),
             'updated_at' => now(),
         ]);
+        $personaB = Persona::create([
+            'nombre' => 'Estudiante B',
+            'primerapellido' => 'Grupo',
+            'ci' => 'CI-REPORTES-2',
+            'tipo' => 'estudiante',
+        ]);
+        $inscritoB = DB::table('inscrito')->insertGetId([
+            'codigo' => 20260003,
+            'fecha' => '2026-03-12',
+            'id_carrera' => $carrera->id_carrera,
+            'id_persona' => $personaB->id_persona,
+            'id_gestionacademica' => $gestion->id_gestionacademica,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
 
         $materia = DB::table('materia')->insertGetId([
             'codigo' => 'MAT-REPORTES',
@@ -232,11 +270,35 @@ class InscripcionesReportesTest extends TestCase
             'created_at' => now(),
             'updated_at' => now(),
         ]);
+        $materiaDos = DB::table('materia')->insertGetId([
+            'codigo' => 'MAT-REPORTES-2',
+            'nombre' => 'Segunda Materia de Prueba',
+            'nivel' => 1,
+            'id_carrera' => $carrera->id_carrera,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
         $grupo = DB::table('grupo')->insertGetId([
-            'codigo' => 'A',
+            'codigo' => 'MAT-REPORTES-A',
             'turno' => 1,
             'id_gestionacademica' => $gestion->id_gestionacademica,
             'id_materia' => $materia,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+        $grupoDosA = DB::table('grupo')->insertGetId([
+            'codigo' => 'MAT-REPORTES-2-A',
+            'turno' => 1,
+            'id_gestionacademica' => $gestion->id_gestionacademica,
+            'id_materia' => $materiaDos,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+        $grupoDosB = DB::table('grupo')->insertGetId([
+            'codigo' => 'MAT-REPORTES-2-B',
+            'turno' => 1,
+            'id_gestionacademica' => $gestion->id_gestionacademica,
+            'id_materia' => $materiaDos,
             'created_at' => now(),
             'updated_at' => now(),
         ]);
@@ -246,6 +308,22 @@ class InscripcionesReportesTest extends TestCase
             'id_grupo' => $grupo,
             'created_at' => now(),
             'updated_at' => now(),
+        ]);
+        DB::table('inscrito_materia')->insert([
+            [
+                'id_inscrito' => $inscrito,
+                'id_materia' => $materiaDos,
+                'id_grupo' => $grupoDosA,
+                'created_at' => now(),
+                'updated_at' => now(),
+            ],
+            [
+                'id_inscrito' => $inscritoB,
+                'id_materia' => $materiaDos,
+                'id_grupo' => $grupoDosB,
+                'created_at' => now(),
+                'updated_at' => now(),
+            ],
         ]);
 
         $postulanteId = DB::table('postulante')->insertGetId([

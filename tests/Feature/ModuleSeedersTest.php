@@ -5,7 +5,9 @@ namespace Tests\Feature;
 use App\Models\Carrera;
 use App\Models\GestionAcademica;
 use App\Models\Grupo;
+use App\Models\Persona;
 use App\Models\Materia;
+use App\Models\Instituto;
 use App\Models\Postulante;
 use App\Models\User;
 use Database\Seeders\Modulos\AcademicoSeeder;
@@ -30,24 +32,34 @@ class ModuleSeedersTest extends TestCase
         ]);
     }
 
-    public function test_academic_module_seeds_its_dependencies_and_demo_catalog_idempotently(): void
+    public function test_academic_module_seeds_only_the_listed_careers_and_is_idempotent(): void
     {
         $this->seed(AcademicoSeeder::class);
 
         $this->assertDatabaseHas('users', ['usuario' => '20260003']);
-        $this->assertDatabaseHas('carreras', ['codigo' => 'DEMO-SIS']);
-        $this->assertDatabaseHas('carreras', ['codigo' => 'DEMO-MTZ']);
+        $this->assertDatabaseMissing('carreras', ['codigo' => 'DEMO-SIS']);
+        $this->assertDatabaseMissing('carreras', ['codigo' => 'DEMO-MTZ']);
         $this->assertDatabaseHas('carreras', [
             'codigo' => 'COC-2023',
             'nivelacademico' => Carrera::NIVEL_TECNICO_SUPERIOR,
             'regimen' => Carrera::REGIMEN_ANUAL,
+            'activo' => true,
+            'resolucionministerial1' => '0210/2023',
         ]);
         $this->assertDatabaseHas('carreras', [
             'codigo' => 'COC-2019',
             'nivelacademico' => Carrera::NIVEL_TECNICO_SUPERIOR,
             'regimen' => Carrera::REGIMEN_SEMESTRAL,
+            'activo' => false,
         ]);
-        $this->assertDatabaseHas('materia', ['codigo' => 'DEMO-SIS-201']);
+        $this->assertSame(9, Carrera::activas()->count());
+        $this->assertEqualsCanonicalizing(
+            ['ADM-2023', 'COC-2023', 'CNG-2023', 'GAS-2023', 'INF-2023', 'MTZ-2023', 'SEJ-2023', 'SIS-2023', 'TOP-2023'],
+            Carrera::activas()->orderBy('codigo')->pluck('codigo')->all()
+        );
+        $this->assertSame(9, Carrera::activas()->where('resolucionministerial1', '0210/2023')->count());
+        $this->assertDatabaseCount('carreras', 18);
+        $this->assertDatabaseMissing('materia', ['codigo' => 'DEMO-SIS-201']);
         $this->assertDatabaseHas('materia', [
             'codigo' => 'ADM-2023-M01-01',
             'nombre' => 'Fundamentos de la Administración',
@@ -108,17 +120,12 @@ class ModuleSeedersTest extends TestCase
             'id_materia' => Materia::where('codigo', 'SEJ-2023-M02-06')->value('id_materia'),
             'id_prerequisito' => Materia::where('codigo', 'SEJ-2023-M01-03')->value('id_materia'),
         ]);
-        $this->assertDatabaseHas('grupo', ['codigo' => 'DEMO-MTZ-201-A']);
-        $this->assertDatabaseHas('grupo', ['codigo' => 'ADM-2023-M01-01-A']);
+        $this->assertDatabaseHas('grupo', ['codigo' => 'ADM-2023-M01-01-A', 'turno' => 3]);
+        $this->assertDatabaseHas('grupo', ['codigo' => 'DEMO-ADM-2023-M01-01-A', 'turno' => 1]);
         $this->assertDatabaseHas('grupo', ['codigo' => 'GAS-2023-M03-07-B']);
-        $this->assertDatabaseHas('grupo', ['codigo' => 'SEJ-2023-M03-10-A']);
-        $this->assertSame(
-            144,
-            Grupo::whereIn(
-                'id_materia',
-                Materia::whereIn('id_carrera', $curriculumCareerIds)->select('id_materia')
-            )->count()
-        );
+        $this->assertDatabaseHas('grupo', ['codigo' => 'SEJ-2023-M03-10-A', 'turno' => 3]);
+        $this->assertDatabaseMissing('grupo', ['codigo' => 'SEJ-2023-M03-10-B']);
+        $this->assertSame(100, Grupo::count());
         $this->assertDatabaseHas('gestionacademica', [
             'gestion' => 2025,
             'periodo' => 1,
@@ -135,17 +142,60 @@ class ModuleSeedersTest extends TestCase
             'id_persona' => User::where('usuario', '20260003')->value('id_persona'),
             'id_carrera' => Carrera::where('codigo', 'SIS-2023')->value('id_carrera'),
         ]);
-        $this->assertDatabaseHas('prerequisito', [
-            'id_materia' => Materia::where('codigo', 'DEMO-SIS-201')->value('id_materia'),
-            'id_prerequisito' => Materia::where('codigo', 'DEMO-SIS-101')->value('id_materia'),
+        $this->seed(AcademicoSeeder::class);
+
+        $this->assertDatabaseCount('carreras', 18);
+        $this->assertSame(1, GestionAcademica::where('gestion', 2025)->where('periodo', 1)->count());
+        $this->assertDatabaseCount('materia', 72);
+        $this->assertDatabaseCount('grupo', 100);
+    }
+
+    public function test_academic_module_removes_unlisted_careers_and_their_subjects_and_groups(): void
+    {
+        $this->seed(AcademicoSeeder::class);
+        $this->seed(InscripcionesSeeder::class);
+
+        $carrera = Carrera::create([
+            'codigo' => 'OLD-TEST',
+            'nombre' => 'Carrera fuera del catálogo',
+            'activo' => true,
+            'id_instituto' => Instituto::firstOrFail()->id_instituto,
+        ]);
+        $materia = Materia::create([
+            'codigo' => 'OLD-TEST-M01',
+            'nombre' => 'Materia de prueba',
+            'id_carrera' => $carrera->id_carrera,
+        ]);
+        $gestion = GestionAcademica::where('vigente', true)->firstOrFail();
+        $grupo = Grupo::create([
+            'codigo' => 'OLD-TEST-M01-A',
+            'capacidad' => 30,
+            'turno' => 1,
+            'abierto' => true,
+            'id_gestionacademica' => $gestion->id_gestionacademica,
+            'id_materia' => $materia->id_materia,
+        ]);
+        $postulante = Postulante::firstOrFail();
+        $postulante->update(['id_carrera' => $carrera->id_carrera]);
+        $persona = Persona::create([
+            'nombre' => 'Estudiante',
+            'primerapellido' => 'Prueba',
+            'ci' => 'STUDENT-OUT-OF-CATALOG',
+            'tipo' => 'estudiante',
+        ]);
+        DB::table('estudiante')->insert([
+            'id_persona' => $persona->id_persona,
+            'id_carrera' => $carrera->id_carrera,
         ]);
 
         $this->seed(AcademicoSeeder::class);
 
-        $this->assertDatabaseCount('carreras', 20);
-        $this->assertSame(1, GestionAcademica::where('gestion', 2025)->where('periodo', 1)->count());
-        $this->assertDatabaseCount('materia', 76);
-        $this->assertDatabaseCount('grupo', 146);
+        $this->assertDatabaseMissing('carreras', ['id_carrera' => $carrera->id_carrera]);
+        $this->assertDatabaseMissing('materia', ['id_materia' => $materia->id_materia]);
+        $this->assertDatabaseMissing('grupo', ['id_grupo' => $grupo->id_grupo]);
+        $this->assertDatabaseMissing('postulante', ['id_postulante' => $postulante->id_postulante]);
+        $this->assertDatabaseMissing('estudiante', ['id_persona' => $persona->id_persona]);
+        $this->assertDatabaseMissing('personas', ['id_persona' => $persona->id_persona]);
     }
 
     public function test_inscriptions_module_seeds_academic_prerequisites_and_postulants(): void

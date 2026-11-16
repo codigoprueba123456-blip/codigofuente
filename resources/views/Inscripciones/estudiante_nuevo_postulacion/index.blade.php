@@ -22,6 +22,7 @@
 
             <form action="{{ route('estudiante_nuevo_postulacion.store') }}" method="POST" id="formPostulanteNuevo">
                 @csrf
+                <input type="hidden" name="accion_credenciales" id="accion_credenciales" value="">
 
                 {{-- BLOQUE PRINCIPAL CONECTADO: BÚSQUEDA, CARRERAS Y VOUCHER --}}
                 <div class="card card-outline card-primary shadow-sm mb-4">
@@ -33,7 +34,7 @@
                     <div class="card-body">
                         <div class="row">
                             {{-- 1. Barra de Búsqueda Flexible --}}
-                            <div class="col-md-5 mb-3 position-relative">
+                            <div class="col-md-5 mb-3">
                                 <label for="postulante_search" class="font-weight-bold">Buscar Postulante (C.I. o Nombre): <span class="text-danger">*</span></label>
                                 <div class="input-group">
                                     <div class="input-group-prepend">
@@ -44,16 +45,21 @@
                                         placeholder="Escribe C.I., Nombre o Apellido..."
                                         value="{{ old('postulante_search') }}" autocomplete="off">
                                     <div class="input-group-append">
+                                        <button type="button" id="btnSearchPostulante" class="btn btn-primary" title="Buscar postulante">
+                                            <i class="fas fa-search mr-1"></i> Buscar
+                                        </button>
                                         <button type="button" id="btnClearSearch" class="btn btn-outline-secondary" title="Limpiar búsqueda"><i class="fas fa-times"></i></button>
                                     </div>
                                 </div>
-                                {{-- Contenedor desplegable para resultados de búsqueda flexible --}}
-                                <div id="customDropdownResults" class="dropdown-menu w-100 shadow" style="max-height: 250px; overflow-y: auto; display: none; position: absolute; z-index: 1050;">
+                                <small class="form-text text-muted">Cada búsqueda consulta nuevamente los datos vigentes.</small>
+                                <div id="customDropdownResults" class="list-group mt-2 shadow-sm" aria-live="polite" style="max-height: 250px; overflow-y: auto; display: none;">
                                 </div>
+                                <div id="avisoEstudianteExistente" class="alert alert-info mt-2 mb-0 d-none" role="status"></div>
                             </div>
 
                             <div class="col-md-7 mb-3">
                                 <label class="font-weight-bold">Postulaciones pendientes de esta persona:</label>
+                                <small class="form-text text-muted mb-2">Marca Sí solo en las carreras que se inscribirán ahora. Las que queden en No seguirán pendientes.</small>
                                 <div id="postulaciones_container" class="border rounded p-3 bg-light">
                                     <span class="text-muted">Busque una persona para revisar sus carreras y comprobantes.</span>
                                 </div>
@@ -204,25 +210,28 @@
 
 @push('js')
     <script>
-        // Catálogo completo de postulaciones (agrupadas o individuales por carrera)
-        const postulantesData = @js($postulantesData);
-
+        let postulantesData = [];
         const searchInput = document.getElementById('postulante_search');
         const dropdownResults = document.getElementById('customDropdownResults');
         const postulacionesContainer = document.getElementById('postulaciones_container');
+        const btnSearchPostulante = document.getElementById('btnSearchPostulante');
         const btnClearSearch = document.getElementById('btnClearSearch');
         const formPostulante = document.getElementById('formPostulanteNuevo');
-        const gestionSelect = document.getElementById('id_gestionacademica');
+        const accionCredenciales = document.getElementById('accion_credenciales');
+        const avisoEstudianteExistente = document.getElementById('avisoEstudianteExistente');
         let currentPostulacionesCI = [];
+        let usuarioExistenteSeleccionado = false;
+        let usuarioSeleccionado = '';
+        let reenvioConfirmado = false;
+        let solicitudBusquedaId = 0;
+        let solicitudBusquedaController = null;
+        const textoBotonBusqueda = '<i class="fas fa-search mr-1"></i> Buscar';
 
         // Prevenir que presionar ENTER envíe el formulario por accidente
         formPostulante?.addEventListener('keydown', function(e) {
             if (e.key === 'Enter' && document.activeElement === searchInput) {
                 e.preventDefault();
-                const firstItem = dropdownResults.querySelector('.select-postulante');
-                if (firstItem) {
-                    firstItem.click();
-                }
+                btnSearchPostulante.click();
             }
         });
 
@@ -274,8 +283,43 @@
                 hiddenId.name = `postulaciones[${index}][id_postulante]`;
                 hiddenId.value = postulacion.id;
 
+                const decisionLabel = document.createElement('label');
+                decisionLabel.textContent = '¿Inscribir en esta carrera?';
+                decisionLabel.className = 'font-weight-bold d-block mb-1';
+
+                const decisiones = document.createElement('div');
+                decisiones.className = 'mb-2';
+
+                ['si', 'no'].forEach((decision) => {
+                    const idDecision = `postulacion_${index}_${decision}`;
+                    const control = document.createElement('div');
+                    control.className = 'custom-control custom-radio custom-control-inline';
+
+                    const radio = document.createElement('input');
+                    radio.type = 'radio';
+                    radio.id = idDecision;
+                    radio.name = `postulaciones[${index}][decision]`;
+                    radio.value = decision;
+                    radio.className = 'custom-control-input';
+                    radio.required = true;
+                    radio.checked = decision === 'no';
+                    radio.addEventListener('change', () => {
+                        const inscribir = radio.checked && decision === 'si';
+                        voucher.disabled = !inscribir;
+                        voucher.required = inscribir;
+                    });
+
+                    const label = document.createElement('label');
+                    label.htmlFor = idDecision;
+                    label.className = 'custom-control-label';
+                    label.textContent = decision === 'si' ? 'Sí, inscribir ahora' : 'No, dejar pendiente';
+
+                    control.append(radio, label);
+                    decisiones.appendChild(control);
+                });
+
                 const voucherLabel = document.createElement('label');
-                voucherLabel.textContent = 'Voucher (N° depósito)';
+                voucherLabel.textContent = 'Voucher (N° depósito), requerido si selecciona Sí';
                 voucherLabel.className = 'font-weight-bold';
 
                 const voucher = document.createElement('input');
@@ -283,66 +327,129 @@
                 voucher.name = `postulaciones[${index}][deposito]`;
                 voucher.className = 'form-control border-success font-weight-bold';
                 voucher.value = postulacion.deposito || '';
-                voucher.required = true;
+                voucher.required = false;
+                voucher.disabled = true;
                 voucher.maxLength = 255;
 
-                row.append(title, hiddenId, voucherLabel, voucher);
+                row.append(title, hiddenId, decisionLabel, decisiones, voucherLabel, voucher);
                 postulacionesContainer.appendChild(row);
             });
         }
 
-        // Búsqueda flexible agrupada por C.I. único
-        searchInput?.addEventListener('input', function() {
-            const query = this.value.trim().toLowerCase();
-            if (query.length === 0) {
-                dropdownResults.style.display = 'none';
-                return;
-            }
-
-            const palabras = query.split(/\s+/);
-            
-            // Agrupar registros únicos por C.I.
-            const mapCI = new Map();
-            postulantesData
-                .filter(p => p.idgestion === String(gestionSelect.value))
-                .forEach(p => {
-                const textoCompleto = `${p.nombre} ${p.primerapellido} ${p.segundoapellido} ${p.ci}`.toLowerCase();
-                if (palabras.every(palabra => textoCompleto.includes(palabra))) {
-                    if (!mapCI.has(p.ci)) {
-                        mapCI.set(p.ci, p);
-                    }
-                }
-            });
-
-            const matches = Array.from(mapCI.values());
-
-            if (matches.length === 0) {
-                dropdownResults.innerHTML = `<span class="dropdown-item text-muted">No se encontraron postulantes</span>`;
-                dropdownResults.style.display = 'block';
-                return;
-            }
-
+        function mostrarResultadoBusqueda(mensaje, clase = 'text-muted') {
             dropdownResults.replaceChildren();
-            matches.forEach(p => {
-                const nombreCompleto = `${p.nombre} ${p.primerapellido} ${p.segundoapellido || ''}`.trim();
-                const button = document.createElement('button');
-                button.type = 'button';
-                button.className = 'dropdown-item border-bottom py-2 select-postulante';
-                button.dataset.ci = p.ci;
-
-                const name = document.createElement('div');
-                name.className = 'font-weight-bold text-primary';
-                name.textContent = nombreCompleto;
-
-                const ci = document.createElement('small');
-                ci.className = 'text-muted';
-                ci.textContent = `C.I.: ${p.ci}`;
-
-                button.append(name, ci);
-                dropdownResults.appendChild(button);
-            });
-
+            const resultado = document.createElement('div');
+            resultado.className = `list-group-item ${clase}`;
+            resultado.textContent = mensaje;
+            dropdownResults.appendChild(resultado);
             dropdownResults.style.display = 'block';
+        }
+
+        function limpiarSeleccionPostulante() {
+            currentPostulacionesCI = [];
+            usuarioExistenteSeleccionado = false;
+            usuarioSeleccionado = '';
+            accionCredenciales.value = '';
+            reenvioConfirmado = false;
+            avisoEstudianteExistente.textContent = '';
+            avisoEstudianteExistente.classList.add('d-none');
+            postulacionesContainer.innerHTML = '<span class="text-muted">Busque una persona para revisar sus carreras y comprobantes.</span>';
+            ['preview_foto', 'preview_ci', 'preview_ci_reverso', 'preview_nac', 'preview_dip'].forEach(id => {
+                document.getElementById(id).innerHTML = '<span class="text-muted small font-italic">Sin archivo</span>';
+            });
+        }
+
+        async function buscarPostulanteActualizado() {
+            const query = searchInput.value.trim();
+            if (!query) {
+                mostrarResultadoBusqueda('Escriba un C.I. o nombre para buscar.');
+                searchInput.focus();
+                return;
+            }
+
+            solicitudBusquedaController?.abort();
+            const controller = new AbortController();
+            solicitudBusquedaController = controller;
+            const solicitudId = ++solicitudBusquedaId;
+            btnSearchPostulante.disabled = true;
+            btnSearchPostulante.innerHTML = '<i class="fas fa-spinner fa-spin mr-1"></i> Buscando...';
+            mostrarResultadoBusqueda('Consultando postulaciones actualizadas...');
+
+            try {
+                const url = new URL("{{ route('estudiante_nuevo_postulacion.buscar') }}", window.location.origin);
+                url.searchParams.set('q', query);
+                const response = await fetch(url, {
+                    headers: { Accept: 'application/json' },
+                    cache: 'no-store',
+                    credentials: 'same-origin',
+                    signal: controller.signal,
+                });
+
+                if (!response.ok) {
+                    throw new Error('No se pudo completar la búsqueda. Intente nuevamente.');
+                }
+
+                const resultado = await response.json();
+                if (solicitudId !== solicitudBusquedaId || query !== searchInput.value.trim()) return;
+
+                postulantesData = Array.isArray(resultado.postulantes) ? resultado.postulantes : [];
+                const mapCI = new Map();
+                postulantesData.forEach(postulante => {
+                    if (!mapCI.has(postulante.ci)) {
+                        mapCI.set(postulante.ci, postulante);
+                    }
+                });
+                const coincidencias = Array.from(mapCI.values());
+
+                if (coincidencias.length === 0) {
+                    mostrarResultadoBusqueda('No se encontraron postulaciones pendientes en la gestión vigente.');
+                    return;
+                }
+
+                dropdownResults.replaceChildren();
+                coincidencias.forEach(postulante => {
+                    const nombreCompleto = `${postulante.nombre} ${postulante.primerapellido} ${postulante.segundoapellido || ''}`.trim();
+                    const button = document.createElement('button');
+                    button.type = 'button';
+                    button.className = 'list-group-item list-group-item-action py-2 select-postulante';
+                    button.dataset.ci = postulante.ci;
+
+                    const name = document.createElement('div');
+                    name.className = 'font-weight-bold text-primary';
+                    name.textContent = nombreCompleto;
+
+                    const ci = document.createElement('small');
+                    ci.className = 'text-muted';
+                    ci.textContent = `C.I.: ${postulante.ci}`;
+
+                    button.append(name, ci);
+                    dropdownResults.appendChild(button);
+                });
+                dropdownResults.style.display = 'block';
+            } catch (error) {
+                if (error.name !== 'AbortError' && solicitudId === solicitudBusquedaId) {
+                    mostrarResultadoBusqueda(error.message || 'Ocurrió un error al buscar. Intente nuevamente.', 'text-danger');
+                }
+            } finally {
+                if (solicitudId === solicitudBusquedaId) {
+                    solicitudBusquedaController = null;
+                    btnSearchPostulante.disabled = false;
+                    btnSearchPostulante.innerHTML = textoBotonBusqueda;
+                }
+            }
+        }
+
+        btnSearchPostulante?.addEventListener('click', buscarPostulanteActualizado);
+
+        searchInput?.addEventListener('input', function() {
+            solicitudBusquedaId++;
+            solicitudBusquedaController?.abort();
+            solicitudBusquedaController = null;
+            btnSearchPostulante.disabled = false;
+            btnSearchPostulante.innerHTML = textoBotonBusqueda;
+            postulantesData = [];
+            limpiarSeleccionPostulante();
+            dropdownResults.style.display = 'none';
         });
 
         // Al seleccionar un postulante por su C.I.
@@ -358,13 +465,22 @@
             const ciSeleccionado = target.dataset.ci;
             
             // Obtener todas las inscripciones/carreras asociadas a este C.I.
-            currentPostulacionesCI = postulantesData.filter(item =>
-                item.ci === ciSeleccionado && item.idgestion === String(gestionSelect.value)
-            );
+            currentPostulacionesCI = postulantesData.filter(item => item.ci === ciSeleccionado);
             if (currentPostulacionesCI.length === 0) return;
 
             // Tomamos el primer registro para rellenar los datos personales comunes
             const p = currentPostulacionesCI[0];
+            usuarioExistenteSeleccionado = Boolean(p.usuarioExistente);
+            usuarioSeleccionado = p.usuario || '';
+            accionCredenciales.value = '';
+            reenvioConfirmado = false;
+            if (p.estudianteExistente) {
+                avisoEstudianteExistente.textContent = 'Esta persona ya tiene una ficha de estudiante en el sistema. Se reutilizará esa ficha y solo se agregará la carrera que se inscriba.';
+                avisoEstudianteExistente.classList.remove('d-none');
+            } else {
+                avisoEstudianteExistente.textContent = '';
+                avisoEstudianteExistente.classList.add('d-none');
+            }
 
             const nombreCompleto = `${p.nombre} ${p.primerapellido} ${p.segundoapellido || ''}`.trim();
             searchInput.value = `${nombreCompleto} - CI: ${p.ci}`;
@@ -400,19 +516,75 @@
         // Botón limpiar búsqueda
         btnClearSearch?.addEventListener('click', function() {
             searchInput.value = '';
-            currentPostulacionesCI = [];
-            postulacionesContainer.innerHTML = '<span class="text-muted">Busque una persona para revisar sus carreras y comprobantes.</span>';
+            solicitudBusquedaId++;
+            solicitudBusquedaController?.abort();
+            solicitudBusquedaController = null;
+            btnSearchPostulante.disabled = false;
+            btnSearchPostulante.innerHTML = textoBotonBusqueda;
+            postulantesData = [];
+            limpiarSeleccionPostulante();
             dropdownResults.style.display = 'none';
-            
-            ['preview_foto', 'preview_ci', 'preview_ci_reverso', 'preview_nac', 'preview_dip'].forEach(id => {
-                document.getElementById(id).innerHTML = `<span class="text-muted small font-italic">Sin archivo</span>`;
-            });
         });
 
-        formPostulante?.addEventListener('submit', function() {
+        formPostulante?.addEventListener('submit', async function(event) {
+            if (reenvioConfirmado) {
+                reenvioConfirmado = false;
+            } else {
+                const seleccionadas = this.querySelectorAll('input[type="radio"][name$="[decision]"][value="si"]:checked');
+                if (seleccionadas.length === 0) {
+                    event.preventDefault();
+                    if (window.Swal?.fire) {
+                        await window.Swal.fire({
+                            icon: 'warning',
+                            title: 'No se seleccionó ninguna carrera',
+                            text: 'Marca Sí en al menos una carrera para continuar.',
+                            confirmButtonText: 'Entendido',
+                        });
+                    } else {
+                        window.alert('Marca Sí en al menos una carrera para continuar.');
+                    }
+                    return;
+                }
+
+                if (usuarioExistenteSeleccionado && !accionCredenciales.value) {
+                    event.preventDefault();
+                    let decision;
+                    if (window.Swal?.fire) {
+                        const respuesta = await window.Swal.fire({
+                            icon: 'warning',
+                            title: 'La persona ya tiene una cuenta',
+                            text: `El usuario ${usuarioSeleccionado} ya existe. ¿Desea restablecer su contraseña? Se conservará el mismo usuario y no se creará otra cuenta.`,
+                            showDenyButton: true,
+                            showCancelButton: true,
+                            confirmButtonText: 'Sí, restablecer acceso',
+                            denyButtonText: 'No, conservar acceso',
+                            cancelButtonText: 'Cancelar inscripción',
+                        });
+                        if (respuesta.isConfirmed) {
+                            decision = 'regenerar';
+                        } else if (respuesta.isDenied) {
+                            decision = 'mantener';
+                        } else {
+                            return;
+                        }
+                    } else {
+                        decision = window.confirm(
+                            `El usuario ${usuarioSeleccionado} ya existe. ¿Desea restablecer su contraseña? Se conservará el mismo usuario.`
+                        ) ? 'regenerar' : 'mantener';
+                    }
+
+                    accionCredenciales.value = decision;
+                    reenvioConfirmado = true;
+                    this.requestSubmit();
+                    return;
+                }
+            }
+
             const btn = this.querySelector('button[type="submit"]');
             if (typeof window.itsaToast === 'function') {
-                window.itsaToast('info', 'Procesando inscripción', 'Al completar el registro se abrirá el PDF con las credenciales.');
+                window.itsaToast('info', 'Procesando inscripción', usuarioExistenteSeleccionado && accionCredenciales.value === 'regenerar'
+                    ? 'Se restablecerá la contraseña y se abrirá el comprobante de las nuevas credenciales.'
+                    : 'Al completar el registro se abrirá el PDF con las credenciales, si corresponde.');
             }
             if (btn) {
                 btn.disabled = true;

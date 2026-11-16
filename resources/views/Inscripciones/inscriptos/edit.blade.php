@@ -123,7 +123,7 @@
                         <label for="id_carrera">Carrera *</label>
                         <select id="id_carrera" name="id_carrera" class="form-control" required>
                             @foreach ($carreras as $carrera)
-                                <option value="{{ $carrera->id_carrera }}" data-regimen="{{ $carrera->regimen }}" {{ (string) old('id_carrera', $inscripcion->id_carrera) === (string) $carrera->id_carrera ? 'selected' : '' }}>{{ $carrera->nombre }}</option>
+                                <option value="{{ $carrera->id_carrera }}" data-regimen="{{ $carrera->regimen }}" {{ (string) old('id_carrera', $inscripcion->id_carrera) === (string) $carrera->id_carrera ? 'selected' : '' }}>{{ $carrera->nombreConResolucionMinisterial() }}</option>
                             @endforeach
                         </select>
                     </div>

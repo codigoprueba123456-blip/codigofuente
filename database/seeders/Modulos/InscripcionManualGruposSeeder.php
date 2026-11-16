@@ -49,10 +49,7 @@ class InscripcionManualGruposSeeder extends Seeder
                 $codigoMateria = 'SIS-2023-'.$materia->id_materia;
             }
 
-            foreach ([
-                ['paralelo' => 'A', 'turno' => 1],
-                ['paralelo' => 'B', 'turno' => 3],
-            ] as $datosGrupo) {
+            foreach ([['paralelo' => 'A', 'turno' => 3]] as $datosGrupo) {
                 $codigoGrupo = $codigoMateria.'-'.$datosGrupo['paralelo'];
                 $grupoExistente = Grupo::query()
                     ->where('codigo', $codigoGrupo)
@@ -62,6 +59,10 @@ class InscripcionManualGruposSeeder extends Seeder
                 if ($grupoExistente) {
                     if ((int) $grupoExistente->id_materia !== (int) $materia->id_materia) {
                         throw new RuntimeException("El código de grupo {$codigoGrupo} ya pertenece a otra materia en la gestión vigente.");
+                    }
+
+                    if ((int) $grupoExistente->turno !== $datosGrupo['turno']) {
+                        $grupoExistente->update(['turno' => $datosGrupo['turno']]);
                     }
 
                     continue;

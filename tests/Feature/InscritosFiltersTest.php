@@ -32,6 +32,7 @@ class InscritosFiltersTest extends TestCase
         $carrera = Carrera::create([
             'codigo' => 'TEST-INSCRITOS',
             'nombre' => 'Carrera de Prueba',
+            'resolucionministerial1' => 'R.M. N° 789/2027',
             'id_instituto' => $instituto->id_instituto,
         ]);
 
@@ -42,6 +43,7 @@ class InscritosFiltersTest extends TestCase
         $bthResponse = $this->get(route('inscriptos.index', ['bth' => '1']));
         $bthResponse->assertOk()
             ->assertSee('Certificado BTH')
+            ->assertSee('Carrera de Prueba · R.M. 789/2027')
             ->assertSee('Traspaso / convalidación');
         $this->assertEqualsCanonicalizing(
             [$bth, $ambos],
@@ -63,6 +65,106 @@ class InscritosFiltersTest extends TestCase
         $this->assertEquals(
             [$ambos],
             $combinadoResponse->viewData('inscritos')->getCollection()->pluck('id_persona')->all()
+        );
+    }
+
+    public function test_inscriptions_show_course_group_and_turn_and_sort_by_turn_then_parallel(): void
+    {
+        $this->withoutMiddleware(EnsureFunctionalityAccess::class);
+        $this->actingAs($this->createAdmin());
+
+        $gestion = GestionAcademica::create([
+            'gestion' => 2027,
+            'periodo' => 1,
+            'regimen' => 1,
+            'vigente' => true,
+        ]);
+        $instituto = Instituto::create(['nombreinstituto' => 'Instituto de Prueba']);
+        $carrera = Carrera::create([
+            'codigo' => 'TEST-GRUPOS-INSCRITOS',
+            'nombre' => 'Sistemas Informáticos',
+            'id_instituto' => $instituto->id_instituto,
+        ]);
+
+        $inscripciones = [];
+        foreach ([
+            ['NOCHE', 3, 3, 'TEST-A'],
+            ['MANANA-B', 1, 2, 'TEST-B'],
+            ['MANANA-A', 1, 1, 'TEST-A'],
+            ['TARDE', 2, 2, 'TEST-A'],
+        ] as [$suffix, $turno, $nivel, $codigoParalelo]) {
+            $idPersona = $this->createInscrito($carrera, $gestion, $suffix, false, false);
+            $idInscrito = DB::table('inscrito')->where('id_persona', $idPersona)->value('id_inscrito');
+            DB::table('cursa')->insert([
+                'id_persona' => $idPersona,
+                'id_carrera' => $carrera->id_carrera,
+                'id_gestionacademica' => $gestion->id_gestionacademica,
+                'nivelinicio' => $nivel,
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]);
+            $idMateria = DB::table('materia')->insertGetId([
+                'codigo' => 'MATERIA-'.$suffix,
+                'nombre' => 'Materia '.$suffix,
+                'nivel' => $nivel,
+                'id_carrera' => $carrera->id_carrera,
+                'created_at' => now(),
+                'updated_at' => now(),
+            ], 'id_materia');
+            $idGrupo = DB::table('grupo')->insertGetId([
+                'codigo' => $codigoParalelo,
+                'turno' => $turno,
+                'id_gestionacademica' => $gestion->id_gestionacademica,
+                'id_materia' => $idMateria,
+                'created_at' => now(),
+                'updated_at' => now(),
+            ], 'id_grupo');
+            DB::table('inscrito_materia')->insert([
+                'id_inscrito' => $idInscrito,
+                'id_materia' => $idMateria,
+                'id_grupo' => $idGrupo,
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]);
+            $inscripciones[$suffix] = $idPersona;
+        }
+
+        $response = $this->get(route('inscriptos.index', [
+            'id_gestionacademica' => $gestion->id_gestionacademica,
+            'id_carrera' => $carrera->id_carrera,
+        ]));
+        $response->assertOk()
+            ->assertSee('Primer año')
+            ->assertSee('Segundo año')
+            ->assertSee('Tercer año')
+            ->assertSee('Paralelo A')
+            ->assertSee('Paralelo B')
+            ->assertSee('Mañana')
+            ->assertSee('Tarde')
+            ->assertSee('Noche');
+        $this->assertSame(
+            [
+                $inscripciones['MANANA-A'],
+                $inscripciones['MANANA-B'],
+                $inscripciones['TARDE'],
+                $inscripciones['NOCHE'],
+            ],
+            $response->viewData('inscritos')->getCollection()->pluck('id_persona')->all()
+        );
+
+        $response = $this->get(route('inscriptos.index', [
+            'id_gestionacademica' => $gestion->id_gestionacademica,
+            'id_carrera' => $carrera->id_carrera,
+            'turno' => '1',
+            'paralelo' => 'TEST-A',
+        ]));
+        $response->assertOk()
+            ->assertSee('Primer año')
+            ->assertSee('Paralelo A')
+            ->assertSee('Mañana');
+        $this->assertSame(
+            [$inscripciones['MANANA-A']],
+            $response->viewData('inscritos')->getCollection()->pluck('id_persona')->all()
         );
     }
 

@@ -13,6 +13,54 @@ use RuntimeException;
 
 class ItSaCurriculumSeeder extends Seeder
 {
+    private const GRUPOS_POR_CARRERA = [
+        'ADM-2023' => [
+            1 => [['paralelo' => 'A', 'turno' => 3], ['paralelo' => 'A', 'turno' => 1]],
+            2 => [['paralelo' => 'A', 'turno' => 3]],
+            3 => [['paralelo' => 'A', 'turno' => 3]],
+        ],
+        'COC-2023' => [
+            1 => [['paralelo' => 'A', 'turno' => 1]],
+            2 => [['paralelo' => 'A', 'turno' => 1]],
+            3 => [['paralelo' => 'A', 'turno' => 2]],
+        ],
+        'CNG-2023' => [
+            1 => [['paralelo' => 'A', 'turno' => 3]],
+            2 => [['paralelo' => 'A', 'turno' => 3]],
+            3 => [['paralelo' => 'A', 'turno' => 3]],
+        ],
+        'GAS-2023' => [
+            1 => [['paralelo' => 'A', 'turno' => 1], ['paralelo' => 'B', 'turno' => 1]],
+            2 => [['paralelo' => 'A', 'turno' => 3], ['paralelo' => 'B', 'turno' => 3]],
+            3 => [['paralelo' => 'A', 'turno' => 3], ['paralelo' => 'B', 'turno' => 3]],
+        ],
+        'INF-2023' => [
+            2 => [['paralelo' => 'A', 'turno' => 1]],
+            4 => [['paralelo' => 'A', 'turno' => 1]],
+            6 => [['paralelo' => 'A', 'turno' => 1]],
+        ],
+        'MTZ-2023' => [
+            1 => [['paralelo' => 'A', 'turno' => 1], ['paralelo' => 'B', 'turno' => 1]],
+            2 => [['paralelo' => 'A', 'turno' => 1], ['paralelo' => 'B', 'turno' => 1]],
+            3 => [['paralelo' => 'A', 'turno' => 3], ['paralelo' => 'B', 'turno' => 3]],
+        ],
+        'SEJ-2023' => [
+            1 => [['paralelo' => 'A', 'turno' => 3]],
+            2 => [['paralelo' => 'A', 'turno' => 3]],
+            3 => [['paralelo' => 'A', 'turno' => 3]],
+        ],
+        'SIS-2023' => [
+            1 => [['paralelo' => 'A', 'turno' => 3]],
+            2 => [['paralelo' => 'A', 'turno' => 3]],
+            3 => [['paralelo' => 'A', 'turno' => 3]],
+        ],
+        'TOP-2023' => [
+            1 => [['paralelo' => 'A', 'turno' => 3]],
+            2 => [['paralelo' => 'A', 'turno' => 3]],
+            3 => [['paralelo' => 'A', 'turno' => 3]],
+        ],
+    ];
+
     // Curricula are based on the official career pages linked from https://itsa.edu.bo/518-2/.
     public function run(): void
     {
@@ -165,6 +213,12 @@ class ItSaCurriculumSeeder extends Seeder
 
             $this->assignCareerCredits($career);
             $this->seedSequentialPrerequisites($career);
+        }
+
+        foreach (Carrera::query()
+            ->whereIn('codigo', array_keys(self::GRUPOS_POR_CARRERA))
+            ->where('activo', true)
+            ->get() as $career) {
             $this->seedGroups($career, $gestion->id_gestionacademica);
         }
     }
@@ -178,23 +232,58 @@ class ItSaCurriculumSeeder extends Seeder
             ->get();
 
         foreach ($subjects as $subject) {
-            foreach ([
-                ['parallel' => 'A', 'turno' => 1],
-                ['parallel' => 'B', 'turno' => 3],
-            ] as $groupData) {
+            $groupsByLevel = self::GRUPOS_POR_CARRERA[$career->codigo][(int) $subject->nivel] ?? [];
+            $parallelIndexes = [];
+
+            foreach ($groupsByLevel as $groupData) {
+                $parallel = $groupData['paralelo'];
+                $parallelIndexes[$parallel] = ($parallelIndexes[$parallel] ?? 0) + 1;
+                $codigoBase = $subject->codigo.'-'.$parallel;
+                $codigo = $parallelIndexes[$parallel] > 1
+                    ? 'DEMO-'.$codigoBase
+                    : $codigoBase;
+                $existente = Grupo::query()
+                    ->where('codigo', $codigo)
+                    ->where('id_gestionacademica', $gestionId)
+                    ->first();
+
+                if ($existente && (int) $existente->id_materia !== (int) $subject->id_materia) {
+                    if ($codigo !== 'DEMO-'.$codigoBase) {
+                        $codigo = 'DEMO-'.$codigoBase;
+                        $existente = Grupo::query()
+                            ->where('codigo', $codigo)
+                            ->where('id_gestionacademica', $gestionId)
+                            ->first();
+                    }
+
+                    if ($existente && (int) $existente->id_materia !== (int) $subject->id_materia) {
+                        throw new RuntimeException("El código de grupo {$codigo} ya pertenece a otra materia.");
+                    }
+                }
+
                 Grupo::updateOrCreate(
-                    [
-                        'codigo' => $subject->codigo.'-'.$groupData['parallel'],
-                        'id_gestionacademica' => $gestionId,
-                    ],
+                    ['codigo' => $codigo, 'id_gestionacademica' => $gestionId],
                     [
                         'capacidad' => 30,
                         'turno' => $groupData['turno'],
                         'abierto' => true,
+                        'activo' => true,
                         'id_persona' => null,
                         'id_materia' => $subject->id_materia,
                     ]
                 );
+            }
+
+            $paralelosPermitidos = array_values(array_unique(array_column($groupsByLevel, 'paralelo')));
+            foreach (Grupo::query()
+                ->where('id_materia', $subject->id_materia)
+                ->where('id_gestionacademica', $gestionId)
+                ->get() as $grupo) {
+                $paralelo = Str::afterLast($grupo->codigo, '-');
+                if (in_array($paralelo, ['A', 'B', 'C', 'D'], true)
+                    && ! in_array($paralelo, $paralelosPermitidos, true)) {
+                    $grupo->update(['activo' => false, 'abierto' => false]);
+                }
             }
         }
     }

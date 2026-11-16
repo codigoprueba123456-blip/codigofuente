@@ -35,6 +35,7 @@ class InscripcionManualMateriasTest extends TestCase
         ]);
         $instituto = Instituto::create(['nombreinstituto' => 'Instituto de Prueba']);
         $carrera = $this->createCarrera($instituto, 'TEST-MANUAL-A', 'Carrera seleccionada');
+        $carrera->update(['resolucionministerial1' => 'R.M. N° 123/2027']);
         $otraCarrera = $this->createCarrera($instituto, 'TEST-MANUAL-B', 'Otra carrera');
         $persona = Persona::create([
             'nombre' => 'Diego',
@@ -69,6 +70,7 @@ class InscripcionManualMateriasTest extends TestCase
             ->assertSee('Materia inscrita')
             ->assertSee('Materia no asignada')
             ->assertSee('GRUPO-2027')
+            ->assertSee('Carrera seleccionada · R.M. 123/2027')
             ->assertSee('Gestión 2027 / Periodo 1')
             ->assertDontSee('Materia de otra carrera')
             ->assertDontSee('GRUPO-2026');
@@ -86,6 +88,7 @@ class InscripcionManualMateriasTest extends TestCase
         ]);
         $instituto = Instituto::create(['nombreinstituto' => 'Instituto de Prueba']);
         $carrera = $this->createCarrera($instituto, 'TEST-ONLY-ONE', 'Una sola carrera');
+        $carrera->update(['resolucionministerial1' => 'R.M. N° 456/2027']);
         $persona = Persona::create([
             'nombre' => 'Diego',
             'primerapellido' => 'Flores',
@@ -104,7 +107,8 @@ class InscripcionManualMateriasTest extends TestCase
 
         $this->get(route('inscripcion_manual.buscar', ['q' => 'CI-MANUAL-002']))
             ->assertOk()
-            ->assertJsonPath('0.inscripciones.0.id_inscrito', $inscritoId);
+            ->assertJsonPath('0.inscripciones.0.id_inscrito', $inscritoId)
+            ->assertJsonPath('0.inscripciones.0.carrera', 'Una sola carrera · R.M. 456/2027');
         $this->get(route('inscripcion_manual.index'))
             ->assertOk()
             ->assertSee('Seleccione una carrera para cargar sus materias.')

@@ -33,7 +33,7 @@
             <div class="person">
                 <h3>{{ $postulante->nombre }} {{ $postulante->primerapellido }} {{ $postulante->segundoapellido }}</h3>
                 <p><strong>C.I.:</strong> {{ $postulante->ci }} · <strong>Código:</strong> {{ $postulante->codigo ?? 'Pendiente' }}</p>
-                <p><strong>Carrera:</strong> {{ $postulante->carrera?->nombre ?? 'No registrada' }}</p>
+                <p><strong>Carrera:</strong> {{ $postulante->carrera?->nombreConResolucionMinisterial() ?? 'No registrada' }}</p>
                 <p><strong>Gestión:</strong> {{ $postulante->gestionAcademica?->gestion ?? 'No registrada' }} · Periodo {{ $postulante->gestionAcademica?->periodo ?? '-' }}</p>
             </div>
         </section>
@@ -86,7 +86,7 @@
                     <td><span class="label">Diploma de bachiller</span><span class="value">{{ $postulante->diplomabachiller ? 'Sí' : 'No' }}</span></td>
                 </tr>
                 <tr>
-                    <td><span class="label">Carrera a la que postula</span><span class="value">{{ $postulante->carrera?->nombre ?? 'No registrada' }}</span></td>
+                    <td><span class="label">Carrera a la que postula</span><span class="value">{{ $postulante->carrera?->nombreConResolucionMinisterial() ?? 'No registrada' }}</span></td>
                     <td><span class="label">Número de comprobante bancario</span><span class="value">{{ $postulante->deposito }}</span></td>
                 </tr>
             </table>

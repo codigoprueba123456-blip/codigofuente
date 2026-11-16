@@ -8,8 +8,10 @@ use App\Http\Controllers\Inscripciones\CambioCarreraController;
 use App\Http\Controllers\Inscripciones\InscripcionManualController;
 use App\Http\Controllers\Inscripciones\InscritosController;
 use App\Http\Controllers\Pagos\PagosController;
+use App\Http\Controllers\Reportes\InscripcionesDashboardController;
 use App\Http\Controllers\Reportes\InscripcionesReportesController;
 use App\Http\Controllers\Postulantes\PostulanteController;
+use App\Http\Middleware\EnsurePublicPostulacionAbierta;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\Auth;
 use App\Http\Controllers\Academico\ActividadController;
@@ -17,6 +19,9 @@ use App\Http\Controllers\Academico\AsignacionDocenteController;
 use App\Http\Controllers\Academico\CarreraController;
 use App\Http\Controllers\Academico\GestionAcademicaController;
 use App\Http\Controllers\Academico\GrupoController;
+// INICIO: Módulo temporal de organización del proceso de inscripción.
+use App\Http\Controllers\Academico\InicioInscripcionController;
+// FIN: Módulo temporal de organización del proceso de inscripción.
 use App\Http\Controllers\Academico\MateriaController;
 use App\Http\Controllers\Administracion\EmpleadoController;
 use App\Http\Controllers\Administracion\InstitutoController;
@@ -36,6 +41,10 @@ Route::get('/', function () {
 Auth::routes();
 
 Route::get('/home', [HomeController::class, 'index'])->name('home');
+Route::get('/reportes/dashboard', [InscripcionesDashboardController::class, 'index'])
+    ->middleware('auth')
+    ->name('reportes.dashboard');
+
 Route::middleware(['auth', 'resource.access'])->group(function () {
 //Configuracion de instituto 
 Route::get('/admin/instituto', [InstitutoController::class, 'index'])->name('admin.instituto.index')->middleware('auth');
@@ -79,6 +88,30 @@ Route::post('/planes/materias', [MateriaController::class, 'store'])->name('plan
 Route::get('/planes/materias/{id}/edit', [MateriaController::class, 'edit'])->name('planes.materias.edit')->middleware('auth');
 Route::put('/planes/materias/{id}', [MateriaController::class, 'update'])->name('planes.materias.update')->middleware('auth');
 Route::patch('/planes/materias/{id}/estado', [MateriaController::class, 'cambiarEstado'])->name('planes.materias.estado')->middleware('auth');
+// INICIO: Módulo temporal de organización del proceso de inscripción.
+Route::get('/planes/gestiones/inicio-inscripcion', [InicioInscripcionController::class, 'index'])
+    ->name('inicio_inscripcion.index');
+Route::get('/planes/gestiones/inicio-inscripcion/{gestionId}', [InicioInscripcionController::class, 'gestion'])
+    ->whereNumber('gestionId')
+    ->name('inicio_inscripcion.gestion');
+Route::get('/planes/gestiones/inicio-inscripcion/{gestionId}/carreras/{carreraId}', [InicioInscripcionController::class, 'carrera'])
+    ->whereNumber('gestionId')
+    ->whereNumber('carreraId')
+    ->name('inicio_inscripcion.carrera');
+Route::get('/planes/gestiones/inicio-inscripcion/{gestionId}/carreras/{carreraId}/paralelos/{paralelo}/turnos/{turno}', [InicioInscripcionController::class, 'paralelo'])
+    ->whereNumber('gestionId')
+    ->whereNumber('carreraId')
+    ->where('paralelo', '[^/]+')
+    ->whereNumber('turno')
+    ->name('inicio_inscripcion.paralelo');
+Route::get('/planes/gestiones/inicio-inscripcion/{gestionId}/carreras/{carreraId}/paralelos/{paralelo}/turnos/{turno}/materias/{materiaId}', [InicioInscripcionController::class, 'materia'])
+    ->whereNumber('gestionId')
+    ->whereNumber('carreraId')
+    ->where('paralelo', '[^/]+')
+    ->whereNumber('turno')
+    ->whereNumber('materiaId')
+    ->name('inicio_inscripcion.materia');
+// FIN: Módulo temporal de organización del proceso de inscripción.
 //rutas para gestiones académicas
 Route::get('/planes/gestiones', [GestionAcademicaController::class, 'index'])->name('admin.gestionacademica.index')->middleware('auth');
 Route::get('/planes/gestiones/create', [GestionAcademicaController::class, 'create'])->name('admin.gestionacademica.create')->middleware('auth');
@@ -116,15 +149,15 @@ Route::middleware('auth')->group(function () {
 
 Route::prefix('postulantes')->name('postulantes.')->group(function () {
     Route::get('/', [PostulanteController::class, 'bienvenida'])->name('bienvenida');
-    Route::get('/registrar', [PostulanteController::class, 'create'])->name('registrar');
-    Route::post('/store', [PostulanteController::class, 'store'])->name('store');
-
     Route::get('/{id}/pdf', [PostulanteController::class, 'imprimir'])->whereNumber('id')->name('pdf');
 
-    // Rutas para edición y actualización del postulante
-    Route::get('/{id}/edit', [PostulanteController::class, 'edit'])->name('edit');
-    Route::put('/{id}', [PostulanteController::class, 'update'])->name('update');
-    Route::delete('/{id}', [PostulanteController::class, 'destroy'])->whereNumber('id')->name('destroy');
+    Route::middleware(EnsurePublicPostulacionAbierta::class)->group(function () {
+        Route::get('/registrar', [PostulanteController::class, 'create'])->name('registrar');
+        Route::post('/store', [PostulanteController::class, 'store'])->name('store');
+        Route::get('/{id}/edit', [PostulanteController::class, 'edit'])->name('edit');
+        Route::put('/{id}', [PostulanteController::class, 'update'])->name('update');
+        Route::delete('/{id}', [PostulanteController::class, 'destroy'])->whereNumber('id')->name('destroy');
+    });
 });
 
 Route::middleware(['auth', 'resource.access'])->prefix('admisiones/postulantes')->name('admisiones.postulantes.')->group(function () {
@@ -141,6 +174,7 @@ Route::post('/inscripciones/estudiante_nuevo', [EstudianteNuevoController::class
 
 // Rutas para la inscripción desde postulante
 Route::get('/inscripciones/estudiante_nuevo_postulacion', [EstudianteNuevoPostulacionController::class, 'index'])->name('estudiante_nuevo_postulacion.index')->middleware(['auth', 'resource.access']);
+Route::get('/inscripciones/estudiante_nuevo_postulacion/buscar', [EstudianteNuevoPostulacionController::class, 'buscar'])->name('estudiante_nuevo_postulacion.buscar')->middleware(['auth', 'resource.access']);
 Route::post('/inscripciones/estudiante_nuevo_postulacion', [EstudianteNuevoPostulacionController::class, 'store'])->name('estudiante_nuevo_postulacion.store')->middleware(['auth', 'resource.access']);
 
 // Ruta para estudiante regular

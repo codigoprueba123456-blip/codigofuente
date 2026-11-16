@@ -33,7 +33,7 @@ class InscripcionesReportesController extends Controller
                 ->orderBy($aliasPersona.'.nombre')
                 ->get()
                 ->values()
-                ->map(function (object $fila, int $indice): object {
+                ->map(function (object $fila, int $indice) use ($reporte): object {
                     $fila->nro = $indice + 1;
 
                     if (isset($fila->fecha) && $fila->fecha) {
@@ -46,6 +46,10 @@ class InscripcionesReportesController extends Controller
 
                     if (isset($fila->becado)) {
                         $fila->becado = $fila->becado ? 'Sí' : 'No';
+                    }
+
+                    if ($reporte === 'lista-inscritos-paralelo' && isset($fila->paralelo)) {
+                        $fila->paralelo = $this->nombreParalelo($fila->paralelo);
                     }
 
                     return $fila;
@@ -181,7 +185,32 @@ class InscripcionesReportesController extends Controller
                     Rule::exists('materia', 'nivel')->where('id_carrera', $request->input('id_carrera')),
                 ],
                 'turno' => [$required, 'integer', Rule::in([1, 2, 3])],
-                'paralelo' => [$required, 'string', 'max:255', Rule::exists('grupo', 'codigo')],
+                'paralelo' => [
+                    $required,
+                    'string',
+                    'regex:/^[A-D]$/i',
+                    function (string $attribute, mixed $value, \Closure $fail) use ($request, $generado): void {
+                        if (! $generado) {
+                            return;
+                        }
+
+                        $paralelo = strtoupper((string) $value);
+                        $query = DB::table('grupo as gr')
+                            ->join('materia as m', 'm.id_materia', '=', 'gr.id_materia')
+                            ->where('gr.id_gestionacademica', $request->input('id_gestionacademica'))
+                            ->where('m.id_carrera', $request->input('id_carrera'))
+                            ->where('m.nivel', $request->input('nivel'))
+                            ->where('gr.turno', $request->input('turno'))
+                            ->where(function (Builder $query) use ($paralelo): void {
+                                $query->whereRaw('UPPER(gr.codigo) = ?', [$paralelo])
+                                    ->orWhereRaw('UPPER(gr.codigo) LIKE ?', ['%-'.$paralelo]);
+                            });
+
+                        if (! $query->exists()) {
+                            $fail('No hay grupos para el paralelo seleccionado con los filtros indicados.');
+                        }
+                    },
+                ],
                 'id_grupo' => [$required, 'integer', 'exists:grupo,id_grupo'],
                 'gestion' => [
                     $required,
@@ -263,10 +292,13 @@ class InscripcionesReportesController extends Controller
             ->when($request->filled('nivel'), fn (Builder $query) => $query->where('m.nivel', $request->input('nivel')))
             ->when($request->filled('turno'), fn (Builder $query) => $query->where('gr.turno', $request->input('turno')))
             ->whereNotNull('gr.codigo')
-            ->distinct()
-            ->orderBy('gr.codigo')
             ->pluck('gr.codigo')
-            ->map(fn ($paralelo): object => (object) ['valor' => $paralelo, 'etiqueta' => $paralelo]);
+            ->map(fn (string $codigo): ?string => $this->nombreParalelo($codigo))
+            ->filter()
+            ->unique()
+            ->sort()
+            ->values()
+            ->map(fn (string $paralelo): object => (object) ['valor' => $paralelo, 'etiqueta' => $paralelo]);
 
         $gestionesNumericas = DB::table('gestionacademica')
             ->select('gestion')
@@ -322,11 +354,16 @@ class InscripcionesReportesController extends Controller
                 ->where('gr.id_gestionacademica', $filtros['id_gestionacademica'])
                 ->where('m.id_carrera', $filtros['id_carrera'])
                 ->where('m.nivel', $filtros['nivel'])
-                ->select('m.nivel', 'gr.turno', 'gr.codigo as paralelo', 'm.nombre as materia');
+                ->addSelect('m.nivel', 'gr.turno', 'gr.codigo as paralelo', 'm.nombre as materia');
 
             if ($reporte === 'lista-inscritos-paralelo') {
+                $paralelo = strtoupper($filtros['paralelo']);
+
                 return $query->where('gr.turno', $filtros['turno'])
-                    ->where('gr.codigo', $filtros['paralelo']);
+                    ->where(function (Builder $query) use ($paralelo): void {
+                        $query->whereRaw('UPPER(gr.codigo) = ?', [$paralelo])
+                            ->orWhereRaw('UPPER(gr.codigo) LIKE ?', ['%-'.$paralelo]);
+                    });
             }
 
             return $query->where('gr.id_grupo', $filtros['id_grupo']);
@@ -384,5 +421,12 @@ class InscripcionesReportesController extends Controller
                 'ga.periodo',
                 'i.becado'
             );
+    }
+
+    private function nombreParalelo(string $codigo): ?string
+    {
+        return preg_match('/(?:^|-)([A-D])$/i', trim($codigo), $coincidencias)
+            ? strtoupper($coincidencias[1])
+            : null;
     }
 }

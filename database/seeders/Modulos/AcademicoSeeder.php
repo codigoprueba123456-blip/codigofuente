@@ -5,17 +5,41 @@ namespace Database\Seeders\Modulos;
 use App\Models\Actividad;
 use App\Models\Carrera;
 use App\Models\Cursa;
-use App\Models\Empleado;
 use App\Models\GestionAcademica;
-use App\Models\Grupo;
 use App\Models\Instituto;
-use App\Models\Materia;
 use App\Models\User;
 use Database\Seeders\StudentPortalSeeder;
 use Illuminate\Database\Seeder;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
+use RuntimeException;
 
 class AcademicoSeeder extends Seeder
 {
+    private const CARRERAS_VIGENTES = [
+        'ADM-2023',
+        'COC-2023',
+        'CNG-2023',
+        'GAS-2023',
+        'INF-2023',
+        'MTZ-2023',
+        'SEJ-2023',
+        'SIS-2023',
+        'TOP-2023',
+    ];
+
+    private const NOMBRES_CARRERAS_PERMITIDAS = [
+        'ADMINISTRACION DE EMPRESAS',
+        'CONSTRUCCION CIVIL',
+        'CONTADURIA GENERAL',
+        'GASTRONOMIA',
+        'INFORMATICA INDUSTRIAL',
+        'MECANICA AUTOMOTRIZ',
+        'SECRETARIADO EJECUTIVO',
+        'SISTEMAS INFORMATICOS',
+        'TOPOGRAFIA Y GEODESIA',
+    ];
+
     public function run(): void
     {
         $this->call([
@@ -292,6 +316,7 @@ class AcademicoSeeder extends Seeder
                 'SEMESTRAL' => Carrera::REGIMEN_SEMESTRAL,
             };
             $datosCarrera['id_instituto'] = $instituto->id_instituto;
+            $datosCarrera['activo'] = $datosCarrera['version'] === 2023;
 
             Carrera::updateOrCreate(
                 ['codigo' => $datosCarrera['codigo']],
@@ -299,7 +324,7 @@ class AcademicoSeeder extends Seeder
             );
         }
 
-        $this->seedCurrentDemoCatalog($instituto->id_instituto);
+        $this->limpiarCarrerasFueraDeLista();
 
         $carrera = Carrera::where('codigo', 'SIS-2023')->firstOrFail();
         GestionAcademica::updateOrCreate(
@@ -352,95 +377,155 @@ class AcademicoSeeder extends Seeder
 
     }
 
-    private function seedCurrentDemoCatalog(int $institutoId): void
+    private function limpiarCarrerasFueraDeLista(): void
     {
-        $jefeCarreraId = Empleado::query()
-            ->where('codigo', 'EMP-DEMO-001')
-            ->value('id_persona')
-            ?? Empleado::query()
-                ->where('codigo', 'EMP-PRUEBA-003')
-                ->value('id_persona');
+        $nombresPermitidos = array_map(fn (string $nombre): string => $this->normalizarNombreCarrera($nombre), self::NOMBRES_CARRERAS_PERMITIDAS);
+        $carreras = DB::table('carreras')->get(['id_carrera', 'codigo', 'nombre']);
+        $carrerasFueraDeLista = $carreras
+            ->reject(fn (object $carrera): bool => in_array($this->normalizarNombreCarrera($carrera->nombre), $nombresPermitidos, true));
+        $idsFueraDeLista = $carrerasFueraDeLista->pluck('id_carrera')->all();
+        $idsVersionesAnteriores = $carreras
+            ->filter(fn (object $carrera): bool =>
+                in_array($this->normalizarNombreCarrera($carrera->nombre), $nombresPermitidos, true)
+                && ! in_array($carrera->codigo, self::CARRERAS_VIGENTES, true)
+            )
+            ->pluck('id_carrera')
+            ->all();
 
-        $carreras = [];
-        foreach ([
-            ['codigo' => 'DEMO-SIS', 'nombre' => 'Ingeniería de Sistemas (Prueba)'],
-            ['codigo' => 'DEMO-MTZ', 'nombre' => 'Mecánica Automotriz (Prueba)'],
-        ] as $datos) {
-            $carreras[$datos['codigo']] = Carrera::updateOrCreate(
-                ['codigo' => $datos['codigo']],
-                [
-                    'creditajeadmision' => 10,
-                    'creditajematricula' => 20,
-                    'nivelacademico' => Carrera::NIVEL_TECNICO_SUPERIOR,
-                    'nombre' => $datos['nombre'],
-                    'activo' => true,
-                    'regimen' => Carrera::REGIMEN_ANUAL,
-                    'resolucionministerial1' => 'R.M. 001/2026',
-                    'version' => 1,
-                    'id_instituto' => $institutoId,
-                    'id_jefecarrera' => $jefeCarreraId,
-                ]
+        if ($idsFueraDeLista !== [] && app()->environment('production')) {
+            throw new RuntimeException(
+                'Se encontraron carreras fuera del catálogo permitido. La eliminación de datos relacionados está bloqueada en producción.'
             );
         }
 
-        foreach ([
-            ['career' => 'DEMO-SIS', 'code' => 'DEMO-SIS-101', 'name' => 'Fundamentos de Programación (Prueba)', 'credits' => 4, 'level' => 1],
-            ['career' => 'DEMO-SIS', 'code' => 'DEMO-SIS-201', 'name' => 'Programación Avanzada (Prueba)', 'credits' => 5, 'level' => 2],
-            ['career' => 'DEMO-MTZ', 'code' => 'DEMO-MTZ-101', 'name' => 'Fundamentos de Mecánica Automotriz (Prueba)', 'credits' => 4, 'level' => 1],
-            ['career' => 'DEMO-MTZ', 'code' => 'DEMO-MTZ-201', 'name' => 'Sistemas del Motor y Diagnóstico (Prueba)', 'credits' => 5, 'level' => 2],
-        ] as $datos) {
-            $materia = Materia::updateOrCreate(
-                [
-                    'codigo' => $datos['code'],
-                    'id_carrera' => $carreras[$datos['career']]->id_carrera,
-                ],
-                [
-                    'nombre' => $datos['name'],
-                    'creditajemateria' => $datos['credits'],
-                    'curricular' => true,
-                    'horas' => 6,
-                    'nivel' => $datos['level'],
-                    'numero' => 1,
-                ]
-            );
+        $eliminados = DB::transaction(function () use ($idsFueraDeLista, $idsVersionesAnteriores): array {
+            DB::table('carreras')
+                ->whereIn('codigo', self::CARRERAS_VIGENTES)
+                ->update(['activo' => true, 'updated_at' => now()]);
 
-            if ($datos['level'] === 2) {
-                $materiaInicial = Materia::where('codigo', str_replace('201', '101', $datos['code']))
-                    ->where('id_carrera', $carreras[$datos['career']]->id_carrera)
-                    ->firstOrFail();
-                $materia->prerequisitos()->sync([$materiaInicial->id_materia]);
+            if ($idsVersionesAnteriores !== []) {
+                DB::table('carreras')
+                    ->whereIn('id_carrera', $idsVersionesAnteriores)
+                    ->update(['activo' => false, 'updated_at' => now()]);
             }
-        }
 
-        $gestion = GestionAcademica::updateOrCreate(
-            ['gestion' => now()->year, 'periodo' => 1],
-            [
-                'regimen' => 1,
-                'inicio' => now()->startOfYear()->toDateString(),
-                'fin' => now()->endOfYear()->toDateString(),
-                'vigente' => true,
-                'modalidadevaluacion' => 1,
-            ]
-        );
+            if ($idsFueraDeLista === []) {
+                return ['carreras' => 0, 'materias' => 0, 'estudiantes' => 0, 'postulantes' => 0];
+            }
 
-        foreach ([
-            ['career' => 'DEMO-SIS', 'code' => 'DEMO-SIS-201-A'],
-            ['career' => 'DEMO-MTZ', 'code' => 'DEMO-MTZ-201-A'],
-        ] as $datos) {
-            $materia = Materia::where('codigo', str_replace('-A', '', $datos['code']))
-                ->where('id_carrera', $carreras[$datos['career']]->id_carrera)
-                ->firstOrFail();
+            return $this->eliminarDependenciasDeCarreras($idsFueraDeLista);
+        });
 
-            Grupo::updateOrCreate(
-                ['codigo' => $datos['code'], 'id_gestionacademica' => $gestion->id_gestionacademica],
-                [
-                    'capacidad' => 30,
-                    'turno' => 1,
-                    'abierto' => true,
-                    'id_persona' => $jefeCarreraId,
-                    'id_materia' => $materia->id_materia,
-                ]
+        if ($eliminados['carreras'] > 0) {
+            $this->command?->warn(
+                "Se eliminaron {$eliminados['carreras']} carreras fuera de la lista, {$eliminados['materias']} materias, "
+                ."{$eliminados['estudiantes']} perfiles de estudiante y {$eliminados['postulantes']} postulaciones, "
+                .'junto con sus inscripciones, grupos, pagos y actividades relacionados.'
             );
         }
+    }
+
+    private function eliminarDependenciasDeCarreras(array $carreraIds): array
+    {
+        $materiaIds = DB::table('materia')->whereIn('id_carrera', $carreraIds)->pluck('id_materia')->all();
+        $grupoIds = DB::table('grupo')->whereIn('id_materia', $materiaIds)->pluck('id_grupo')->all();
+        $postulanteIds = DB::table('postulante')->whereIn('id_carrera', $carreraIds)->pluck('id_postulante')->all();
+        $estudiantesCarrera = DB::table('estudiante')
+            ->whereIn('id_carrera', $carreraIds)
+            ->orWhereIn('id_postulante', $postulanteIds)
+            ->get(['id_persona', 'id_postulante']);
+        $inscritosCarrera = DB::table('inscrito')->whereIn('id_carrera', $carreraIds)->pluck('id_inscrito')->all();
+        $inscritosMaterias = DB::table('inscrito_materia')
+            ->whereIn('id_materia', $materiaIds)
+            ->orWhereIn('id_grupo', $grupoIds)
+            ->pluck('id_inscrito')
+            ->all();
+        $inscritoIds = array_values(array_unique(array_merge($inscritosCarrera, $inscritosMaterias)));
+        $personIds = array_values(array_unique(array_merge(
+            $estudiantesCarrera->pluck('id_persona')->all(),
+            DB::table('inscrito')->whereIn('id_inscrito', $inscritoIds)->pluck('id_persona')->all(),
+            DB::table('cursa')->whereIn('id_carrera', $carreraIds)->pluck('id_persona')->all()
+        )));
+        $inscritoIds = array_values(array_unique(array_merge(
+            $inscritoIds,
+            DB::table('inscrito')->whereIn('id_persona', $personIds)->pluck('id_inscrito')->all()
+        )));
+        $postulanteIds = array_values(array_unique(array_merge(
+            $postulanteIds,
+            $estudiantesCarrera->pluck('id_postulante')->filter()->all(),
+            DB::table('inscrito')->whereIn('id_inscrito', $inscritoIds)->pluck('id_postulante_origen')->filter()->all()
+        )));
+        $pagoIds = DB::table('pago')
+            ->whereIn('id_inscrito', $inscritoIds)
+            ->orWhereIn('id_postulante', $postulanteIds)
+            ->pluck('id_pago')
+            ->all();
+        $comprobanteIds = DB::table('comprobante')
+            ->whereIn('id_carrera', $carreraIds)
+            ->orWhereIn('id_inscrito', $inscritoIds)
+            ->orWhereIn('id_postulante', $postulanteIds)
+            ->orWhereIn('id_estudiante', $personIds)
+            ->orWhereIn('id_usuario', $personIds)
+            ->pluck('id_comprobante')
+            ->all();
+        $actividadIds = DB::table('actividad_carrera')
+            ->whereIn('id_carrera', $carreraIds)
+            ->pluck('id_actividad')
+            ->all();
+
+        DB::table('detalle')
+            ->whereIn('id_pago', $pagoIds)
+            ->orWhereIn('id_comprobante', $comprobanteIds)
+            ->delete();
+        DB::table('pago')->whereIn('id_pago', $pagoIds)->delete();
+        DB::table('comprobante')->whereIn('id_comprobante', $comprobanteIds)->delete();
+        DB::table('inscrito_materia')
+            ->whereIn('id_inscrito', $inscritoIds)
+            ->orWhereIn('id_materia', $materiaIds)
+            ->orWhereIn('id_grupo', $grupoIds)
+            ->delete();
+        DB::table('grupo')->whereIn('id_grupo', $grupoIds)->delete();
+        DB::table('actividad')->whereIn('id_actividad', $actividadIds)->delete();
+        DB::table('cursa')
+            ->whereIn('id_carrera', $carreraIds)
+            ->orWhereIn('id_persona', $personIds)
+            ->delete();
+        DB::table('inscrito')->whereIn('id_inscrito', $inscritoIds)->delete();
+        DB::table('postulante')->whereIn('id_postulante', $postulanteIds)->delete();
+        $estudiantesEliminados = DB::table('estudiante')->whereIn('id_persona', $personIds)->delete();
+        DB::table('materia')->whereIn('id_materia', $materiaIds)->delete();
+        $carrerasEliminadas = DB::table('carreras')->whereIn('id_carrera', $carreraIds)->delete();
+
+        $personasConOtrosRoles = DB::table('cuenta as cuenta')
+            ->join('rol', 'rol.id_rol', '=', 'cuenta.id_rol')
+            ->whereIn('cuenta.id_persona', $personIds)
+            ->where('rol.nombre', '<>', 'Estudiante')
+            ->pluck('cuenta.id_persona')
+            ->all();
+        $empleadoIds = DB::table('empleados')->whereIn('id_persona', $personIds)->pluck('id_persona')->all();
+        $personasAConservar = array_values(array_unique(array_merge($personasConOtrosRoles, $empleadoIds)));
+        $personasAEliminar = array_values(array_diff($personIds, $personasAConservar));
+        $rolEstudianteId = DB::table('rol')->where('nombre', 'Estudiante')->value('id_rol');
+
+        if ($rolEstudianteId !== null) {
+            DB::table('cuenta')
+                ->whereIn('id_persona', $personasAConservar)
+                ->where('id_rol', $rolEstudianteId)
+                ->delete();
+        }
+
+        DB::table('personas')->whereIn('id_persona', $personasAEliminar)->delete();
+
+        return [
+            'carreras' => $carrerasEliminadas,
+            'materias' => count($materiaIds),
+            'estudiantes' => $estudiantesEliminados,
+            'postulantes' => count($postulanteIds),
+        ];
+    }
+
+    private function normalizarNombreCarrera(string $nombre): string
+    {
+        return mb_strtoupper(trim(Str::ascii($nombre)));
     }
 }

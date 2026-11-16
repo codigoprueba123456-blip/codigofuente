@@ -17,7 +17,7 @@ class InscripcionManualGruposSeederTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function test_it_creates_open_a_and_b_groups_for_all_subjects_without_overwriting_existing_groups(): void
+    public function test_it_creates_only_the_configured_night_a_group_without_overwriting_group_capacity_or_state(): void
     {
         $instituto = Instituto::create(['nombreinstituto' => 'Instituto de Prueba']);
         $carrera = Carrera::create([
@@ -70,26 +70,20 @@ class InscripcionManualGruposSeederTest extends TestCase
         $this->seed(InscripcionManualGruposSeeder::class);
         $this->seed(InscripcionManualGruposSeeder::class);
 
-        $this->assertDatabaseCount('grupo', 6);
+        $this->assertDatabaseCount('grupo', 3);
         $this->assertDatabaseHas('grupo', [
             'codigo' => 'SIS-201-A',
             'id_gestionacademica' => $gestion->id_gestionacademica,
             'capacidad' => 18,
-            'turno' => 2,
+            'turno' => 3,
             'abierto' => false,
         ]);
-        foreach (['SIS-201-B', 'SIS-202-A', 'SIS-202-B'] as $codigo) {
+        foreach (['SIS-202-A', 'SIS-101-A'] as $codigo) {
             $this->assertDatabaseHas('grupo', [
                 'codigo' => $codigo,
                 'id_gestionacademica' => $gestion->id_gestionacademica,
+                'turno' => 3,
                 'capacidad' => 30,
-                'abierto' => true,
-            ]);
-        }
-        foreach (['SIS-101-A', 'SIS-101-B'] as $codigo) {
-            $this->assertDatabaseHas('grupo', [
-                'codigo' => $codigo,
-                'id_gestionacademica' => $gestion->id_gestionacademica,
                 'abierto' => true,
             ]);
         }
@@ -181,21 +175,81 @@ class InscripcionManualGruposSeederTest extends TestCase
             ->assertJsonPath('0.inscripciones.0.id_inscrito', $inscritoId)
             ->assertJsonPath('0.inscripciones.0.nivel', 2);
 
+        DB::table('grupo')->insert([
+            'codigo' => 'SIS-201-B',
+            'capacidad' => 30,
+            'turno' => 3,
+            'abierto' => true,
+            'id_gestionacademica' => $gestion->id_gestionacademica,
+            'id_materia' => $materia->id_materia,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
         $grupoB = DB::table('grupo')
             ->where('codigo', 'SIS-201-B')
             ->where('id_gestionacademica', $gestion->id_gestionacademica)
             ->firstOrFail();
-        $this->get(route('inscripcion_manual.oferta', [
+        $grupoBMananaId = DB::table('grupo')->insertGetId([
+            'codigo' => 'SIS-201-B',
+            'capacidad' => 30,
+            'turno' => 1,
+            'abierto' => true,
+            'id_gestionacademica' => $gestion->id_gestionacademica,
+            'id_materia' => $materia->id_materia,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+        $this->get(route('inscripcion_manual.oferta', ['inscrito' => $inscritoId]))
+            ->assertOk()
+            ->assertSee('Seleccione un turno antes de ver o asignar materias.')
+            ->assertDontSee('Materia de segundo año');
+
+        $ofertaInicial = $this->get(route('inscripcion_manual.oferta', [
             'inscrito' => $inscritoId,
             'paralelo' => 'B',
-        ]))
+            'turno' => 3,
+        ]));
+        $ofertaInicial
             ->assertOk()
             ->assertSee('Materia de segundo año')
             ->assertSee('value="'.$grupoB->id_grupo.'"', false)
-            ->assertSee('B [3');
+            ->assertSee('B [Noche]')
+            ->assertDontSee('B [Mañana]');
+        preg_match('/<input[^>]*id="seleccionarTodo"[^>]*>/', $ofertaInicial->getContent(), $casillaSeleccionarTodo);
+        $this->assertNotEmpty($casillaSeleccionarTodo);
+        $this->assertStringNotContainsString('disabled', $casillaSeleccionarTodo[0]);
+
+        $this->get(route('inscripcion_manual.oferta', [
+            'inscrito' => $inscritoId,
+            'paralelo' => 'B',
+            'turno' => 1,
+        ]))
+            ->assertOk()
+            ->assertSee('value="'.$grupoBMananaId.'"', false)
+            ->assertSee('B [Mañana]')
+            ->assertDontSee('B [Noche]');
+
+        $this->put(route('inscripcion_manual.guardar', $inscritoId), [
+            'grupos' => [$materia->id_materia => $grupoBMananaId],
+            'turno' => 3,
+            'paralelo' => 'B',
+        ])->assertSessionHasErrors('grupos');
 
         $this->put(route('inscripcion_manual.guardar', $inscritoId), [
             'grupos' => [$materia->id_materia => $grupoB->id_grupo],
+            'turno' => 3,
+            'paralelo' => 'A',
+        ])->assertSessionHasErrors('grupos');
+
+        $this->put(route('inscripcion_manual.guardar', $inscritoId), [
+            'grupos' => [$materia->id_materia => $grupoB->id_grupo],
+            'paralelo' => 'B',
+        ])->assertSessionHasErrors('turno');
+
+        $this->put(route('inscripcion_manual.guardar', $inscritoId), [
+            'grupos' => [$materia->id_materia => $grupoB->id_grupo],
+            'turno' => 3,
+            'paralelo' => 'B',
         ])->assertRedirect();
 
         $this->assertDatabaseHas('inscrito_materia', [
@@ -203,6 +257,82 @@ class InscripcionManualGruposSeederTest extends TestCase
             'id_materia' => $materia->id_materia,
             'id_grupo' => $grupoB->id_grupo,
         ]);
+
+        $materiaNueva = Materia::create([
+            'codigo' => 'SIS-202',
+            'nombre' => 'Otra materia de segundo año',
+            'nivel' => 2,
+            'numero' => 2,
+            'id_carrera' => $carrera->id_carrera,
+        ]);
+        $grupoMananaNuevoId = DB::table('grupo')->insertGetId([
+            'codigo' => 'SIS-202-B',
+            'capacidad' => 30,
+            'turno' => 1,
+            'abierto' => true,
+            'id_gestionacademica' => $gestion->id_gestionacademica,
+            'id_materia' => $materiaNueva->id_materia,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+        $grupoNocheParaleloCId = DB::table('grupo')->insertGetId([
+            'codigo' => 'SIS-202-C',
+            'capacidad' => 30,
+            'turno' => 3,
+            'abierto' => true,
+            'id_gestionacademica' => $gestion->id_gestionacademica,
+            'id_materia' => $materiaNueva->id_materia,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+        $grupoNocheParaleloBId = DB::table('grupo')->insertGetId([
+            'codigo' => 'SIS-202-B',
+            'capacidad' => 30,
+            'turno' => 3,
+            'abierto' => true,
+            'id_gestionacademica' => $gestion->id_gestionacademica,
+            'id_materia' => $materiaNueva->id_materia,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        $ofertaBloqueada = $this->get(route('inscripcion_manual.oferta', [
+            'inscrito' => $inscritoId,
+            'paralelo' => 'B',
+            'turno' => 1,
+        ]));
+        $ofertaBloqueada
+            ->assertOk()
+            ->assertSee('Este estudiante ya tiene materias asignadas en turno Noche y paralelo B.')
+            ->assertSee('B [Noche]')
+            ->assertDontSee('B [Mañana]');
+        preg_match('/<input[^>]*id="seleccionarTodo"[^>]*>/', $ofertaBloqueada->getContent(), $casillaBloqueada);
+        $this->assertNotEmpty($casillaBloqueada);
+        $this->assertStringContainsString('disabled', $casillaBloqueada[0]);
+
+        $this->put(route('inscripcion_manual.guardar', $inscritoId), [
+            'grupos' => [$materiaNueva->id_materia => $grupoMananaNuevoId],
+            'turno' => 1,
+            'paralelo' => 'B',
+        ])->assertSessionHasErrors('grupos');
+
+        $this->put(route('inscripcion_manual.guardar', $inscritoId), [
+            'grupos' => [$materiaNueva->id_materia => $grupoNocheParaleloCId],
+            'turno' => 3,
+            'paralelo' => 'C',
+        ])->assertSessionHasErrors('grupos');
+
+        $this->put(route('inscripcion_manual.guardar', $inscritoId), [
+            'grupos' => [$materiaNueva->id_materia => $grupoNocheParaleloBId],
+            'turno' => 3,
+            'paralelo' => 'B',
+        ])->assertRedirect();
+        $this->assertDatabaseHas('inscrito_materia', [
+            'id_inscrito' => $inscritoId,
+            'id_materia' => $materiaNueva->id_materia,
+            'id_grupo' => $grupoNocheParaleloBId,
+        ]);
+
         $this->get(route('inscripcion_manual.index', ['id_inscrito' => $inscritoId]))
             ->assertOk()
             ->assertSee('B [3');

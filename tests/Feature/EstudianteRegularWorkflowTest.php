@@ -8,6 +8,7 @@ use App\Models\Estudiante;
 use App\Models\GestionAcademica;
 use App\Models\Instituto;
 use App\Models\Persona;
+use App\Models\Postulante;
 use App\Models\Rol;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -139,6 +140,12 @@ class EstudianteRegularWorkflowTest extends TestCase
             ]],
         ];
 
+        $this->post(route('estudiante_regular.store'), $payload)
+            ->assertSessionHasErrors('inscripciones.0.id_carrera');
+
+        $payload['inscripciones'][0]['id_carrera'] = $fixture['carreraUno']->id_carrera;
+        $payload['inscripciones'][0]['nueva'] = 1;
+        $payload['inscripciones'][0]['registrar'] = 1;
         $this->post(route('estudiante_regular.store'), $payload)
             ->assertSessionHasErrors('inscripciones.0.id_carrera');
 
@@ -294,6 +301,102 @@ class EstudianteRegularWorkflowTest extends TestCase
             ->assertSee('500.00')
             ->assertSee('No');
         $this->assertSame(0, (int) $historialSistemas->viewData('pagos')->first()->pagado);
+    }
+
+    public function test_new_postulation_cannot_repeat_a_career_already_enrolled_through_regular_flow(): void
+    {
+        $this->withoutMiddleware();
+        $fixture = $this->createFixture();
+
+        $this->post(route('estudiante_regular.store'), [
+            'id_persona' => $fixture['persona']->id_persona,
+            'fecha' => now()->toDateString(),
+            'becado' => 0,
+            'traspaso_convalidacion' => 0,
+            'inscripciones' => [[
+                'registrar' => 1,
+                'nueva' => 1,
+                'id_carrera' => $fixture['carreraNoAsociada']->id_carrera,
+                'nivelinicio' => 1,
+                'deposito' => 'REGULAR-POSTULACION-DUPLICATE',
+            ]],
+        ])->assertRedirect(route('estudiante_regular.index'));
+
+        $postulante = Postulante::create([
+            'codigo' => 'REGULAR-POSTULACION-001',
+            'ci' => $fixture['persona']->ci,
+            'primerapellido' => 'Regular',
+            'nombre' => 'Estudiante',
+            'celular' => '70000000',
+            'email' => 'regular-postulacion@example.test',
+            'direccion' => 'Sacaba',
+            'fechanacimiento' => '2005-01-01',
+            'lugarnacimiento' => 'Sacaba',
+            'lugarexpedicion' => 'CB',
+            'nacionalidad' => 'Boliviana',
+            'sexo' => 'F',
+            'fecha' => now(),
+            'nombrecolegio' => 'Colegio de Prueba',
+            'caractercolegio' => 'Fiscal',
+            'egresocolegio' => 2024,
+            'diplomabachiller' => true,
+            'nombrecontacto' => 'Contacto',
+            'parentescocontacto' => 'Familiar',
+            'celularcontacto' => '70000001',
+            'deposito' => 'POSTULACION-REGULAR-DUPLICATE',
+            'path_ci_frontal' => 'postulantes/ci.jpg',
+            'path_ci_reverso' => 'postulantes/ci-reverso.jpg',
+            'path_nacimiento' => 'postulantes/nacimiento.jpg',
+            'path_diploma' => 'postulantes/diploma.jpg',
+            'id_carrera' => $fixture['carreraNoAsociada']->id_carrera,
+            'id_gestionacademica' => $fixture['gestionActual']->id_gestionacademica,
+        ]);
+
+        $busqueda = $this->getJson(route('estudiante_nuevo_postulacion.buscar', [
+            'q' => $fixture['persona']->ci,
+        ]))->assertOk()->assertJsonCount(0, 'postulantes');
+
+        $response = $this->post(route('estudiante_nuevo_postulacion.store'), [
+            'postulaciones' => [[
+                'id_postulante' => $postulante->id_postulante,
+                'decision' => 'si',
+                'deposito' => 'POSTULACION-REGULAR-DUPLICATE',
+            ]],
+            'nombre' => 'Estudiante',
+            'primerapellido' => 'Regular',
+            'segundoapellido' => 'Prueba',
+            'ci' => $fixture['persona']->ci,
+            'lugarexpedicion' => 'CB',
+            'fechanacimiento' => '2005-01-01',
+            'lugarnacimiento' => 'Sacaba',
+            'nacionalidad' => 'Boliviana',
+            'sexo' => 'F',
+            'direccion' => 'Sacaba',
+            'telefono' => '',
+            'celular' => '70000000',
+            'email' => 'regular-postulacion@example.test',
+            'nombrecontacto' => 'Contacto',
+            'celularcontacto' => '70000001',
+            'parentescocontacto' => 'Familiar',
+            'nombrecolegio' => 'Colegio de Prueba',
+            'caractercolegio' => 'Fiscal',
+            'egresocolegio' => 2024,
+            'fecha' => now()->toDateString(),
+            'diplomabachiller' => 1,
+            'id_gestionacademica' => $fixture['gestionActual']->id_gestionacademica,
+        ]);
+        $response->assertSessionHasErrors('postulaciones');
+
+        $this->assertSame(1, DB::table('inscrito')
+            ->where('id_persona', $fixture['persona']->id_persona)
+            ->where('id_carrera', $fixture['carreraNoAsociada']->id_carrera)
+            ->where('id_gestionacademica', $fixture['gestionActual']->id_gestionacademica)
+            ->where('activo', true)
+            ->count());
+        $this->assertSame(1, DB::table('estudiante')
+            ->where('id_persona', $fixture['persona']->id_persona)
+            ->count());
+        $this->assertSame(0, User::where('id_persona', $fixture['persona']->id_persona)->count());
     }
 
     public function test_regular_enrollment_cannot_exceed_three_years(): void

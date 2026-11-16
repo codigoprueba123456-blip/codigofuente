@@ -33,6 +33,7 @@ class AdmisionesController extends Controller
             'exportar' => ['nullable', 'in:filtrado,todo'],
             'formato' => ['nullable', 'in:excel,pdf'],
             'estado' => ['nullable', 'in:pendiente,inscrito'],
+            'categoria' => ['nullable', 'in:multiples,unica'],
         ]);
         $query = Postulante::with(['carrera', 'gestionAcademica'])
             ->withExists('inscripcionOrigen');
@@ -68,23 +69,28 @@ class AdmisionesController extends Controller
             $query->whereDoesntHave('inscripcionOrigen');
         }
 
-        // -------------------------------------------------------------
-        // 2.1. NUEVO FILTRO POR CATEGORÍA (Múltiples Carreras vs Única)
-        // -------------------------------------------------------------
-        if ($request->filled('categoria')) {
-            $multiplesCIs = Postulante::when($request->filled('id_gestionacademica'), function($q) use ($request) {
-                    $q->where('id_gestionacademica', $request->id_gestionacademica);
-                })
-                ->select('ci')
-                ->groupBy('ci')
-                ->havingRaw('COUNT(DISTINCT id_carrera) > 1')
-                ->pluck('ci');
+        $postulanteTieneMultiplesCarrerasEnGestion = static function ($subquery): void {
+            $subquery->selectRaw('1')
+                ->from('postulante as postulantes_multiples')
+                ->whereColumn('postulantes_multiples.ci', 'postulante.ci')
+                ->whereColumn(
+                    'postulantes_multiples.id_gestionacademica',
+                    'postulante.id_gestionacademica'
+                )
+                ->groupBy(
+                    'postulantes_multiples.ci',
+                    'postulantes_multiples.id_gestionacademica'
+                )
+                ->havingRaw('COUNT(DISTINCT postulantes_multiples.id_carrera) > 1');
+        };
 
-            if ($request->input('categoria') === 'multiples') {
-                $query->whereIn('ci', $multiplesCIs);
-            } elseif ($request->input('categoria') === 'unica') {
-                $query->whereNotIn('ci', $multiplesCIs);
-            }
+        // -------------------------------------------------------------
+        // 2.1. CATEGORÍA POR NÚMERO DE CARRERAS EN LA MISMA GESTIÓN
+        // -------------------------------------------------------------
+        if ($request->input('categoria') === 'multiples') {
+            $query->whereExists($postulanteTieneMultiplesCarrerasEnGestion);
+        } elseif ($request->input('categoria') === 'unica') {
+            $query->whereNotExists($postulanteTieneMultiplesCarrerasEnGestion);
         }
 
         // -------------------------------------------------------------
@@ -101,7 +107,7 @@ class AdmisionesController extends Controller
                     ->get()
                 : $query->orderBy('id_postulante', 'desc')->get();
 
-            $carreraSeleccionada = $request->filled('id_carrera') ? DB::table('carreras')->where('id_carrera', $request->id_carrera)->first() : null;
+            $carreraSeleccionada = $request->filled('id_carrera') ? Carrera::find($request->id_carrera) : null;
             $gestionSeleccionada = $request->filled('id_gestionacademica') ? DB::table('gestionacademica')->where('id_gestionacademica', $request->id_gestionacademica)->first() : null;
 
             // Retornar vista PDF
@@ -119,7 +125,7 @@ class AdmisionesController extends Controller
                             $postulante->nombre,
                             $postulante->ci,
                             $postulante->celular,
-                            $postulante->carrera?->nombre,
+                            $postulante->carrera?->nombreConResolucionMinisterial(),
                             $postulante->gestionAcademica?->gestion,
                             $postulante->gestionAcademica?->periodo,
                             $postulante->inscripcion_origen_exists ? 'Inscrito como estudiante' : 'Pendiente de inscripción',
@@ -147,14 +153,10 @@ class AdmisionesController extends Controller
             $q->whereNotNull('path_ci_frontal');
         })->count();
 
-        // Conteo de postulantes únicos con más de una carrera inscrita
-        $CIsMultiples = (clone $statsQuery)
-            ->select('ci')
-            ->groupBy('ci')
-            ->havingRaw('COUNT(DISTINCT id_carrera) > 1')
-            ->pluck('ci');
-
-        $multiplesCarrerasCount = (clone $statsQuery)->whereIn('ci', $CIsMultiples)->count();
+        $multiplesCarrerasCount = (clone $statsQuery)
+            ->whereExists($postulanteTieneMultiplesCarrerasEnGestion)
+            ->distinct()
+            ->count('ci');
 
         // -------------------------------------------------------------
         // 5. PAGINACIÓN Y CARGA DE VISTA PRINCIPAL

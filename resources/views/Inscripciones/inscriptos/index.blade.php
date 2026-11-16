@@ -123,7 +123,7 @@
                         <select name="turno" id="turno" class="form-control custom-select">
                             <option value="">-- Todos --</option>
                             @foreach ($turnos as $turno)
-                                <option value="{{ $turno }}" {{ request('turno') == $turno ? 'selected' : '' }}>{{ $turno }}</option>
+                                <option value="{{ $turno->valor }}" {{ request('turno') == $turno->valor ? 'selected' : '' }}>{{ $turno->etiqueta }}</option>
                             @endforeach
                         </select>
                     </div>
@@ -199,6 +199,9 @@
                             <th>CI</th>
                             <th>Celular</th>
                             <th>Carrera</th>
+                            <th>Curso</th>
+                            <th>Paralelo</th>
+                            <th>Turno</th>
                             <th>Estado</th>
                             <th class="text-center">Acciones</th>
                         </tr>
@@ -229,6 +232,21 @@
                                             Multi-carrera
                                         </span>
                                     @endif
+                                </td>
+                                <td>{{ $inscrito->curso }}</td>
+                                <td>
+                                    @forelse ($inscrito->grupos_asignados as $grupo)
+                                        <span class="badge badge-info">Paralelo {{ $grupo->paralelo }}</span>
+                                    @empty
+                                        <span class="text-muted">Sin paralelo asignado</span>
+                                    @endforelse
+                                </td>
+                                <td>
+                                    @forelse ($inscrito->grupos_asignados as $grupo)
+                                        <span class="badge badge-secondary">{{ $grupo->turno_etiqueta }}</span>
+                                    @empty
+                                        <span class="text-muted">Sin turno asignado</span>
+                                    @endforelse
                                 </td>
                                 <td>
                                     @if ($inscrito->id_inscrito_reemplazo)
@@ -263,7 +281,7 @@
                             </tr>
                         @empty
                             <tr>
-                                <td colspan="11" class="text-center text-muted py-4">
+                                <td colspan="14" class="text-center text-muted py-4">
                                     <i class="fas fa-info-circle mr-1"></i> No se encontraron inscripciones con esos criterios.
                                 </td>
                             </tr>

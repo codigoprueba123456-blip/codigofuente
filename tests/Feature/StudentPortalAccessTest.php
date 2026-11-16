@@ -3,12 +3,17 @@
 namespace Tests\Feature;
 
 use App\Models\Cuenta;
+use App\Models\Carrera;
 use App\Models\Estudiante;
+use App\Models\GestionAcademica;
+use App\Models\Inscrito;
+use App\Models\Instituto;
 use App\Models\Persona;
 use App\Models\Rol;
 use App\Models\User;
 use Database\Seeders\StudentPortalSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Tests\TestCase;
 
@@ -60,6 +65,55 @@ class StudentPortalAccessTest extends TestCase
 
         $this->get(route('estudiantes.file_estudiante'))
             ->assertOk();
+    }
+
+    public function test_student_enrollment_history_shows_its_career_resolution_only_for_its_enrolled_career(): void
+    {
+        $this->seed(StudentPortalSeeder::class);
+        $student = User::where('usuario', '20260003')->firstOrFail();
+        $gestion = GestionAcademica::create([
+            'gestion' => 2027,
+            'periodo' => 1,
+            'regimen' => Carrera::REGIMEN_ANUAL,
+            'activo' => true,
+            'vigente' => true,
+        ]);
+        $instituto = Instituto::create(['nombreinstituto' => 'Instituto del Portal']);
+        $carrera = Carrera::create([
+            'codigo' => 'PORTAL-SIS',
+            'nombre' => 'Sistemas del Portal',
+            'resolucionministerial1' => 'R.M. N° 210/2027',
+            'activo' => true,
+            'id_instituto' => $instituto->id_instituto,
+        ]);
+        Carrera::create([
+            'codigo' => 'PORTAL-OTRA',
+            'nombre' => 'Carrera no vinculada',
+            'activo' => true,
+            'id_instituto' => $instituto->id_instituto,
+        ]);
+        Inscrito::create([
+            'fecha' => '2027-01-10',
+            'becado' => false,
+            'id_carrera' => $carrera->id_carrera,
+            'id_persona' => $student->id_persona,
+            'id_gestionacademica' => $gestion->id_gestionacademica,
+            'activo' => true,
+        ]);
+        DB::table('cursa')->insert([
+            'id_persona' => $student->id_persona,
+            'id_carrera' => $carrera->id_carrera,
+            'id_gestionacademica' => $gestion->id_gestionacademica,
+            'nivelinicio' => 1,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        $this->actingAs($student)
+            ->get(route('estudiantes.estado_inscripcion'))
+            ->assertOk()
+            ->assertSee('Sistemas del Portal · R.M. 210/2027')
+            ->assertDontSee('Carrera no vinculada');
     }
 
     public function test_administrators_can_open_student_portal_but_teachers_cannot(): void

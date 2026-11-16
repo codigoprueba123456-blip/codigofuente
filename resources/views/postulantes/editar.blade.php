@@ -39,6 +39,11 @@
             data-validation-errors="{{ json_encode($errors->messages(), JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP | JSON_HEX_TAG) }}">
             @csrf
             @method('PUT')
+            <input type="hidden" name="eliminar_foto" id="eliminar_foto" value="{{ old('eliminar_foto', 0) }}">
+            <input type="hidden" name="eliminar_path_ci_frontal" id="eliminar_path_ci_frontal" value="{{ old('eliminar_path_ci_frontal', 0) }}">
+            <input type="hidden" name="eliminar_path_ci_reverso" id="eliminar_path_ci_reverso" value="{{ old('eliminar_path_ci_reverso', 0) }}">
+            <input type="hidden" name="eliminar_path_nacimiento" id="eliminar_path_nacimiento" value="{{ old('eliminar_path_nacimiento', 0) }}">
+            <input type="hidden" name="eliminar_path_diploma" id="eliminar_path_diploma" value="{{ old('eliminar_path_diploma', 0) }}">
 
             {{-- CABECERA / FOTOGRAFÍA --}}
             <div class="card card-outline card-primary shadow-sm mb-4">
@@ -48,7 +53,8 @@
                 <div class="card-body">
                     <div class="row align-items-center">
                         <div class="col-md-4 mb-3">
-                            <div class="photo-preview-box mb-2" id="photoPreview">
+                            <div class="photo-preview-box mb-2" id="photoPreview"
+                                data-existing-url="{{ $postulante->foto ? asset('storage/'.$postulante->foto) : '' }}">
                                 @if($postulante->foto)
                                     <img src="{{ asset('storage/'.$postulante->foto) }}" alt="Fotografía actual">
                                 @else
@@ -57,11 +63,15 @@
                                 @endif
                             </div>
                             <div class="d-flex flex-column gap-2">
-                                <label for="foto" class="btn btn-select-photo btn-block mb-1 font-weight-bold shadow-sm">
+                                <label for="foto" id="fotografiaGuia" class="btn btn-select-photo btn-block mb-1 font-weight-bold shadow-sm">
                                     <i class="fas fa-upload mr-1"></i> Cambiar fotografía (Opcional)
                                 </label>
                             </div>
                             <input type="file" name="fotografia" id="foto" class="d-none" accept="image/jpeg,image/png">
+                            <button type="button" id="btnRemovePhoto"
+                                class="btn btn-sm btn-outline-danger btn-block mt-2 {{ $postulante->foto ? '' : 'd-none' }}">
+                                <i class="fas fa-trash-alt mr-1"></i> Eliminar fotografía
+                            </button>
                             <small class="text-muted d-block text-center mt-2">JPG o PNG. Se comprime hasta <strong>150 KB</strong>.</small>
                         </div>
                         <div class="col-md-8 mb-3">
@@ -209,6 +219,23 @@
                                 <input type="file" name="path_ci_frontal" id="path_ci_frontal" class="custom-file-input" accept="image/jpeg,image/png">
                                 <label class="custom-file-label" for="path_ci_frontal" data-browse="Elegir">Seleccionar nueva imagen...</label>
                             </div>
+                            <div id="preview_ci_frontal" class="document-preview mt-3 {{ $postulante->path_ci_frontal ? '' : 'd-none' }}"
+                                data-existing-url="{{ $postulante->path_ci_frontal ? asset('storage/'.$postulante->path_ci_frontal) : '' }}"
+                                data-existing-name="{{ $postulante->path_ci_frontal ? basename($postulante->path_ci_frontal) : '' }}">
+                                @if($postulante->path_ci_frontal)
+                                    <a href="{{ asset('storage/'.$postulante->path_ci_frontal) }}" target="_blank" rel="noopener">
+                                        <img src="{{ asset('storage/'.$postulante->path_ci_frontal) }}" class="img-fluid rounded" alt="Cédula de identidad, anverso">
+                                    </a>
+                                @else
+                                    <img src="" class="img-fluid rounded d-none" alt="Vista previa anverso CI">
+                                @endif
+                                <div class="d-flex align-items-center justify-content-between mt-2">
+                                    <span class="file-name text-truncate fw-bold">{{ $postulante->path_ci_frontal ? basename($postulante->path_ci_frontal) : '' }}</span>
+                                    <button type="button" class="btn btn-sm btn-outline-danger btn-remove-doc" data-target="path_ci_frontal">
+                                        <i class="fas fa-trash-alt mr-1"></i> Eliminar
+                                    </button>
+                                </div>
+                            </div>
                             <small class="text-muted d-block mt-1">
                                 @if($postulante->path_ci_frontal) <span class="text-success"><i class="fas fa-check-circle"></i> Imagen cargada. Selecciona otra solo para reemplazarla.</span> @else Sin imagen previa @endif · JPG o PNG, máximo 350 KB comprimida
                             </small>
@@ -219,6 +246,23 @@
                             <div class="custom-file">
                                 <input type="file" name="path_ci_reverso" id="path_ci_reverso" class="custom-file-input" accept="image/jpeg,image/png">
                                 <label class="custom-file-label" for="path_ci_reverso" data-browse="Elegir">Seleccionar nueva imagen...</label>
+                            </div>
+                            <div id="preview_ci_reverso" class="document-preview mt-3 {{ $postulante->path_ci_reverso ? '' : 'd-none' }}"
+                                data-existing-url="{{ $postulante->path_ci_reverso ? asset('storage/'.$postulante->path_ci_reverso) : '' }}"
+                                data-existing-name="{{ $postulante->path_ci_reverso ? basename($postulante->path_ci_reverso) : '' }}">
+                                @if($postulante->path_ci_reverso)
+                                    <a href="{{ asset('storage/'.$postulante->path_ci_reverso) }}" target="_blank" rel="noopener">
+                                        <img src="{{ asset('storage/'.$postulante->path_ci_reverso) }}" class="img-fluid rounded" alt="Cédula de identidad, reverso">
+                                    </a>
+                                @else
+                                    <img src="" class="img-fluid rounded d-none" alt="Vista previa reverso CI">
+                                @endif
+                                <div class="d-flex align-items-center justify-content-between mt-2">
+                                    <span class="file-name text-truncate fw-bold">{{ $postulante->path_ci_reverso ? basename($postulante->path_ci_reverso) : '' }}</span>
+                                    <button type="button" class="btn btn-sm btn-outline-danger btn-remove-doc" data-target="path_ci_reverso">
+                                        <i class="fas fa-trash-alt mr-1"></i> Eliminar
+                                    </button>
+                                </div>
                             </div>
                             <small class="text-muted d-block mt-1">
                                 @if($postulante->path_ci_reverso) <span class="text-success"><i class="fas fa-check-circle"></i> Imagen cargada. Selecciona otra solo para reemplazarla.</span> @else Sin imagen previa @endif · JPG o PNG, máximo 350 KB comprimida
@@ -231,6 +275,23 @@
                                 <input type="file" name="path_nacimiento" id="path_nacimiento" class="custom-file-input" accept="image/jpeg,image/png">
                                 <label class="custom-file-label" for="path_nacimiento" data-browse="Elegir">Seleccionar nueva imagen...</label>
                             </div>
+                            <div id="preview_nacimiento" class="document-preview mt-3 {{ $postulante->path_nacimiento ? '' : 'd-none' }}"
+                                data-existing-url="{{ $postulante->path_nacimiento ? asset('storage/'.$postulante->path_nacimiento) : '' }}"
+                                data-existing-name="{{ $postulante->path_nacimiento ? basename($postulante->path_nacimiento) : '' }}">
+                                @if($postulante->path_nacimiento)
+                                    <a href="{{ asset('storage/'.$postulante->path_nacimiento) }}" target="_blank" rel="noopener">
+                                        <img src="{{ asset('storage/'.$postulante->path_nacimiento) }}" class="img-fluid rounded" alt="Certificado de nacimiento">
+                                    </a>
+                                @else
+                                    <img src="" class="img-fluid rounded d-none" alt="Vista previa Nacimiento">
+                                @endif
+                                <div class="d-flex align-items-center justify-content-between mt-2">
+                                    <span class="file-name text-truncate fw-bold">{{ $postulante->path_nacimiento ? basename($postulante->path_nacimiento) : '' }}</span>
+                                    <button type="button" class="btn btn-sm btn-outline-danger btn-remove-doc" data-target="path_nacimiento">
+                                        <i class="fas fa-trash-alt mr-1"></i> Eliminar
+                                    </button>
+                                </div>
+                            </div>
                             <small class="text-muted d-block mt-1">
                                 @if($postulante->path_nacimiento) <span class="text-success"><i class="fas fa-check-circle"></i> Imagen cargada. Selecciona otra solo para reemplazarla.</span> @else Sin imagen previa @endif · JPG o PNG, máximo 350 KB comprimida
                             </small>
@@ -241,6 +302,23 @@
                             <div class="custom-file">
                                 <input type="file" name="path_diploma" id="path_diploma" class="custom-file-input" accept="image/jpeg,image/png">
                                 <label class="custom-file-label" for="path_diploma" data-browse="Elegir">Seleccionar nueva imagen...</label>
+                            </div>
+                            <div id="preview_diploma" class="document-preview mt-3 {{ $postulante->path_diploma ? '' : 'd-none' }}"
+                                data-existing-url="{{ $postulante->path_diploma ? asset('storage/'.$postulante->path_diploma) : '' }}"
+                                data-existing-name="{{ $postulante->path_diploma ? basename($postulante->path_diploma) : '' }}">
+                                @if($postulante->path_diploma)
+                                    <a href="{{ asset('storage/'.$postulante->path_diploma) }}" target="_blank" rel="noopener">
+                                        <img src="{{ asset('storage/'.$postulante->path_diploma) }}" class="img-fluid rounded" alt="Diploma de bachiller">
+                                    </a>
+                                @else
+                                    <img src="" class="img-fluid rounded d-none" alt="Vista previa Diploma">
+                                @endif
+                                <div class="d-flex align-items-center justify-content-between mt-2">
+                                    <span class="file-name text-truncate fw-bold">{{ $postulante->path_diploma ? basename($postulante->path_diploma) : '' }}</span>
+                                    <button type="button" class="btn btn-sm btn-outline-danger btn-remove-doc" data-target="path_diploma">
+                                        <i class="fas fa-trash-alt mr-1"></i> Eliminar
+                                    </button>
+                                </div>
                             </div>
                             <small class="text-muted d-block mt-1">
                                 @if($postulante->path_diploma) <span class="text-success"><i class="fas fa-check-circle"></i> Imagen cargada. Selecciona otra solo para reemplazarla.</span> @else Sin imagen previa @endif · JPG o PNG, máximo 350 KB comprimida

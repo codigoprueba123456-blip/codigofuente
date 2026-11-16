@@ -2,33 +2,32 @@
 
 namespace Tests\Feature;
 
-use App\Http\Controllers\Requests\Postulantes\PostulanteValidator;
 use App\Models\Carrera;
 use App\Models\GestionAcademica;
 use App\Models\Instituto;
 use App\Models\Persona;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
-use Illuminate\Http\Request;
-use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Hash;
-use Illuminate\Validation\ValidationException;
+use Tests\Support\OpensPublicPostulationWindow;
 use Tests\TestCase;
 
 class CarreraAvailabilityTest extends TestCase
 {
+    use OpensPublicPostulationWindow;
     use RefreshDatabase;
 
     public function test_disabled_career_is_hidden_from_new_admission_and_enrollment_forms(): void
     {
         $this->actingAs($this->createAdmin());
         $this->createCareers();
-        GestionAcademica::create([
+        $gestion = GestionAcademica::create([
             'gestion' => 2027,
             'periodo' => 1,
             'regimen' => 1,
             'vigente' => true,
         ]);
+        $this->openPublicPostulationWindow($gestion);
 
         $this->get(route('postulantes.registrar'))
             ->assertOk()
@@ -50,41 +49,13 @@ class CarreraAvailabilityTest extends TestCase
             'regimen' => 1,
             'vigente' => true,
         ]);
+        $this->openPublicPostulationWindow($gestion);
         $carreraDeshabilitada = Carrera::where('codigo', 'TEST-OFF')->firstOrFail();
-        $request = Request::create('/postulantes/store', 'POST', [
-            'nombre' => 'Postulante',
-            'primerapellido' => 'Prueba',
-            'ci' => '12345678',
-            'lugarexpedicion' => 'CB',
-            'fechanacimiento' => '2005-01-01',
-            'lugarnacimiento' => 'Sacaba',
-            'nacionalidad' => 'Boliviana',
-            'sexo' => 'M',
-            'direccion' => 'Calle de prueba',
-            'celular' => '70000000',
-            'email' => 'postulante@example.test',
-            'nombrecontacto' => 'Contacto',
-            'celularcontacto' => '70000001',
-            'parentescocontacto' => 'Familiar',
-            'nombrecolegio' => 'Colegio de prueba',
-            'caractercolegio' => 'Fiscal',
-            'egresocolegio' => 2024,
-            'id_carrera' => $carreraDeshabilitada->id_carrera,
-            'deposito' => 'voucher-prueba',
-        ], [], [
-            'fotografia' => UploadedFile::fake()->image('foto.jpg'),
-            'path_ci_frontal' => UploadedFile::fake()->image('ci-frontal.jpg'),
-            'path_ci_reverso' => UploadedFile::fake()->image('ci-reverso.jpg'),
-            'path_nacimiento' => UploadedFile::fake()->image('nacimiento.jpg'),
-            'path_diploma' => UploadedFile::fake()->image('diploma.jpg'),
-        ]);
 
-        try {
-            app(PostulanteValidator::class)->validarRegistro($request, $gestion, null);
-            $this->fail('A disabled career must not be accepted for a new application.');
-        } catch (ValidationException $exception) {
-            $this->assertArrayHasKey('id_carrera', $exception->errors());
-        }
+        $this->post(route('postulantes.store'), [
+            'ci' => '12345678',
+            'id_carrera' => $carreraDeshabilitada->id_carrera,
+        ])->assertSessionHasErrors('id_carrera');
     }
 
     private function createCareers(): void

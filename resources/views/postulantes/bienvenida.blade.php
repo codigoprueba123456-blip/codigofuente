@@ -191,6 +191,7 @@
                         </div>
                     </div>
                     <!-- Primary CTA Button -->
+                    @if($postulacionAbierta)
                     <div class="pt-3">
                         <a class="inline-flex items-center justify-center gap-2.5 px-6 py-3 rounded-full bg-itsa-dark hover:bg-itsa-deep text-white font-semibold text-xs sm:text-sm tracking-wide shadow-md transition-all duration-200 hover:shadow-lg active:scale-[0.99] border border-emerald-900"
                             href="{{ route('postulantes.registrar') }}">
@@ -198,6 +199,7 @@
                             <i class="fa-solid fa-arrow-right text-xs"></i>
                         </a>
                     </div>
+                    @endif
                 </div>
                 <!-- Right Column: Video Preview Card -->
                 <div class="lg:col-span-5 flex flex-col justify-start">
@@ -249,6 +251,7 @@
                 </div>
             </div>
             <!-- Search Input & Button Bar -->
+            @if($postulacionAbierta)
             <form class="mt-5" data-purpose="ci-lookup-form" action="{{ route('postulantes.bienvenida') }}" method="GET">
                 <div class="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5 max-w-3xl">
                     <div class="relative flex-1">
@@ -272,8 +275,16 @@
                     <span>Recuerda: Cada postulación tiene un único número de comprobante bancario independiente.</span>
                 </p>
             </form>
+            <p class="mt-3 text-xs text-emerald-700" role="status">
+                Período abierto hasta {{ $actividadPostulacion->fin->format('d/m/Y H:i') }}.
+            </p>
+            @else
+            <div class="mt-5 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900" role="status">
+                El período de postulación está cerrado. La búsqueda por CI y el formulario se habilitarán durante las fechas publicadas en el calendario académico.
+            </div>
+            @endif
 
-            @if(request()->filled('ci_consulta'))
+            @if($postulacionAbierta && request()->filled('ci_consulta'))
                 <div id="modalResultadosCI" class="fixed inset-0 z-50 hidden items-center justify-center bg-black/40 p-4" aria-hidden="true">
                     <div class="w-full max-w-3xl rounded-3xl bg-white shadow-2xl border border-gray-200 overflow-hidden" role="dialog" aria-modal="true" aria-labelledby="modalResultadosCILabel">
                         <div class="flex items-center justify-between bg-emerald-700 px-5 py-4">
@@ -301,7 +312,7 @@
                                             <div class="grid grid-cols-2 gap-x-3 gap-y-3 p-3 transition hover:bg-emerald-50/40 md:grid-cols-[minmax(0,1.4fr)_minmax(5rem,.7fr)_minmax(6rem,.8fr)_minmax(15rem,2fr)] md:items-center md:gap-3" role="row">
                                                 <div class="col-span-2 min-w-0 md:col-span-1" role="cell">
                                                     <span class="text-[10px] font-bold uppercase tracking-wide text-emerald-800 md:hidden">Carrera</span>
-                                                    <p class="break-words font-semibold text-gray-900">{{ $postulacion->carrera?->nombre ?? 'Carrera no registrada' }}</p>
+                                                    <p class="break-words font-semibold text-gray-900">{{ $postulacion->carrera?->nombreConResolucionMinisterial() ?? 'Carrera no registrada' }}</p>
                                                 </div>
                                                 <div role="cell">
                                                     <span class="text-[10px] font-bold uppercase tracking-wide text-emerald-800 md:hidden">Gestión</span>
@@ -373,12 +384,18 @@
                                         <i class="fa-solid fa-circle-info"></i>
                                     </div>
                                     <div>
-                                        <p class="text-[11px] font-bold uppercase tracking-[0.18em] text-amber-700">No se encontró registro</p>
-                                        <h3 class="mt-1 text-lg font-bold text-gray-900">Usted no se encuentra registrado en la presente gestión académica.</h3>
-                                        <p class="mt-1 text-sm text-gray-600">Puedes continuar con el registro o verificar el número de carnet antes de intentar nuevamente.</p>
+                                        @if ($hayHistorialAnterior)
+                                            <p class="text-[11px] font-bold uppercase tracking-[0.18em] text-amber-700">Historial anterior encontrado</p>
+                                            <h3 class="mt-1 text-lg font-bold text-gray-900">No tiene postulaciones en la gestión vigente.</h3>
+                                            <p class="mt-1 text-sm text-gray-600">Sus datos de una gestión anterior se precargarán para iniciar una nueva postulación. El historial anterior se conservará.</p>
+                                        @else
+                                            <p class="text-[11px] font-bold uppercase tracking-[0.18em] text-amber-700">No se encontró registro</p>
+                                            <h3 class="mt-1 text-lg font-bold text-gray-900">Usted no se encuentra registrado en la presente gestión académica.</h3>
+                                            <p class="mt-1 text-sm text-gray-600">Puedes continuar con el registro o verificar el número de carnet antes de intentar nuevamente.</p>
+                                        @endif
                                         <a href="{{ route('postulantes.registrar', ['ci_consulta' => request('ci_consulta')]) }}" class="mt-4 inline-flex items-center justify-center gap-2 rounded-xl bg-itsa-dark px-4 py-2.5 text-xs font-semibold text-white shadow-sm transition hover:bg-itsa-deep">
                                             <i class="fa-solid fa-user-plus text-[10px]"></i>
-                                            <span>Registrar postulante</span>
+                                            <span>{{ $hayHistorialAnterior ? 'Nueva postulación' : 'Registrar postulante' }}</span>
                                         </a>
                                     </div>
                                 </div>
@@ -398,7 +415,7 @@
         </section>
     </main>
     <!-- END: MainContentSection -->
-    @if(request()->filled('ci_consulta'))
+    @if($postulacionAbierta && request()->filled('ci_consulta'))
         <script>
             const modalResultados = document.getElementById('modalResultadosCI');
             const ciInput = document.getElementById('ci_consulta');

@@ -27,6 +27,11 @@
                         Seleccione un estudiante para revisar sus inscripciones y elegir cuál cambiar.
                     </div>
                 </div>
+                <div class="col-md-12 form-group">
+                    <div id="estado_inscripcion" class="alert alert-secondary mb-0" role="status" aria-live="polite">
+                        Seleccione la inscripción que desea cambiar.
+                    </div>
+                </div>
                 <div class="col-md-6 form-group">
                     <label for="id_inscrito_origen">Carrera que se cambiará: <span class="text-danger">*</span></label>
                     <select name="id_inscrito_origen" id="id_inscrito_origen" class="form-control" required disabled>
@@ -73,19 +78,9 @@
 
             <div class="row">
                 <div class="col-md-4 form-group">
-                    <label for="deposito">Comprobante de pago: <span class="text-danger">*</span></label>
-                    <input type="text" name="deposito" id="deposito" class="form-control" value="{{ old('deposito') }}" required maxlength="255">
-                    @error('deposito')
-                        <span class="text-danger">{{ $message }}</span>
-                    @enderror
-                </div>
-
-                <div class="col-md-4 form-group">
-                    <label for="monto">Monto del cambio (Bs.): <span class="text-danger">*</span></label>
-                    <input type="number" name="monto" id="monto" class="form-control" value="{{ old('monto') }}" min="0" max="9999999999.99" step="0.01" required>
-                    @error('monto')
-                        <span class="text-danger">{{ $message }}</span>
-                    @enderror
+                    <label for="deposito">Voucher registrado (opcional):</label>
+                    <input type="text" id="deposito" class="form-control" value="" readonly maxlength="255" placeholder="Seleccione una inscripción">
+                    <small class="form-text text-muted">Se muestra el voucher de la inscripción seleccionada, si existe. El cambio no genera un pago nuevo.</small>
                 </div>
 
             </div>
@@ -93,7 +88,7 @@
             <!-- Botones de Acción -->
             <div class="row mt-3">
                 <div class="col-md-12">
-                    <button type="submit" class="btn btn-default bg-light border">
+                    <button type="submit" id="guardar_cambio" class="btn btn-default bg-light border" disabled>
                         <i class="fas fa-save"></i> Guardar
                     </button>
                     <a href="{{ route('cambio_carrera.index') }}" class="btn btn-default bg-light border ml-2">
@@ -117,28 +112,67 @@
         const carreraDestino = document.getElementById('id_carrera');
         const sugerencias = document.getElementById('sugerencias_estudiante');
         const resumen = document.getElementById('resumen_estudiante');
+        const estadoInscripcion = document.getElementById('estado_inscripcion');
+        const deposito = document.getElementById('deposito');
+        const botonGuardar = document.getElementById('guardar_cambio');
         let espera;
+        let carrerasInscritas = new Set();
 
         function actualizarCarreraDestino() {
-            const carreraOrigen = inscripcionOrigen.selectedOptions[0]?.dataset.carrera;
             carreraDestino.querySelectorAll('option').forEach((opcion) => {
-                opcion.disabled = Boolean(carreraOrigen && opcion.value === carreraOrigen);
+                opcion.disabled = carrerasInscritas.has(opcion.value);
             });
             if (carreraDestino.selectedOptions[0]?.disabled) {
                 carreraDestino.value = '';
             }
+            actualizarEstadoInscripcion();
+        }
+
+        function actualizarEstadoInscripcion() {
+            const seleccion = inscripcionOrigen.selectedOptions[0];
+            const hayInscripcion = Boolean(inscripcionOrigen.value);
+            const tieneMaterias = hayInscripcion && seleccion.dataset.tieneMaterias === 'true';
+            deposito.value = hayInscripcion ? (seleccion.dataset.deposito || '') : '';
+            carreraDestino.disabled = !hayInscripcion || tieneMaterias;
+
+            if (!hayInscripcion) {
+                estadoInscripcion.className = 'alert alert-secondary mb-0';
+                estadoInscripcion.textContent = 'Seleccione la inscripción que desea cambiar.';
+            } else if (tieneMaterias) {
+                estadoInscripcion.className = 'alert alert-warning mb-0';
+                const candado = document.createElement('i');
+                candado.className = 'fas fa-lock mr-2';
+                candado.setAttribute('aria-hidden', 'true');
+                estadoInscripcion.replaceChildren(
+                    candado,
+                    document.createTextNode('Esta inscripción tiene materias asignadas. Retírelas antes de cambiar de carrera.')
+                );
+            } else {
+                estadoInscripcion.className = 'alert alert-success mb-0';
+                estadoInscripcion.textContent = 'Esta inscripción no tiene materias asignadas. Puede continuar con el cambio.';
+            }
+
+            const destinoSeleccionado = carreraDestino.selectedOptions[0];
+            botonGuardar.disabled = !estudianteId.value
+                || !hayInscripcion
+                || tieneMaterias
+                || !carreraDestino.value
+                || Boolean(destinoSeleccionado?.disabled);
         }
 
         inscripcionOrigen.addEventListener('change', actualizarCarreraDestino);
+        carreraDestino.addEventListener('change', actualizarEstadoInscripcion);
 
         entrada.addEventListener('input', () => {
             window.clearTimeout(espera);
             estudianteId.value = '';
+            carrerasInscritas.clear();
             inscripcionOrigen.replaceChildren(new Option('Primero seleccione un estudiante', ''));
             inscripcionOrigen.disabled = true;
-            actualizarCarreraDestino();
+            carreraDestino.value = '';
             resumen.textContent = 'Seleccione un estudiante para revisar sus inscripciones y elegir cuál cambiar.';
             sugerencias.replaceChildren();
+            actualizarCarreraDestino();
 
             const termino = entrada.value.trim();
             if (termino.length < 2) return;
@@ -181,13 +215,19 @@
                             contacto.className = 'd-block';
                             contacto.textContent = `Celular: ${estudiante.celular || 'No registrado'} · ${estudiante.email || 'Sin correo'}`;
                             resumen.append(nombre, ci, contacto);
+                            carrerasInscritas = new Set(
+                                estudiante.carreras_inscritas.map((idCarrera) => String(idCarrera))
+                            );
                             inscripcionOrigen.replaceChildren(new Option('Seleccione una inscripción', ''));
                             estudiante.inscripciones.forEach((inscripcion) => {
                                 const opcionInscripcion = new Option(
-                                    `${inscripcion.carrera} · Gestión ${inscripcion.gestion} - Periodo ${inscripcion.periodo}`,
+                                    `${inscripcion.carrera} · Gestión ${inscripcion.gestion} - Periodo ${inscripcion.periodo}${inscripcion.tiene_materias ? ' · [Bloqueada: tiene materias]' : ''}`,
                                     inscripcion.id
                                 );
                                 opcionInscripcion.dataset.carrera = inscripcion.id_carrera;
+                                opcionInscripcion.dataset.nombreCarrera = inscripcion.carrera;
+                                opcionInscripcion.dataset.tieneMaterias = String(inscripcion.tiene_materias);
+                                opcionInscripcion.dataset.deposito = inscripcion.deposito || '';
                                 inscripcionOrigen.add(opcionInscripcion);
                             });
                             inscripcionOrigen.disabled = estudiante.inscripciones.length === 0;
@@ -221,6 +261,21 @@
                 } else {
                     inscripcionOrigen.focus();
                 }
+                return;
+            }
+
+            const seleccion = inscripcionOrigen.selectedOptions[0];
+            if (seleccion.dataset.tieneMaterias === 'true') {
+                evento.preventDefault();
+                inscripcionOrigen.focus();
+                return;
+            }
+
+            const nombreEstudiante = resumen.querySelector('strong')?.textContent || entrada.value;
+            const carreraAnterior = seleccion.dataset.nombreCarrera;
+            const carreraNueva = carreraDestino.selectedOptions[0]?.textContent.trim();
+            if (!window.confirm(`¿Confirma cambiar la carrera de ${nombreEstudiante} de ${carreraAnterior} a ${carreraNueva}? No se generará un pago nuevo.`)) {
+                evento.preventDefault();
             }
         });
 

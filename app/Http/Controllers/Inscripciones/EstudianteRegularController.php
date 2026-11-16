@@ -246,6 +246,16 @@ class EstudianteRegularController extends Controller
         }
 
         DB::transaction(function () use ($validated, $gestionActual): void {
+            $persona = DB::table('personas')
+                ->where('id_persona', $validated['id_persona'])
+                ->lockForUpdate()
+                ->first();
+            if (! $persona) {
+                throw ValidationException::withMessages([
+                    'id_persona' => 'No se encontró la persona seleccionada. Vuelve a buscar al estudiante.',
+                ]);
+            }
+
             $estudiante = DB::table('estudiante')
                 ->where('id_persona', $validated['id_persona'])
                 ->lockForUpdate()

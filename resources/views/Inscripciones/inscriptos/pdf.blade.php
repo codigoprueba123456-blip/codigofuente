@@ -35,7 +35,7 @@
     </div>
 
     <div class="info-reporte">
-        <p><strong>Carrera:</strong> {{ $carreraSeleccionada->nombre ?? 'TODAS LAS CARRERAS' }}</p>
+        <p><strong>Carrera:</strong> {{ $carreraSeleccionada?->nombreConResolucionMinisterial() ?? 'TODAS LAS CARRERAS' }}</p>
         <p><strong>Gestión Académica:</strong> {{ $gestionSeleccionada ? 'Gestión '.$gestionSeleccionada->gestion.' - Periodo '.$gestionSeleccionada->periodo : 'TODAS LAS GESTIONES' }}</p>
         <p><strong>Nivel:</strong> {{ request('nivel') ? ($carreraSeleccionada ? \App\Models\Carrera::etiquetaNivel($carreraSeleccionada->regimen, request('nivel')) : 'Nivel '.request('nivel')) : 'Todos' }} |
             <strong>Turno:</strong> {{ request('turno') ?: 'Todos' }} |
