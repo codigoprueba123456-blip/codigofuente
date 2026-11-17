@@ -11,6 +11,7 @@ use App\Models\Postulante;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Hash;
 use Tests\Support\OpensPublicPostulationWindow;
@@ -119,6 +120,24 @@ class PostulanteHistoryReuseTest extends TestCase
             'resolucionministerial1' => 'R.M. N° 145/2025',
             'id_instituto' => $instituto->id_instituto,
         ]);
+        $idMateria = DB::table('materia')->insertGetId([
+            'codigo' => 'HIST-GAS-MAT',
+            'nombre' => 'Materia de Gastronomía',
+            'id_carrera' => $carreraActual->id_carrera,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+        DB::table('grupo')->insert([
+            'codigo' => 'HIST-GAS-MAT-A',
+            'capacidad' => 30,
+            'turno' => 1,
+            'abierto' => true,
+            'activo' => true,
+            'id_gestionacademica' => $gestionActual->id_gestionacademica,
+            'id_materia' => $idMateria,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
         $postulanteAnterior = Postulante::create([
             'codigo' => 'HIST-POST-001',
             'ci' => 'HIST-001',
@@ -190,6 +209,8 @@ class PostulanteHistoryReuseTest extends TestCase
             'fecha' => now()->toDateString(),
             'diplomabachiller' => 1,
             'id_carrera' => $carreraActual->id_carrera,
+            'turno' => 1,
+            'paralelo' => 'A',
             'deposito' => 'HIST-VOUCHER-2026',
             'fotografia' => UploadedFile::fake()->image('foto-nueva.jpg'),
         ])->assertRedirect();
@@ -251,6 +272,8 @@ class PostulanteHistoryReuseTest extends TestCase
             'caractercolegio' => 'Fiscal',
             'egresocolegio' => 2024,
             'id_carrera' => $carreraActual->id_carrera,
+            'turno' => 1,
+            'paralelo' => 'A',
             'deposito' => 'HIST-VOUCHER-2026',
             'diplomabachiller' => 1,
             'eliminar_foto' => 1,

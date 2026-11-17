@@ -51,11 +51,20 @@ class InscritosManagementWorkflowTest extends TestCase
         $this->actingAs($admin);
         $record = $this->createEnrollment();
         $record['carrera']->update(['regimen' => Carrera::REGIMEN_SEMESTRAL]);
+        DB::table('materia')->where('id_carrera', $record['carrera']->id_carrera)->update(['nivel' => 6]);
+        DB::table('inscrito')->where('id_inscrito', $record['inscrito']->id_inscrito)->update([
+            'turno' => 1,
+            'paralelo' => 'A',
+        ]);
 
         $this->get(route('inscriptos.edit', $record['inscrito']->id_inscrito))
             ->assertOk()
             ->assertSee('Editar ficha de inscripción')
             ->assertSee('Sexto semestre')
+            ->assertSee('name="turno"', false)
+            ->assertSee('name="paralelo"', false)
+            ->assertSee('window.turnoInscripcionInicial = 1;', false)
+            ->assertSee('window.paraleloInscripcionInicial = "A";', false)
             ->assertSee('Andrea')
             ->assertDontSee('path_ci_frontal');
 
@@ -87,6 +96,8 @@ class InscritosManagementWorkflowTest extends TestCase
             'id_carrera' => $record['carrera']->id_carrera,
             'id_gestionacademica' => $record['gestion']->id_gestionacademica,
             'nivelinicio' => '6',
+            'turno' => '1',
+            'paralelo' => 'A',
         ])->assertRedirect(route('inscriptos.index'));
 
         $this->assertDatabaseHas('personas', [
@@ -103,6 +114,8 @@ class InscritosManagementWorkflowTest extends TestCase
             'id_inscrito' => $record['inscrito']->id_inscrito,
             'deposito' => 'VOUCHER-EDITADO',
             'fecha' => '2027-01-15',
+            'turno' => 1,
+            'paralelo' => 'A',
         ]);
         $this->assertDatabaseHas('comprobante', [
             'id_comprobante' => $record['comprobante'],
@@ -120,6 +133,171 @@ class InscritosManagementWorkflowTest extends TestCase
             'monto' => 150,
             'estado' => true,
         ]);
+    }
+
+    public function test_edit_changes_course_turn_and_parallel_using_groups_for_that_course(): void
+    {
+        $this->withoutMiddleware(EnsureFunctionalityAccess::class);
+        $admin = $this->createAdmin();
+        $record = $this->createEnrollment();
+        $record['carrera']->update(['regimen' => Carrera::REGIMEN_ANUAL]);
+        DB::table('inscrito')->where('id_inscrito', $record['inscrito']->id_inscrito)->update([
+            'turno' => 1,
+            'paralelo' => 'A',
+        ]);
+
+        DB::table('materia')->insert([
+            'codigo' => 'TEST-MANAGEMENT-MAT-2A',
+            'nombre' => 'Materia de segundo año mañana',
+            'nivel' => 2,
+            'numero' => 1,
+            'activo' => true,
+            'id_carrera' => $record['carrera']->id_carrera,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+        $materiaSegundoManana = DB::table('materia')->where('codigo', 'TEST-MANAGEMENT-MAT-2A')->value('id_materia');
+        DB::table('grupo')->insert([
+            'codigo' => 'TEST-MANAGEMENT-MAT-2A-A',
+            'capacidad' => 1,
+            'turno' => 1,
+            'abierto' => true,
+            'activo' => true,
+            'id_gestionacademica' => $record['gestion']->id_gestionacademica,
+            'id_materia' => $materiaSegundoManana,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+        DB::table('materia')->insert([
+            'codigo' => 'TEST-MANAGEMENT-MAT-2B',
+            'nombre' => 'Materia de segundo año noche',
+            'nivel' => 2,
+            'numero' => 2,
+            'activo' => true,
+            'id_carrera' => $record['carrera']->id_carrera,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+        $materiaSegundoNoche = DB::table('materia')->where('codigo', 'TEST-MANAGEMENT-MAT-2B')->value('id_materia');
+        DB::table('grupo')->insert([
+            'codigo' => 'TEST-MANAGEMENT-MAT-2B-B',
+            'capacidad' => 30,
+            'turno' => 3,
+            'abierto' => true,
+            'activo' => true,
+            'id_gestionacademica' => $record['gestion']->id_gestionacademica,
+            'id_materia' => $materiaSegundoNoche,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        $editView = $this->actingAs($admin)->get(route('inscriptos.edit', $record['inscrito']->id_inscrito));
+        $editView->assertOk();
+        $opcionesSegundoAno = $editView->viewData('opcionesTurnosCarrera')
+            [$record['gestion']->id_gestionacademica]
+            [$record['carrera']->id_carrera][2];
+        $this->assertSame(1, $editView->viewData('turnoInicial'));
+        $this->assertSame('A', $editView->viewData('paraleloInicial'));
+        $this->assertSame(1, $opcionesSegundoAno[0]['turno']);
+        $this->assertSame('A', $opcionesSegundoAno[0]['paralelo']);
+        $this->assertSame(1, $opcionesSegundoAno[0]['disponibles']);
+
+        $this->actingAs($admin)
+            ->put(route('inscriptos.update', $record['inscrito']->id_inscrito), [
+                'nombre' => 'Andrea',
+                'primerapellido' => 'Quispe',
+                'ci' => 'CI-PRUEBA',
+                'diplomabachiller' => '1',
+                'traspaso_convalidacion' => '0',
+                'fecha' => '2027-01-10',
+                'becado' => '0',
+                'deposito' => 'VOUCHER-PRUEBA',
+                'id_carrera' => $record['carrera']->id_carrera,
+                'id_gestionacademica' => $record['gestion']->id_gestionacademica,
+                'nivelinicio' => '2',
+                'turno' => '1',
+                'paralelo' => 'A',
+            ])
+            ->assertRedirect(route('inscriptos.index'));
+
+        $this->assertDatabaseHas('cursa', [
+            'id_persona' => $record['persona']->id_persona,
+            'id_carrera' => $record['carrera']->id_carrera,
+            'id_gestionacademica' => $record['gestion']->id_gestionacademica,
+            'nivelinicio' => 2,
+        ]);
+
+        $this->put(route('inscriptos.update', $record['inscrito']->id_inscrito), [
+            'nombre' => 'Andrea',
+            'primerapellido' => 'Quispe',
+            'ci' => 'CI-PRUEBA',
+            'diplomabachiller' => '1',
+            'traspaso_convalidacion' => '0',
+            'fecha' => '2027-01-10',
+            'becado' => '0',
+            'deposito' => 'VOUCHER-PRUEBA',
+            'id_carrera' => $record['carrera']->id_carrera,
+            'id_gestionacademica' => $record['gestion']->id_gestionacademica,
+            'nivelinicio' => '2',
+            'turno' => '3',
+            'paralelo' => 'B',
+        ])->assertRedirect(route('inscriptos.index'));
+
+        $this->assertDatabaseHas('inscrito', [
+            'id_inscrito' => $record['inscrito']->id_inscrito,
+            'turno' => 3,
+            'paralelo' => 'B',
+        ]);
+    }
+
+    public function test_index_displays_enrollment_shift_and_parallel_when_no_groups_are_linked(): void
+    {
+        $this->withoutMiddleware(EnsureFunctionalityAccess::class);
+        $admin = $this->createAdmin();
+        $record = $this->createEnrollment();
+        DB::table('inscrito')->where('id_inscrito', $record['inscrito']->id_inscrito)->update([
+            'turno' => 2,
+            'paralelo' => 'B',
+        ]);
+
+        $this->actingAs($admin)
+            ->get(route('inscriptos.index'))
+            ->assertOk()
+            ->assertSee('Paralelo B')
+            ->assertSee('Tarde')
+            ->assertDontSee('Sin paralelo asignado')
+            ->assertDontSee('Sin turno asignado');
+    }
+
+    public function test_index_displays_saved_enrollment_turn_and_parallel_when_groups_are_linked(): void
+    {
+        $this->withoutMiddleware(EnsureFunctionalityAccess::class);
+        $admin = $this->createAdmin();
+        $record = $this->createEnrollment();
+        $materia = DB::table('materia')->where('id_carrera', $record['carrera']->id_carrera)->value('id_materia');
+        $grupo = DB::table('grupo')->where('id_materia', $materia)->first();
+        DB::table('inscrito_materia')->insert([
+            'id_inscrito' => $record['inscrito']->id_inscrito,
+            'id_materia' => $materia,
+            'id_grupo' => $grupo->id_grupo,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+        DB::table('inscrito')->where('id_inscrito', $record['inscrito']->id_inscrito)->update([
+            'turno' => 3,
+            'paralelo' => 'B',
+        ]);
+
+        $response = $this->actingAs($admin)
+            ->get(route('inscriptos.index'))
+            ->assertOk()
+            ->assertSee('Paralelo B')
+            ->assertSee('Noche');
+
+        $inscrito = $response->viewData('inscritos')->getCollection()->first();
+        $grupoMostrado = $inscrito->grupos_asignados->first();
+        $this->assertSame('B', $grupoMostrado->paralelo);
+        $this->assertSame('Noche', $grupoMostrado->turno_etiqueta);
     }
 
     public function test_disabling_preserves_history_and_allows_reusing_the_voucher_for_a_new_enrollment(): void
@@ -173,6 +351,8 @@ class InscritosManagementWorkflowTest extends TestCase
             'traspaso_convalidacion' => '0',
             'id_carrera' => $record['carrera']->id_carrera,
             'nivelinicio' => '1',
+            'turno' => '1',
+            'paralelo' => 'A',
         ])->assertSessionHasNoErrors();
 
         $this->assertSame(2, DB::table('inscrito')
@@ -205,6 +385,27 @@ class InscritosManagementWorkflowTest extends TestCase
             'codigo' => 'TEST-MANAGEMENT',
             'nombre' => 'Sistemas Informáticos',
             'id_instituto' => $instituto->id_instituto,
+        ]);
+        $idMateria = DB::table('materia')->insertGetId([
+            'codigo' => 'TEST-MANAGEMENT-MAT-1',
+            'nombre' => 'Materia de primer año',
+            'nivel' => 1,
+            'numero' => 1,
+            'activo' => true,
+            'id_carrera' => $carrera->id_carrera,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+        DB::table('grupo')->insert([
+            'codigo' => 'TEST-MANAGEMENT-MAT-1-A',
+            'capacidad' => 30,
+            'turno' => 1,
+            'abierto' => true,
+            'activo' => true,
+            'id_gestionacademica' => $gestion->id_gestionacademica,
+            'id_materia' => $idMateria,
+            'created_at' => now(),
+            'updated_at' => now(),
         ]);
         $persona = Persona::create([
             'nombre' => 'Andrea',

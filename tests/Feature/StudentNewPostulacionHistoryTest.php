@@ -74,11 +74,15 @@ class StudentNewPostulacionHistoryTest extends TestCase
             'path_diploma' => 'postulantes/diploma.jpg',
             'id_carrera' => $carrera->id_carrera,
             'id_gestionacademica' => $gestion->id_gestionacademica,
+            'turno' => 1,
+            'paralelo' => 'A',
         ]);
         $postulanteGastronomia = $postulante->replicate();
         $postulanteGastronomia->codigo = 'TEST-POST-GAS-001';
         $postulanteGastronomia->deposito = 'POST-VOUCHER-GAS-001';
         $postulanteGastronomia->id_carrera = $carreraGastronomia->id_carrera;
+        $postulanteGastronomia->turno = 3;
+        $postulanteGastronomia->paralelo = 'B';
         $postulanteGastronomia->save();
 
         $indexResponse = $this->get(route('estudiante_nuevo_postulacion.index'))
@@ -103,6 +107,12 @@ class StudentNewPostulacionHistoryTest extends TestCase
             ->assertJsonCount(2, 'postulantes')
             ->json('postulantes');
         $datosPrecargados = collect($busquedaInicial)->first();
+        $this->assertSame(1, $datosPrecargados['turno']);
+        $this->assertSame('A', $datosPrecargados['paralelo']);
+        $datosGastronomia = collect($busquedaInicial)
+            ->firstWhere('id', (string) $postulanteGastronomia->id_postulante);
+        $this->assertSame(3, $datosGastronomia['turno']);
+        $this->assertSame('B', $datosGastronomia['paralelo']);
         $this->assertSame('LP', $datosPrecargados['lugarexpedicion']);
         $this->assertSame('F', $datosPrecargados['sexo']);
         $this->assertSame('Fiscal', $datosPrecargados['caractercolegio']);
@@ -189,6 +199,8 @@ class StudentNewPostulacionHistoryTest extends TestCase
         $this->assertDatabaseHas('inscrito', [
             'id_postulante_origen' => $postulante->id_postulante,
             'id_persona' => Persona::where('ci', 'POSTULANTE-001')->value('id_persona'),
+            'turno' => 1,
+            'paralelo' => 'A',
         ]);
         $this->assertDatabaseHas('cursa', [
             'id_persona' => Persona::where('ci', 'POSTULANTE-001')->value('id_persona'),
@@ -232,6 +244,8 @@ class StudentNewPostulacionHistoryTest extends TestCase
                 'nueva' => 0,
                 'id_carrera' => $carrera->id_carrera,
                 'nivelinicio' => 1,
+                'turno' => 1,
+                'paralelo' => 'A',
                 'deposito' => 'REGULAR-DUPLICATE-VOUCHER',
             ]],
         ])->assertSessionHasErrors('inscripciones.0.id_carrera');
@@ -274,6 +288,8 @@ class StudentNewPostulacionHistoryTest extends TestCase
         $this->assertDatabaseHas('inscrito', [
             'id_postulante_origen' => $postulanteGastronomia->id_postulante,
             'id_persona' => $idPersona,
+            'turno' => 3,
+            'paralelo' => 'B',
         ]);
         $this->assertDatabaseHas('cursa', [
             'id_persona' => $idPersona,

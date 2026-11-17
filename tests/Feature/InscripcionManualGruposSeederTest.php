@@ -257,6 +257,11 @@ class InscripcionManualGruposSeederTest extends TestCase
             'id_materia' => $materia->id_materia,
             'id_grupo' => $grupoB->id_grupo,
         ]);
+        $this->assertDatabaseHas('inscrito', [
+            'id_inscrito' => $inscritoId,
+            'turno' => 3,
+            'paralelo' => 'B',
+        ]);
 
         $materiaNueva = Materia::create([
             'codigo' => 'SIS-202',
@@ -303,7 +308,7 @@ class InscripcionManualGruposSeederTest extends TestCase
         ]));
         $ofertaBloqueada
             ->assertOk()
-            ->assertSee('Este estudiante ya tiene materias asignadas en turno Noche y paralelo B.')
+            ->assertSee('Esta inscripción está registrada en turno Noche y paralelo B.')
             ->assertSee('B [Noche]')
             ->assertDontSee('B [Mañana]');
         preg_match('/<input[^>]*id="seleccionarTodo"[^>]*>/', $ofertaBloqueada->getContent(), $casillaBloqueada);

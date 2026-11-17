@@ -278,6 +278,15 @@
                     ? `${postulacion.carreraNombre} · R.M. ${resoluciones.join(' / ')}`
                     : postulacion.carreraNombre;
 
+                const turnoNombre = {
+                    1: 'Mañana',
+                    2: 'Tarde',
+                    3: 'Noche'
+                }[Number(postulacion.turno)] || 'No registrado';
+                const turnoParalelo = document.createElement('small');
+                turnoParalelo.className = 'd-block text-muted mb-2';
+                turnoParalelo.textContent = `Turno: ${turnoNombre} · Paralelo: ${postulacion.paralelo || 'No registrado'}`;
+
                 const hiddenId = document.createElement('input');
                 hiddenId.type = 'hidden';
                 hiddenId.name = `postulaciones[${index}][id_postulante]`;
@@ -331,7 +340,7 @@
                 voucher.disabled = true;
                 voucher.maxLength = 255;
 
-                row.append(title, hiddenId, decisionLabel, decisiones, voucherLabel, voucher);
+                row.append(title, turnoParalelo, hiddenId, decisionLabel, decisiones, voucherLabel, voucher);
                 postulacionesContainer.appendChild(row);
             });
         }

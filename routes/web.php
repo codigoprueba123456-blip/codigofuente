@@ -180,6 +180,7 @@ Route::post('/inscripciones/estudiante_nuevo_postulacion', [EstudianteNuevoPostu
 // Ruta para estudiante regular
 Route::get('/inscripciones/estudiante_regular', [EstudianteRegularController::class, 'index'])->name('estudiante_regular.index')->middleware(['auth', 'resource.access']);
 Route::get('/inscripciones/estudiante_regular/buscar', [EstudianteRegularController::class, 'buscar'])->name('estudiante_regular.buscar')->middleware(['auth', 'resource.access']);
+Route::get('/inscripciones/estudiante_regular/turnos', [EstudianteRegularController::class, 'opcionesTurnos'])->name('estudiante_regular.turnos')->middleware(['auth', 'resource.access']);
 Route::post('/inscripciones/estudiante_regular', [EstudianteRegularController::class, 'store'])->name('estudiante_regular.store')->middleware(['auth', 'resource.access']);
 
 // Ruta para inscritos
@@ -207,6 +208,7 @@ Route::middleware(['auth', 'resource.access'])->prefix('inscripciones/inscripcio
     Route::get('/{inscrito}/oferta', [InscripcionManualController::class, 'oferta'])->name('oferta');
     Route::get('/{inscrito}/materias', [InscripcionManualController::class, 'materias'])->name('materias');
     Route::put('/{inscrito}/grupos', [InscripcionManualController::class, 'guardar'])->name('guardar');
+    Route::put('/{inscrito}/turno', [InscripcionManualController::class, 'cambiarTurno'])->name('cambiar-turno');
     Route::delete('/{inscrito}/materias/{materia}', [InscripcionManualController::class, 'retirarMateria'])->name('retirar');
 });
 Route::get('/pagos/pago', [PagosController::class, 'index'])

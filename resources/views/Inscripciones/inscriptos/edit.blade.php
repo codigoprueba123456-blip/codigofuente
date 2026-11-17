@@ -144,6 +144,25 @@
                         </select>
                     </div>
                     <div class="col-md-4 form-group">
+                        <label for="turno">Turno *</label>
+                        <select id="turno" name="turno" class="form-control @error('turno') is-invalid @enderror" required disabled>
+                            <option value="">Seleccione primero carrera y nivel</option>
+                        </select>
+                        @error('turno')
+                            <div class="invalid-feedback">{{ $message }}</div>
+                        @enderror
+                    </div>
+                    <div class="col-md-4 form-group">
+                        <label for="paralelo">Paralelo *</label>
+                        <select id="paralelo" name="paralelo" class="form-control @error('paralelo') is-invalid @enderror" required disabled>
+                            <option value="">Seleccione primero un turno</option>
+                        </select>
+                        <small id="cupos_disponibles_edicion" class="form-text text-muted" aria-live="polite"></small>
+                        @error('paralelo')
+                            <div class="invalid-feedback">{{ $message }}</div>
+                        @enderror
+                    </div>
+                    <div class="col-md-4 form-group">
                         <label for="fecha">Fecha de inscripción *</label>
                         <input type="date" id="fecha" name="fecha" class="form-control" value="{{ old('fecha', $inscripcion->fecha ? \Illuminate\Support\Carbon::parse($inscripcion->fecha)->format('Y-m-d') : '') }}" required>
                     </div>
@@ -183,4 +202,13 @@
         </div>
     </form>
     @include('partials.niveles-por-regimen')
+
+    @push('js')
+    <script>
+        window.opcionesTurnosInscripcionEditar = @json($opcionesTurnosCarrera);
+        window.turnoInscripcionInicial = @json(old('turno', $turnoInicial));
+        window.paraleloInscripcionInicial = @json(old('paralelo', $paraleloInicial));
+    </script>
+    <script src="{{ asset('js/editar-inscripcion-turnos.js') }}"></script>
+    @endpush
 @stop

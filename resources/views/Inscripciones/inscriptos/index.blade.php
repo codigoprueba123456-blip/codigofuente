@@ -236,14 +236,22 @@
                                 <td>{{ $inscrito->curso }}</td>
                                 <td>
                                     @forelse ($inscrito->grupos_asignados as $grupo)
-                                        <span class="badge badge-info">Paralelo {{ $grupo->paralelo }}</span>
+                                        @if ($grupo->paralelo)
+                                            <span class="badge badge-info">Paralelo {{ $grupo->paralelo }}</span>
+                                        @else
+                                            <span class="text-muted">Sin paralelo asignado</span>
+                                        @endif
                                     @empty
                                         <span class="text-muted">Sin paralelo asignado</span>
                                     @endforelse
                                 </td>
                                 <td>
                                     @forelse ($inscrito->grupos_asignados as $grupo)
-                                        <span class="badge badge-secondary">{{ $grupo->turno_etiqueta }}</span>
+                                        @if ($grupo->turno_etiqueta)
+                                            <span class="badge badge-secondary">{{ $grupo->turno_etiqueta }}</span>
+                                        @else
+                                            <span class="text-muted">Sin turno asignado</span>
+                                        @endif
                                     @empty
                                         <span class="text-muted">Sin turno asignado</span>
                                     @endforelse

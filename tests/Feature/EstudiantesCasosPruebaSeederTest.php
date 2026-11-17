@@ -269,9 +269,21 @@ class EstudiantesCasosPruebaSeederTest extends TestCase
     public function test_student_cannot_reapply_to_a_career_already_enrolled_but_unenrolled_historical_applicant_can(): void
     {
         $this->seed(EstudiantesCasosPruebaSeeder::class);
-        $this->openPublicPostulationWindow(GestionAcademica::where('gestion', 2026)->firstOrFail());
-
         $gestionActual = GestionAcademica::where('gestion', 2026)->firstOrFail();
+        $this->openPublicPostulationWindow($gestionActual);
+        foreach (Carrera::whereIn('codigo', ['SIS-2023', 'ADM-2023', 'SEJ-2023'])->get() as $carrera) {
+            $materia = Materia::where('id_carrera', $carrera->id_carrera)->firstOrFail();
+            Grupo::create([
+                'codigo' => $materia->codigo.'-A',
+                'capacidad' => 30,
+                'turno' => 3,
+                'abierto' => true,
+                'activo' => true,
+                'id_gestionacademica' => $gestionActual->id_gestionacademica,
+                'id_materia' => $materia->id_materia,
+            ]);
+        }
+
         $carreraSistemas = Carrera::where('codigo', 'SIS-2023')->firstOrFail();
 
         $formularioPublico = $this->get(route('postulantes.registrar', ['ci_consulta' => 'DEMO-EST-002']))
@@ -325,6 +337,8 @@ class EstudiantesCasosPruebaSeederTest extends TestCase
             'fecha' => now()->toDateString(),
             'diplomabachiller' => true,
             'id_carrera' => $carreraSistemas->id_carrera,
+            'turno' => 3,
+            'paralelo' => 'A',
             'deposito' => 'DEMO-REAPPLY-2026-009',
         ]);
         $postulacionNueva = Postulante::where('ci', 'DEMO-POST-009')

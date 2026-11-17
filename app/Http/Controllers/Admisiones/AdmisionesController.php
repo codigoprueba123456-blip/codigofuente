@@ -11,6 +11,12 @@ use Illuminate\Support\Facades\DB;
 
 class AdmisionesController extends Controller
 {
+    private const TURNOS = [
+        1 => 'Mañana',
+        2 => 'Tarde',
+        3 => 'Noche',
+    ];
+
     public function excel(Request $request)
     {
         return redirect()->route('admisiones.postulantes.index', array_merge(
@@ -34,6 +40,8 @@ class AdmisionesController extends Controller
             'formato' => ['nullable', 'in:excel,pdf'],
             'estado' => ['nullable', 'in:pendiente,inscrito'],
             'categoria' => ['nullable', 'in:multiples,unica'],
+            'turno' => ['nullable', 'integer', 'in:1,2,3'],
+            'paralelo' => ['nullable', 'string', 'max:20'],
         ]);
         $query = Postulante::with(['carrera', 'gestionAcademica'])
             ->withExists('inscripcionOrigen');
@@ -61,6 +69,14 @@ class AdmisionesController extends Controller
 
         if ($request->filled('id_gestionacademica')) {
             $query->where('id_gestionacademica', $request->id_gestionacademica);
+        }
+
+        if ($request->filled('turno')) {
+            $query->where('turno', $export['turno']);
+        }
+
+        if ($request->filled('paralelo')) {
+            $query->whereRaw('UPPER(TRIM(paralelo)) = ?', [mb_strtoupper(trim($export['paralelo']))]);
         }
 
         if ($request->input('estado') === 'inscrito') {
@@ -112,7 +128,14 @@ class AdmisionesController extends Controller
 
             // Retornar vista PDF
             if ($formato === 'pdf') {
-                return view('admisiones.postulantes.pdf', compact('postulantesData', 'carreraSeleccionada', 'gestionSeleccionada'));
+                $turnos = self::TURNOS;
+
+                return view('admisiones.postulantes.pdf', compact(
+                    'postulantesData',
+                    'carreraSeleccionada',
+                    'gestionSeleccionada',
+                    'turnos'
+                ));
             }
 
             // Retornar vista Excel descargable
@@ -128,12 +151,14 @@ class AdmisionesController extends Controller
                             $postulante->carrera?->nombreConResolucionMinisterial(),
                             $postulante->gestionAcademica?->gestion,
                             $postulante->gestionAcademica?->periodo,
+                            self::TURNOS[(int) $postulante->turno] ?? 'Sin turno',
+                            $postulante->paralelo ?? 'Sin paralelo',
                             $postulante->inscripcion_origen_exists ? 'Inscrito como estudiante' : 'Pendiente de inscripción',
                         ])->all();
 
                 return $this->exportarExcel(
                     $nombreArchivo.'_'.now()->format('Y-m-d_H-i').'.xlsx',
-                    ['Código', 'Fecha', 'Apellidos', 'Nombres', 'CI', 'Celular', 'Carrera', 'Gestión', 'Periodo', 'Estado'],
+                    ['Código', 'Fecha', 'Apellidos', 'Nombres', 'CI', 'Celular', 'Carrera', 'Gestión', 'Periodo', 'Turno', 'Paralelo', 'Estado'],
                     $rows
                 );
             }
@@ -167,13 +192,27 @@ class AdmisionesController extends Controller
             ->paginate($perPage)
             ->appends($request->all());
 
+        $paralelos = Postulante::query()
+            ->whereNotNull('paralelo')
+            ->where('paralelo', '!=', '')
+            ->distinct()
+            ->orderBy('paralelo')
+            ->pluck('paralelo')
+            ->map(fn ($paralelo): string => mb_strtoupper(trim((string) $paralelo)))
+            ->filter()
+            ->unique()
+            ->sort()
+            ->values();
         $carreras = Carrera::orderBy('nombre')->get();
         $gestiones = GestionAcademica::orderByDesc('gestion')->orderByDesc('periodo')->get();
+        $turnos = self::TURNOS;
 
         return view('admisiones.postulantes.index', compact(
             'postulantes',
             'carreras',
             'gestiones',
+            'turnos',
+            'paralelos',
             'totalPostulantes',
             'conCelular',
             'conDocumentos',

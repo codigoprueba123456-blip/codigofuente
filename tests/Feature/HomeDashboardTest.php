@@ -34,8 +34,8 @@ class HomeDashboardTest extends TestCase
             ->assertDontSee('Estudiante Activo');
 
         $this->assertSame(4, $response->viewData('estadisticas')['inscripciones']);
-        $this->assertSame(2, $response->viewData('estadisticas')['carreras']);
-        $this->assertSame(4, $response->viewData('estadisticas')['combinaciones']);
+        $this->assertSame(3, $response->viewData('estadisticas')['carreras']);
+        $this->assertSame(5, $response->viewData('estadisticas')['combinaciones']);
 
         $detalles = $response->viewData('filasTabla')->where('tipo_fila', 'detalle');
         $nombreSistemas = 'Sistemas Demo · R.M. 210/2026';
@@ -56,6 +56,17 @@ class HomeDashboardTest extends TestCase
         $this->assertSame(1, $turnoTarde->inscritos_v);
         $this->assertSame(1, $turnoTarde->inscritos_t);
 
+        $administracion = $detalles->first(fn (object $fila): bool => str_starts_with($fila->carrera, 'Administración Demo'));
+        $this->assertSame('B', $administracion->paralelo);
+        $this->assertSame('Noche', $administracion->turno);
+        $this->assertSame(1, $administracion->inscritos_t);
+
+        $mecanica = $detalles->first(fn (object $fila): bool => str_starts_with($fila->carrera, 'Mecánica Demo'));
+        $this->assertNotNull($mecanica);
+        $this->assertSame(0, $mecanica->inscritos_v);
+        $this->assertSame(0, $mecanica->inscritos_m);
+        $this->assertSame(0, $mecanica->inscritos_t);
+
         $filtered = $this->actingAs($fixture['admin'])->get(route('reportes.dashboard', [
             'id_gestionacademica' => $fixture['gestionActual']->id_gestionacademica,
             'id_carrera' => $fixture['sistemas']->id_carrera,
@@ -67,13 +78,14 @@ class HomeDashboardTest extends TestCase
         );
     }
 
-    public function test_excel_export_includes_a_career_table_for_each_management(): void
+    public function test_excel_export_matches_the_selected_management_and_career(): void
     {
         $fixture = $this->crearDatos();
 
         $response = $this->actingAs($fixture['admin'])->get(route('reportes.dashboard', [
             'formato' => 'excel',
-            'id_carrera' => 99999,
+            'id_gestionacademica' => $fixture['gestionActual']->id_gestionacademica,
+            'id_carrera' => $fixture['sistemas']->id_carrera,
         ]));
 
         $response->assertOk()->assertDownload('reporte-estadistico-academico.xlsx');
@@ -86,8 +98,8 @@ class HomeDashboardTest extends TestCase
 
         try {
             $workbook = IOFactory::load($tempPath);
-            $this->assertSame(['G2025-P1', 'G2026-P1'], $workbook->getSheetNames());
-            $sheet = $workbook->getSheetByName('G2026-P1');
+            $this->assertSame(['G2026-P1'], $workbook->getSheetNames());
+            $sheet = $workbook->getActiveSheet();
             $this->assertSame('CARRERA', $sheet->getCell('A4')->getValue());
             $this->assertSame('INSCRITOS', $sheet->getCell('E4')->getValue());
             $this->assertSame('APROBADOS', $sheet->getCell('H4')->getValue());
@@ -108,6 +120,7 @@ class HomeDashboardTest extends TestCase
             $this->assertSame(0, $sheet->getCell('F'.$filaNoche)->getValue());
             $this->assertSame(1, $sheet->getCell('G'.$filaNoche)->getValue());
             $this->assertNull($sheet->getCell('H'.$filaNoche)->getValue());
+            $this->assertSame(10, $sheet->getHighestRow());
             $this->assertSame('TOTAL INSCRITOS', $sheet->getCell('A'.$sheet->getHighestRow())->getValue());
             $workbook->disconnectWorksheets();
         } finally {
@@ -176,6 +189,13 @@ class HomeDashboardTest extends TestCase
             'regimen' => Carrera::REGIMEN_ANUAL,
             'id_instituto' => $instituto->id_instituto,
         ]);
+        $mecanica = Carrera::create([
+            'codigo' => 'MEC-DASH',
+            'nombre' => 'Mecánica Demo',
+            'activo' => true,
+            'regimen' => Carrera::REGIMEN_ANUAL,
+            'id_instituto' => $instituto->id_instituto,
+        ]);
         $gestionAnterior = $this->crearGestion(2025, false);
         $gestionActual = $this->crearGestion(2026, true);
 
@@ -190,7 +210,11 @@ class HomeDashboardTest extends TestCase
         $estudianteParaleloB = $this->crearPersona('DASH-CI-005', 'Estudiante Paralelo B', 'Prueba', 'estudiante', 'M');
         $estudianteHistorico = $this->crearPersona('DASH-CI-002', 'Estudiante Histórico', 'Prueba', 'estudiante', 'F');
         $inscritoActual = $this->crearInscripcion($estudianteActual, $sistemas, $gestionActual, true);
-        $this->crearInscripcion($estudianteActual, $administracion, $gestionActual, true);
+        $inscritoAdministracion = $this->crearInscripcion($estudianteActual, $administracion, $gestionActual, true);
+        DB::table('inscrito')->where('id_inscrito', $inscritoAdministracion)->update([
+            'turno' => 3,
+            'paralelo' => 'B',
+        ]);
         $inscritoFemenina = $this->crearInscripcion($estudianteFemenina, $sistemas, $gestionActual, true);
         $inscritoParaleloB = $this->crearInscripcion($estudianteParaleloB, $sistemas, $gestionActual, true);
         $this->crearInscripcion($estudianteHistorico, $administracion, $gestionAnterior, true);
@@ -215,6 +239,7 @@ class HomeDashboardTest extends TestCase
         $materiaNoche = $this->crearMateriaGrupo($sistemas, $gestionActual, 'NOCHE', 3);
         $materiaManana = $this->crearMateriaGrupo($sistemas, $gestionActual, 'MANANA', 1);
         $materiaTarde = $this->crearMateriaGrupo($sistemas, $gestionActual, 'TARDE', 2, 'B');
+        $this->crearMateriaGrupo($mecanica, $gestionActual, 'MEC-MANANA', 1);
         DB::table('inscrito_materia')->insert([
             [
                 'id_inscrito' => $inscritoActual,

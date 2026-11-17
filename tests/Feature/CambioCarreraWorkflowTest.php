@@ -75,6 +75,9 @@ class CambioCarreraWorkflowTest extends TestCase
             ->assertSee('Carrera que se cambiará')
             ->assertSee('Nueva carrera')
             ->assertSee('Voucher registrado (opcional)')
+            ->assertSee('sweetalert2.all.min.js')
+            ->assertSee('Confirmar cambio de carrera')
+            ->assertDontSee('window.confirm', false)
             ->assertDontSee('Monto del cambio');
     }
 

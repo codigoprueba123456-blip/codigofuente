@@ -29,7 +29,10 @@
                             <option value="">Seleccione un estudiante primero</option>
                         @endunless
                         @foreach ($inscripcionesPersona as $opcion)
-                            <option value="{{ $opcion->id_inscrito }}" @selected((int) $opcion->id_inscrito === (int) ($inscripcionSeleccionada->id_inscrito ?? 0))>{{ $opcion->carrera }}</option>
+                            @php
+                                $turnoEtiqueta = [1 => 'Mañana', 2 => 'Tarde', 3 => 'Noche'][$opcion->turno] ?? 'pendiente';
+                            @endphp
+                            <option value="{{ $opcion->id_inscrito }}" @selected((int) $opcion->id_inscrito === (int) ($inscripcionSeleccionada->id_inscrito ?? 0))>{{ $opcion->carrera }} · {{ $turnoEtiqueta }} · Paralelo {{ $opcion->paralelo ?: 'pendiente' }}</option>
                         @endforeach
                     </select>
                 </div>
@@ -38,7 +41,13 @@
             <div id="mensajeBusqueda" class="small text-muted mb-3"></div>
 
             @if ($inscripcionSeleccionada)
-                <p class="text-muted mb-2">{{ trim($inscripcionSeleccionada->nombre.' '.$inscripcionSeleccionada->primerapellido.' '.$inscripcionSeleccionada->segundoapellido) }} · CI {{ $inscripcionSeleccionada->ci }} · {{ \App\Models\Carrera::etiquetaNivel($inscripcionSeleccionada->regimen, $inscripcionSeleccionada->nivelinicio) }}</p>
+                <p class="text-muted mb-2">
+                    {{ trim($inscripcionSeleccionada->nombre.' '.$inscripcionSeleccionada->primerapellido.' '.$inscripcionSeleccionada->segundoapellido) }}
+                    · CI {{ $inscripcionSeleccionada->ci }}
+                    · {{ \App\Models\Carrera::etiquetaNivel($inscripcionSeleccionada->regimen, $inscripcionSeleccionada->nivelinicio) }}
+                    · Turno {{ $inscripcionSeleccionada->turno ? ([1 => 'Mañana', 2 => 'Tarde', 3 => 'Noche'][$inscripcionSeleccionada->turno] ?? 'pendiente') : 'pendiente' }}
+                    · Paralelo {{ $inscripcionSeleccionada->paralelo ?: 'pendiente' }}
+                </p>
                 <div class="alert alert-info py-2">
                     Carrera seleccionada: <strong>{{ $inscripcionSeleccionada->carrera }}</strong>
                     · Gestión {{ $gestionActual->gestion }} / Periodo {{ $gestionActual->periodo }}
@@ -136,7 +145,11 @@
                 const opcion = document.createElement('option');
                 opcion.value = inscripcion.id_inscrito;
                 const etiquetaNivel = etiquetasNivelesPorRegimen[inscripcion.regimen]?.[inscripcion.nivel] || `Nivel ${inscripcion.nivel}`;
-                opcion.textContent = `${inscripcion.carrera} · ${etiquetaNivel}`;
+                const etiquetaTurno = { 1: 'Mañana', 2: 'Tarde', 3: 'Noche' }[inscripcion.turno];
+                const etiquetaGrupo = etiquetaTurno && inscripcion.paralelo
+                    ? ` · ${etiquetaTurno} · Paralelo ${inscripcion.paralelo}`
+                    : ' · Turno/paralelo pendiente';
+                opcion.textContent = `${inscripcion.carrera} · ${etiquetaNivel}${etiquetaGrupo}`;
                 selector.append(opcion);
             });
             entrada.value = `${estudiante.nombre} · CI ${estudiante.ci || 'sin CI'}`;

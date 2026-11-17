@@ -35,6 +35,10 @@
                 <p><strong>C.I.:</strong> {{ $postulante->ci }} · <strong>Código:</strong> {{ $postulante->codigo ?? 'Pendiente' }}</p>
                 <p><strong>Carrera:</strong> {{ $postulante->carrera?->nombreConResolucionMinisterial() ?? 'No registrada' }}</p>
                 <p><strong>Gestión:</strong> {{ $postulante->gestionAcademica?->gestion ?? 'No registrada' }} · Periodo {{ $postulante->gestionAcademica?->periodo ?? '-' }}</p>
+                <p><strong>Turno:</strong>
+                    {{ match ((int) $postulante->turno) { 1 => 'Mañana', 2 => 'Tarde', 3 => 'Noche', default => 'No registrado' } }}
+                    · <strong>Paralelo:</strong> {{ $postulante->paralelo ?? 'No registrado' }}
+                </p>
             </div>
         </section>
 

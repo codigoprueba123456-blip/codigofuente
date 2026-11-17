@@ -12,7 +12,7 @@
         
         @include('partials.sweetalert-messages')
 
-        <form action="{{ route('estudiante_nuevo.store') }}" method="POST" enctype="multipart/form-data" id="formEstudianteNuevo" data-student-lookup-url="{{ route('estudiante_nuevo.buscar') }}" novalidate>
+        <form action="{{ route('estudiante_nuevo.store') }}" method="POST" enctype="multipart/form-data" id="formEstudianteNuevo" data-student-lookup-url="{{ route('estudiante_nuevo.buscar') }}" data-turnos-config='@json($opcionesTurnosCarrera)' novalidate>
             @csrf
             
             {{-- SECCIÓN I: DATOS PERSONALES --}}
@@ -256,16 +256,20 @@
                         <div class="col-md-4 mb-3">
                             <label for="id_gestionacademica" class="font-weight-bold">Gestión académica: <span class="text-danger">*</span></label>
                             <select name="id_gestionacademica" id="id_gestionacademica" class="form-control custom-select @error('id_gestionacademica') is-invalid @enderror" required>
-                                <option value="">-- Seleccionar --</option>
-                                @foreach($gestiones as $g)
-                                    <option value="{{ $g->id_gestionacademica }}" @selected(old('id_gestionacademica') == $g->id_gestionacademica)>
-                                        {{ $g->etiqueta }}
+                                @forelse($gestiones as $g)
+                                    <option value="{{ $g->id_gestionacademica }}" @selected(old('id_gestionacademica', $gestionVigente->id_gestionacademica) == $g->id_gestionacademica)>
+                                        {{ $g->etiqueta }} · Vigente
                                     </option>
-                                @endforeach
+                                @empty
+                                    <option value="">No hay una gestión vigente y activa</option>
+                                @endforelse
                             </select>
                             @error('id_gestionacademica')
                                 <div class="invalid-feedback">{{ $message }}</div>
                             @enderror
+                            @unless($gestionVigente)
+                                <small class="form-text text-danger">No se puede registrar una inscripción sin una gestión vigente.</small>
+                            @endunless
                         </div>
 
                         <div class="col-md-4 mb-3">
@@ -279,7 +283,7 @@
                             @enderror
                         </div>
 
-                        <div class="col-md-6 mb-3">
+                        <div class="col-md-4 mb-3">
                             <label for="id_carrera" class="font-weight-bold">Carrera: <span class="text-danger">*</span></label>
                             <select name="id_carrera" id="id_carrera" class="form-control custom-select @error('id_carrera') is-invalid @enderror" required>
                                 <option value="">-- Seleccionar Carrera --</option>
@@ -295,17 +299,41 @@
                                     </option>
                                 @endforeach
                             </select>
+                            @if($gestionVigente && $carreras->isEmpty())
+                                <small class="form-text text-danger">No hay carreras con grupos abiertos y cupos disponibles en la gestión vigente.</small>
+                            @endif
                             @error('id_carrera')
                                 <div class="invalid-feedback">{{ $message }}</div>
                             @enderror
                         </div>
 
-                        <div class="col-md-6 mb-3">
+                        <div class="col-md-4 mb-3">
                             <label for="nivelinicio" class="font-weight-bold">Nivel que cursará: <span class="text-danger">*</span></label>
-                            <select name="nivelinicio" id="nivelinicio" class="form-control custom-select @error('nivelinicio') is-invalid @enderror" data-nivel-carrera="id_carrera" data-initial-value="{{ old('nivelinicio', 1) }}" data-placeholder="Seleccione un nivel" required>
+                            <select name="nivelinicio" id="nivelinicio" class="form-control custom-select @error('nivelinicio') is-invalid @enderror" data-nivel-carrera="id_carrera" data-require-carrera="true" data-initial-value="{{ old('nivelinicio') }}" data-placeholder="Seleccione un nivel" required disabled>
                                 <option value="">Seleccione un nivel</option>
                             </select>
                             @error('nivelinicio')
+                                <div class="invalid-feedback">{{ $message }}</div>
+                            @enderror
+                        </div>
+
+                        <div class="col-md-4 mb-3">
+                            <label for="turno" class="font-weight-bold">Turno: <span class="text-danger">*</span></label>
+                            <select name="turno" id="turno" class="form-control custom-select @error('turno') is-invalid @enderror" required disabled>
+                                <option value="">Primero selecciona una carrera y un nivel</option>
+                            </select>
+                            @error('turno')
+                                <div class="invalid-feedback">{{ $message }}</div>
+                            @enderror
+                        </div>
+
+                        <div class="col-md-4 mb-3">
+                            <label for="paralelo" class="font-weight-bold">Paralelo: <span class="text-danger">*</span></label>
+                            <select name="paralelo" id="paralelo" class="form-control custom-select @error('paralelo') is-invalid @enderror" required disabled>
+                                <option value="">Primero selecciona un turno</option>
+                            </select>
+                            <small id="cupos_disponibles" class="form-text text-muted" aria-live="polite"></small>
+                            @error('paralelo')
                                 <div class="invalid-feedback">{{ $message }}</div>
                             @enderror
                         </div>
@@ -362,7 +390,7 @@
                 </div>
 
                 <div class="card-footer bg-light">
-                    <button type="submit" id="btnGuardar" class="btn btn-primary font-weight-bold mr-2 shadow-sm">
+                    <button type="submit" id="btnGuardar" class="btn btn-primary font-weight-bold mr-2 shadow-sm" @disabled(! $gestionVigente || $carreras->isEmpty())>
                         <i class="fas fa-save mr-1"></i> Guardar
                     </button>
                     <a href="{{ route('estudiante_nuevo.index') }}" class="btn btn-secondary font-weight-bold shadow-sm">
@@ -377,8 +405,13 @@
 </div>
 @stop
 
+@include('partials.niveles-por-regimen')
+
 @push('js')
+<script>
+    window.opcionesTurnosEstudianteNuevo = @json($opcionesTurnosCarrera);
+    window.turnoEstudianteNuevoInicial = @json(old('turno'));
+    window.paraleloEstudianteNuevoInicial = @json(old('paralelo'));
+</script>
 <script src="{{ asset('js/estudiante-nuevo-form.js') }}"></script>
 @endpush
-
-@include('partials.niveles-por-regimen')

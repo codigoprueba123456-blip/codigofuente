@@ -162,6 +162,8 @@
     const botonGuardar = document.getElementById('guardarInscripcion');
     const inscripcionesAnteriores = @json(old('inscripciones', []));
     const etiquetasNivelesPorRegimen = @json(\App\Models\Carrera::etiquetasNivelesPorRegimen());
+    const urlOpcionesTurnos = @json(route('estudiante_regular.turnos'));
+    const nombresTurno = { 1: 'Mañana', 2: 'Tarde', 3: 'Noche' };
     let temporizadorBusqueda;
     let solicitudBusqueda = 0;
     let indiceInscripcion = 0;
@@ -185,6 +187,10 @@
         indiceInscripcion = 0;
         const idsCarreraAgregadas = new Set(estudiante.carreras.map(carrera => Number(carrera.id)));
         const carrerasDisponibles = estudiante.carreras_disponibles || [];
+        const preferenciaTurnoEstudiante = {
+            turno: estudiante.turno_sugerido,
+            paralelo: estudiante.paralelo_sugerido,
+        };
         let selectCarrera;
         let botonAgregar;
 
@@ -211,6 +217,9 @@
                             selectCarrera.append(new Option(nombreConResolucion(carrera), carrera.id));
                         }
                         if (botonAgregar) botonAgregar.disabled = false;
+                    }, {
+                        turno: inscripcion.turno || preferenciaTurnoEstudiante.turno,
+                        paralelo: inscripcion.paralelo || preferenciaTurnoEstudiante.paralelo,
                     });
                     idsCarreraAgregadas.add(Number(carrera.id));
                 }
@@ -262,7 +271,7 @@
                         selectCarrera.append(new Option(nombreConResolucion(carrera), carrera.id));
                     }
                     if (botonAgregar) botonAgregar.disabled = false;
-                });
+                }, preferenciaTurnoEstudiante);
                 idsCarreraAgregadas.add(Number(carrera.id));
                 selectCarrera.querySelector(`option[value="${carrera.id}"]`)?.remove();
                 selectCarrera.value = '';
@@ -292,10 +301,17 @@
         actualizarBotonGuardar();
     }
 
-    function agregarFilaCarrera(carrera, nueva, alQuitar = null) {
+    function agregarFilaCarrera(carrera, nueva, alQuitar = null, preferenciaTurno = null) {
         const indice = indiceInscripcion++;
         const fila = document.createElement('div');
-        fila.className = 'row align-items-end border-bottom py-3';
+        fila.className = 'border-bottom py-3';
+        const esAnual = Number(carrera.regimen) === {{ \App\Models\Carrera::REGIMEN_ANUAL }};
+        fila.dataset.requiereTurno = esAnual ? 'true' : 'false';
+        const seleccionAnterior = inscripcionesAnteriores.find(item => Number(item.id_carrera) === Number(carrera.id));
+        const turnoInicial = seleccionAnterior?.turno || preferenciaTurno?.turno || carrera.turno_sugerido || '';
+        const paraleloInicial = seleccionAnterior?.paralelo || preferenciaTurno?.paralelo || carrera.paralelo_sugerido || '';
+        const filaCampos = document.createElement('div');
+        filaCampos.className = 'row align-items-start';
 
         const nombre = document.createElement('div');
         nombre.className = 'col-md-3 font-weight-bold text-primary';
@@ -315,7 +331,7 @@
             resumen.textContent = 'Nueva carrera para este estudiante';
             nombre.appendChild(resumen);
         }
-        fila.appendChild(nombre);
+        filaCampos.appendChild(nombre);
 
         const registrar = document.createElement('div');
         registrar.className = 'col-md-2';
@@ -328,16 +344,14 @@
         seleccionRegistrar.name = `inscripciones[${indice}][registrar]`;
         seleccionRegistrar.className = 'form-control registrar-carrera';
         seleccionRegistrar.append(new Option('Sí', '1'), new Option('No', '0'));
-        const inscripcionAnterior = inscripcionesAnteriores.find(item => Number(item.id_carrera) === Number(carrera.id));
-        seleccionRegistrar.value = inscripcionAnterior?.registrar ?? '1';
+        seleccionRegistrar.value = seleccionAnterior?.registrar ?? '1';
         registrar.append(etiquetaRegistrar, seleccionRegistrar);
 
         const nivel = document.createElement('div');
-        nivel.className = 'col-md-2';
+        nivel.className = esAnual ? 'col-md-2' : 'col-md-3';
         const etiquetaNivel = document.createElement('label');
         etiquetaNivel.className = 'font-weight-bold';
         const etiquetasNivel = etiquetasNivelesPorRegimen[carrera.regimen] || {};
-        const esAnual = Number(carrera.regimen) === {{ \App\Models\Carrera::REGIMEN_ANUAL }};
         etiquetaNivel.textContent = esAnual ? 'Año que cursará:' : 'Semestre que cursará:';
         etiquetaNivel.htmlFor = `nivel-${indice}`;
         const seleccionNivel = document.createElement('select');
@@ -349,11 +363,52 @@
         Object.entries(etiquetasNivel).forEach(([valor, etiqueta]) => {
             seleccionNivel.append(new Option(etiqueta, valor));
         });
-        seleccionNivel.value = inscripcionAnterior?.nivelinicio || carrera.nivel_sugerido || (nueva ? 1 : '');
+        seleccionNivel.value = seleccionAnterior?.nivelinicio || carrera.nivel_sugerido || (nueva ? 1 : '');
         nivel.append(etiquetaNivel, seleccionNivel);
 
+        let seleccionTurno;
+        let seleccionParalelo;
+        let estadoGrupos;
+        let columnaTurno;
+        let columnaParalelo;
+        if (esAnual) {
+            columnaTurno = document.createElement('div');
+            columnaTurno.className = 'col-md-2';
+            const etiquetaTurno = document.createElement('label');
+            etiquetaTurno.className = 'font-weight-bold';
+            etiquetaTurno.textContent = 'Turno:';
+            etiquetaTurno.htmlFor = `turno-${indice}`;
+            seleccionTurno = document.createElement('select');
+            seleccionTurno.id = `turno-${indice}`;
+            seleccionTurno.name = `inscripciones[${indice}][turno]`;
+            seleccionTurno.className = 'form-control custom-select turno-carrera';
+            seleccionTurno.required = true;
+            seleccionTurno.disabled = true;
+            seleccionTurno.append(new Option('Cargando...', ''));
+            columnaTurno.append(etiquetaTurno, seleccionTurno);
+
+            columnaParalelo = document.createElement('div');
+            columnaParalelo.className = 'col-md-3';
+            const etiquetaParalelo = document.createElement('label');
+            etiquetaParalelo.className = 'font-weight-bold';
+            etiquetaParalelo.textContent = 'Paralelo:';
+            etiquetaParalelo.htmlFor = `paralelo-${indice}`;
+            seleccionParalelo = document.createElement('select');
+            seleccionParalelo.id = `paralelo-${indice}`;
+            seleccionParalelo.name = `inscripciones[${indice}][paralelo]`;
+            seleccionParalelo.className = 'form-control custom-select paralelo-carrera';
+            seleccionParalelo.required = true;
+            seleccionParalelo.disabled = true;
+            seleccionParalelo.append(new Option('Selecciona un turno primero...', ''));
+            estadoGrupos = document.createElement('small');
+            estadoGrupos.className = 'form-text text-muted';
+            columnaParalelo.append(etiquetaParalelo, seleccionParalelo, estadoGrupos);
+        }
+
+        const filaVoucher = document.createElement('div');
+        filaVoucher.className = 'row align-items-end mt-2';
         const deposito = document.createElement('div');
-        deposito.className = nueva ? 'col-md-4' : 'col-md-5';
+        deposito.className = nueva ? 'col-md-9' : 'col-md-12';
         const etiqueta = document.createElement('label');
         etiqueta.className = 'font-weight-bold';
         etiqueta.textContent = 'Voucher (N° de depósito):';
@@ -365,7 +420,7 @@
         campo.className = 'form-control';
         campo.placeholder = 'Ingresar voucher de esta carrera';
         campo.required = true;
-        campo.value = inscripcionAnterior?.deposito || '';
+        campo.value = seleccionAnterior?.deposito || '';
         const idCampo = document.createElement('input');
         idCampo.type = 'hidden';
         idCampo.name = `inscripciones[${indice}][id_carrera]`;
@@ -375,36 +430,141 @@
         nuevaCampo.name = `inscripciones[${indice}][nueva]`;
         nuevaCampo.value = nueva ? '1' : '0';
         deposito.append(etiqueta, campo, idCampo, nuevaCampo);
+        filaVoucher.appendChild(deposito);
 
         if (nueva) {
+            const columnaAccion = document.createElement('div');
+            columnaAccion.className = 'col-md-3 d-flex justify-content-md-end mt-2 mt-md-0';
             const botonQuitar = document.createElement('button');
             botonQuitar.type = 'button';
-            botonQuitar.className = 'btn btn-outline-danger btn-sm mt-2';
+            botonQuitar.className = 'btn btn-outline-danger';
             botonQuitar.textContent = 'Quitar';
+            botonQuitar.setAttribute('aria-label', `Quitar ${carrera.nombre}`);
             botonQuitar.addEventListener('click', () => {
                 fila.remove();
                 alQuitar?.();
                 actualizarBotonGuardar();
             });
-            deposito.appendChild(botonQuitar);
+            columnaAccion.appendChild(botonQuitar);
+            filaVoucher.appendChild(columnaAccion);
         }
 
         const actualizarEstado = () => {
             const registrarCarrera = seleccionRegistrar.value === '1';
             seleccionRegistrar.classList.toggle('registrar-si', registrarCarrera);
             seleccionRegistrar.classList.toggle('registrar-no', !registrarCarrera);
-            [seleccionNivel, campo].forEach(input => {
+            [seleccionNivel, campo, seleccionTurno, seleccionParalelo].filter(Boolean).forEach(input => {
                 input.disabled = !registrarCarrera;
                 input.required = registrarCarrera;
             });
             nivel.classList.toggle('d-none', !registrarCarrera);
             deposito.classList.toggle('d-none', !registrarCarrera);
+            columnaTurno?.classList.toggle('d-none', !registrarCarrera);
+            columnaParalelo?.classList.toggle('d-none', !registrarCarrera);
+            estadoGrupos?.classList.toggle('d-none', !registrarCarrera);
+            actualizarBotonGuardar();
         };
         seleccionRegistrar.addEventListener('change', actualizarEstado);
-        actualizarEstado();
+        seleccionNivel.addEventListener('change', () => {
+            if (esAnual && seleccionRegistrar.value === '1') {
+                cargarOpcionesTurnos(
+                    seleccionTurno.value || turnoInicial,
+                    seleccionParalelo.value || paraleloInicial
+                );
+            }
+        });
+        seleccionTurno?.addEventListener('change', () => {
+            actualizarParalelos(turnoInicial === Number(seleccionTurno.value) ? paraleloInicial : '');
+            actualizarBotonGuardar();
+        });
+        seleccionParalelo?.addEventListener('change', actualizarBotonGuardar);
 
-        fila.append(registrar, nivel, deposito);
+        let solicitudGrupos = 0;
+        let opcionesGrupos = [];
+        function actualizarParalelos(paraleloPreferido = '') {
+            if (!seleccionParalelo || !seleccionTurno) return;
+            const paralelos = opcionesGrupos.filter(opcion =>
+                String(opcion.turno) === seleccionTurno.value
+            );
+            seleccionParalelo.replaceChildren();
+            if (paralelos.length !== 1) {
+                seleccionParalelo.add(new Option('Selecciona un paralelo...', ''));
+            }
+            paralelos.forEach(opcion => {
+                seleccionParalelo.add(new Option(`Paralelo ${opcion.paralelo}`, opcion.paralelo));
+            });
+            seleccionParalelo.value = paralelos.some(opcion => opcion.paralelo === paraleloPreferido)
+                ? paraleloPreferido
+                : (paralelos.length === 1 ? paralelos[0].paralelo : '');
+            seleccionParalelo.disabled = seleccionRegistrar.value !== '1' || paralelos.length === 0;
+            if (paralelos.length === 0) {
+                seleccionParalelo.replaceChildren(new Option('Sin paralelos disponibles', ''));
+            }
+        }
+
+        async function cargarOpcionesTurnos(turnoPreferido = '', paraleloPreferido = '') {
+            if (!esAnual || !seleccionTurno || !seleccionParalelo) return;
+            const solicitud = ++solicitudGrupos;
+            opcionesGrupos = [];
+            seleccionTurno.disabled = true;
+            seleccionParalelo.disabled = true;
+            seleccionTurno.replaceChildren(new Option('Cargando...', ''));
+            seleccionParalelo.replaceChildren(new Option('Cargando...', ''));
+            estadoGrupos.textContent = 'Consultando grupos abiertos de la gestión vigente...';
+
+            try {
+                const url = new URL(urlOpcionesTurnos, window.location.origin);
+                url.searchParams.set('id_carrera', carrera.id);
+                url.searchParams.set('nivelinicio', seleccionNivel.value);
+                const respuesta = await fetch(url, { headers: { Accept: 'application/json' } });
+                if (!respuesta.ok) {
+                    throw new Error('No se pudieron cargar los grupos de esta carrera.');
+                }
+                const datos = await respuesta.json();
+                if (solicitud !== solicitudGrupos) return;
+                opcionesGrupos = Array.isArray(datos.opciones) ? datos.opciones : [];
+
+                const turnos = [...new Set(opcionesGrupos.map(opcion => Number(opcion.turno)))].sort((a, b) => a - b);
+                seleccionTurno.replaceChildren();
+                if (turnos.length !== 1) {
+                    seleccionTurno.add(new Option('Selecciona un turno...', ''));
+                }
+                turnos.forEach(turno => {
+                    seleccionTurno.add(new Option(nombresTurno[turno] || `Turno ${turno}`, turno));
+                });
+                const turnoPrevioDisponible = turnos.includes(Number(turnoPreferido));
+                seleccionTurno.value = turnoPrevioDisponible
+                    ? String(turnoPreferido)
+                    : (turnos.length === 1 ? String(turnos[0]) : '');
+                seleccionTurno.disabled = seleccionRegistrar.value !== '1' || turnos.length === 0;
+                actualizarParalelos(
+                    turnoPrevioDisponible && Number(turnoPreferido) === Number(seleccionTurno.value)
+                        ? paraleloPreferido
+                        : ''
+                );
+                estadoGrupos.textContent = opcionesGrupos.length
+                    ? 'Opciones tomadas de los grupos abiertos de la gestión vigente.'
+                    : 'No hay grupos abiertos para esta carrera y año en la gestión vigente.';
+                actualizarBotonGuardar();
+            } catch (error) {
+                if (solicitud !== solicitudGrupos) return;
+                seleccionTurno.replaceChildren(new Option('No disponible', ''));
+                seleccionParalelo.replaceChildren(new Option('No disponible', ''));
+                estadoGrupos.textContent = error.message || 'No se pudieron cargar los grupos.';
+                actualizarBotonGuardar();
+            }
+        }
+
+        actualizarEstado();
+        filaCampos.append(registrar, nivel);
+        if (esAnual) {
+            filaCampos.append(columnaTurno, columnaParalelo);
+        }
+        fila.append(filaCampos, filaVoucher);
         carrerasContenedor.appendChild(fila);
+        if (esAnual && seleccionRegistrar.value === '1') {
+            cargarOpcionesTurnos(turnoInicial, paraleloInicial);
+        }
     }
 
     function nombreNivel(nivel, regimen) {
@@ -413,7 +573,15 @@
 
     function actualizarBotonGuardar() {
         botonGuardar.disabled = ![...carrerasContenedor.querySelectorAll('.registrar-carrera')]
-            .some(select => select.value === '1');
+            .some(select => {
+                if (select.value !== '1') return false;
+                const fila = select.closest('[data-requiere-turno]');
+                if (fila?.dataset.requiereTurno !== 'true') return true;
+                return Boolean(
+                    fila.querySelector('.turno-carrera')?.value
+                    && fila.querySelector('.paralelo-carrera')?.value
+                );
+            });
     }
 
     function nombreConResolucion(carrera) {
@@ -477,12 +645,25 @@
     });
 
     document.getElementById('formEstudianteRegular').addEventListener('submit', function (event) {
-        const carrerasParaRegistrar = [...carrerasContenedor.querySelectorAll('.registrar-carrera')]
-            .some(select => select.value === '1');
-        if (!carrerasParaRegistrar) {
+        const filasParaRegistrar = [...carrerasContenedor.querySelectorAll('.registrar-carrera')]
+            .filter(select => select.value === '1');
+        if (filasParaRegistrar.length === 0) {
             event.preventDefault();
             if (typeof window.itsaAlert === 'function') {
                 window.itsaAlert('warning', 'Selecciona una carrera', 'Marca Registrar: Sí en al menos una carrera para continuar.');
+            }
+            return;
+        }
+
+        const faltaTurno = filasParaRegistrar.some(select => {
+            const fila = select.closest('[data-requiere-turno]');
+            return fila?.dataset.requiereTurno === 'true'
+                && (!fila.querySelector('.turno-carrera')?.value || !fila.querySelector('.paralelo-carrera')?.value);
+        });
+        if (faltaTurno) {
+            event.preventDefault();
+            if (typeof window.itsaAlert === 'function') {
+                window.itsaAlert('warning', 'Selecciona turno y paralelo', 'Cada carrera anual que se registre necesita un turno y paralelo abierto.');
             }
             return;
         }

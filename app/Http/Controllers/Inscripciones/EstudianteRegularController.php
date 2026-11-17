@@ -5,6 +5,8 @@ namespace App\Http\Controllers\Inscripciones;
 use App\Http\Controllers\Controller;
 use App\Models\Carrera;
 use App\Models\GestionAcademica;
+use App\Services\Inscripciones\DisponibilidadTurnos;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
@@ -12,6 +14,10 @@ use Illuminate\Validation\ValidationException;
 
 class EstudianteRegularController extends Controller
 {
+    public function __construct(private DisponibilidadTurnos $disponibilidadTurnos)
+    {
+    }
+
     public function index()
     {
         $gestionActual = $this->gestionActual();
@@ -75,8 +81,11 @@ class EstudianteRegularController extends Controller
             ->orderByDesc('g.periodo')
             ->orderByDesc('i.id_gestionacademica')
             ->get([
+                'i.id_inscrito',
                 'i.id_persona',
                 'i.id_carrera',
+                'i.turno',
+                'i.paralelo',
                 'c.nombre as carrera',
                 'c.regimen',
                 'i.id_gestionacademica',
@@ -85,6 +94,58 @@ class EstudianteRegularController extends Controller
                 'g.periodo',
             ])
             ->groupBy('id_persona');
+
+        $idsInscritos = $historial->flatten(1)
+            ->pluck('id_inscrito')
+            ->filter()
+            ->unique()
+            ->values();
+        $combinacionesAsignadas = $idsInscritos->isEmpty()
+            ? collect()
+            : DB::table('inscrito_materia as im')
+                ->join('grupo as g', 'g.id_grupo', '=', 'im.id_grupo')
+                ->whereIn('im.id_inscrito', $idsInscritos)
+                ->select('im.id_inscrito', 'g.turno', 'g.codigo')
+                ->distinct()
+                ->get()
+                ->groupBy('id_inscrito')
+                ->map(function ($grupos): ?array {
+                    $combinaciones = $grupos
+                        ->map(function (object $grupo): array {
+                            $codigo = trim((string) $grupo->codigo);
+                            $paralelo = preg_match('/(?:^|[-_])([a-z])$/i', $codigo, $coincidencia)
+                                ? mb_strtoupper($coincidencia[1])
+                                : $codigo;
+
+                            return [
+                                'turno' => $grupo->turno !== null ? (int) $grupo->turno : null,
+                                'paralelo' => $paralelo,
+                            ];
+                        })
+                        ->unique(fn (array $combinacion): string =>
+                            ($combinacion['turno'] ?? 'sin-turno').'|'.$combinacion['paralelo']
+                        )
+                        ->values();
+
+                    return $combinaciones->count() === 1 ? $combinaciones->first() : null;
+                });
+        $historial = $historial->map(function ($registros) use ($combinacionesAsignadas) {
+            return $registros->map(function (object $registro) use ($combinacionesAsignadas): object {
+                $idInscrito = $registro->id_inscrito ?? null;
+                if ($idInscrito !== null && $combinacionesAsignadas->has($idInscrito)) {
+                    $combinacion = $combinacionesAsignadas->get($idInscrito);
+                    $registro->turno_sugerido = $combinacion['turno'] ?? null;
+                    $registro->paralelo_sugerido = $combinacion['paralelo'] ?? null;
+
+                    return $registro;
+                }
+
+                $registro->turno_sugerido = isset($registro->turno) ? (int) $registro->turno : null;
+                $registro->paralelo_sugerido = $registro->paralelo ?? null;
+
+                return $registro;
+            });
+        });
 
         $historialCursa = DB::table('cursa as cu')
             ->leftJoin('gestionacademica as g', 'g.id_gestionacademica', '=', 'cu.id_gestionacademica')
@@ -121,6 +182,9 @@ class EstudianteRegularController extends Controller
                 ])
                 ->unique(fn ($registro) => $registro->id_carrera.'-'.($registro->id_gestionacademica ?? 'sin-gestion'))
                 ->values();
+            $turnoMasReciente = $historialPersona->first(fn ($registro): bool =>
+                ! empty($registro->turno_sugerido) && ! empty($registro->paralelo_sugerido)
+            );
             $idsCarrerasPersona = $historialPersona->pluck('id_carrera')
                 ->push($persona->id_carrera)
                 ->filter()
@@ -131,6 +195,8 @@ class EstudianteRegularController extends Controller
                 'nombre' => $nombre,
                 'ci' => $persona->ci,
                 'traspaso_convalidacion' => (bool) $persona->traspaso_convalidacion,
+                'turno_sugerido' => $turnoMasReciente?->turno_sugerido,
+                'paralelo_sugerido' => $turnoMasReciente?->paralelo_sugerido,
                 'carreras_disponibles' => $carreras->whereNotIn('id_carrera', $idsCarrerasPersona)
                     ->map(fn ($carrera): array => [
                         'id' => (int) $carrera->id_carrera,
@@ -143,6 +209,9 @@ class EstudianteRegularController extends Controller
                         ->where('id_carrera', (int) $carrera->id_carrera)
                         ->values();
                     $registroReciente = $registrosCarrera->first();
+                    $registroConTurno = $registrosCarrera->first(fn ($registro): bool =>
+                        ! empty($registro->turno_sugerido) && ! empty($registro->paralelo_sugerido)
+                    );
 
                     return [
                         'id' => (int) $carrera->id_carrera,
@@ -156,6 +225,8 @@ class EstudianteRegularController extends Controller
                             count(Carrera::nivelesPorRegimen($carrera->regimen)),
                             max(1, (int) ($registroReciente->nivelinicio ?? 0) + 1)
                         ),
+                        'turno_sugerido' => $registroConTurno?->turno_sugerido,
+                        'paralelo_sugerido' => $registroConTurno?->paralelo_sugerido,
                         'historial' => $registrosCarrera->map(fn ($registro): array => [
                             'gestion' => $registro->gestion,
                             'periodo' => $registro->periodo,
@@ -166,6 +237,46 @@ class EstudianteRegularController extends Controller
                 })->values(),
             ];
         })->values());
+    }
+
+    public function opcionesTurnos(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'id_carrera' => [
+                'required',
+                'integer',
+                Rule::exists('carreras', 'id_carrera')->where('activo', true),
+            ],
+            'nivelinicio' => 'required|integer',
+        ]);
+        $carrera = Carrera::findOrFail($validated['id_carrera']);
+        if (! in_array((int) $validated['nivelinicio'], Carrera::nivelesPorRegimen($carrera->regimen), true)) {
+            throw ValidationException::withMessages([
+                'nivelinicio' => 'El nivel seleccionado no corresponde al régimen académico de la carrera.',
+            ]);
+        }
+
+        $gestionActual = $this->gestionActual();
+        if (! $gestionActual) {
+            throw ValidationException::withMessages([
+                'id_gestionacademica' => 'No hay una gestión académica configurada para consultar grupos.',
+            ]);
+        }
+
+        $opciones = collect($this->disponibilidadTurnos->gruposAbiertos(
+            (int) $carrera->id_carrera,
+            (int) $gestionActual->id_gestionacademica,
+            (int) $validated['nivelinicio']
+        ))
+            ->map(fn (array $opcion): array => [
+                'turno' => $opcion['turno'],
+                'paralelo' => $opcion['paralelo'],
+            ])
+            ->unique(fn (array $opcion): string => $opcion['turno'].'|'.$opcion['paralelo'])
+            ->sortBy(fn (array $opcion): string => sprintf('%d-%s', $opcion['turno'], $opcion['paralelo']))
+            ->values();
+
+        return response()->json(['opciones' => $opciones]);
     }
 
     public function store(Request $request)
@@ -192,6 +303,8 @@ class EstudianteRegularController extends Controller
             ],
             'inscripciones.*.nueva' => 'nullable|boolean',
             'inscripciones.*.nivelinicio' => 'nullable|integer|between:1,6',
+            'inscripciones.*.turno' => 'nullable|integer|in:1,2,3',
+            'inscripciones.*.paralelo' => 'nullable|string|max:20',
             'inscripciones.*.deposito' => 'nullable|string|max:255',
         ]);
 
@@ -229,6 +342,13 @@ class EstudianteRegularController extends Controller
                     "inscripciones.$indice.nivelinicio" => 'El nivel seleccionado no corresponde al régimen académico de la carrera.',
                 ]);
             }
+
+            if (Carrera::regimenEfectivo($carrera?->regimen) === Carrera::REGIMEN_ANUAL
+                && (empty($inscripcion['turno']) || empty($inscripcion['paralelo']))) {
+                throw ValidationException::withMessages([
+                    "inscripciones.$indice.turno" => 'Selecciona el turno y paralelo para esta carrera.',
+                ]);
+            }
         }
         $validated['inscripciones'] = $inscripcionesSolicitadas->all();
 
@@ -245,7 +365,7 @@ class EstudianteRegularController extends Controller
             $validated['inscripciones'][$indice]['deposito'] = $voucher;
         }
 
-        DB::transaction(function () use ($validated, $gestionActual): void {
+        DB::transaction(function () use ($validated, $gestionActual, $carrerasPorId): void {
             $persona = DB::table('personas')
                 ->where('id_persona', $validated['id_persona'])
                 ->lockForUpdate()
@@ -332,6 +452,17 @@ class EstudianteRegularController extends Controller
                     ]);
                 }
 
+                $carrera = $carrerasPorId->get($idCarrera);
+                if (Carrera::regimenEfectivo($carrera?->regimen) === Carrera::REGIMEN_ANUAL) {
+                    $this->disponibilidadTurnos->validarGrupoAbierto(
+                        $idCarrera,
+                        (int) $gestionActual->id_gestionacademica,
+                        (int) $inscripcion['turno'],
+                        (string) $inscripcion['paralelo'],
+                        $nivelActual
+                    );
+                }
+
                 $inscripcionesPrevias = DB::table('inscrito')
                     ->where('id_persona', $validated['id_persona'])
                     ->where('id_carrera', $idCarrera)
@@ -345,6 +476,12 @@ class EstudianteRegularController extends Controller
                     'tipo' => 2,
                     'becado' => (int) ($validated['becado'] ?? 0),
                     'deposito' => $voucher,
+                    'turno' => Carrera::regimenEfectivo($carrera?->regimen) === Carrera::REGIMEN_ANUAL
+                        ? (int) $inscripcion['turno']
+                        : null,
+                    'paralelo' => Carrera::regimenEfectivo($carrera?->regimen) === Carrera::REGIMEN_ANUAL
+                        ? mb_strtoupper(trim((string) $inscripcion['paralelo']))
+                        : null,
                     'id_carrera' => $idCarrera,
                     'id_persona' => $validated['id_persona'],
                     'id_gestionacademica' => $gestionActual->id_gestionacademica,

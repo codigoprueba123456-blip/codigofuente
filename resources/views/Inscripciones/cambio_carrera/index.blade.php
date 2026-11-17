@@ -102,6 +102,8 @@
 </div>
 @stop
 
+@include('partials.sweetalert-assets')
+
 @push('js')
 <script>
     document.addEventListener('DOMContentLoaded', () => {
@@ -117,6 +119,7 @@
         const botonGuardar = document.getElementById('guardar_cambio');
         let espera;
         let carrerasInscritas = new Set();
+        let confirmacionReenviada = false;
 
         function actualizarCarreraDestino() {
             carreraDestino.querySelectorAll('option').forEach((opcion) => {
@@ -253,7 +256,12 @@
             }, 250);
         });
 
-        formulario.addEventListener('submit', (evento) => {
+        formulario.addEventListener('submit', async (evento) => {
+            if (confirmacionReenviada) {
+                confirmacionReenviada = false;
+                return;
+            }
+
             if (!estudianteId.value || !inscripcionOrigen.value) {
                 evento.preventDefault();
                 if (!estudianteId.value) {
@@ -261,6 +269,12 @@
                 } else {
                     inscripcionOrigen.focus();
                 }
+                return;
+            }
+
+            if (!carreraDestino.value) {
+                evento.preventDefault();
+                carreraDestino.focus();
                 return;
             }
 
@@ -274,8 +288,30 @@
             const nombreEstudiante = resumen.querySelector('strong')?.textContent || entrada.value;
             const carreraAnterior = seleccion.dataset.nombreCarrera;
             const carreraNueva = carreraDestino.selectedOptions[0]?.textContent.trim();
-            if (!window.confirm(`¿Confirma cambiar la carrera de ${nombreEstudiante} de ${carreraAnterior} a ${carreraNueva}? No se generará un pago nuevo.`)) {
-                evento.preventDefault();
+            evento.preventDefault();
+
+            if (!window.Swal?.fire) {
+                estadoInscripcion.className = 'alert alert-danger mb-0';
+                estadoInscripcion.textContent = 'No se pudo abrir la ventana de confirmación. Recarga la página e inténtalo nuevamente.';
+                return;
+            }
+
+            const respuesta = await window.Swal.fire({
+                icon: 'warning',
+                title: 'Confirmar cambio de carrera',
+                text: `¿Confirma cambiar la carrera de ${nombreEstudiante} de ${carreraAnterior} a ${carreraNueva}? No se generará un pago nuevo.`,
+                showCancelButton: true,
+                confirmButtonText: 'Sí, cambiar carrera',
+                cancelButtonText: 'Cancelar',
+                reverseButtons: true,
+                customClass: {
+                    popup: 'itsa-swal-modal',
+                },
+            });
+
+            if (respuesta.isConfirmed) {
+                confirmacionReenviada = true;
+                formulario.requestSubmit(botonGuardar);
             }
         });
 

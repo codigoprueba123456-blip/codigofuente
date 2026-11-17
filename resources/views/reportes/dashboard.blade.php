@@ -29,7 +29,7 @@
             <div class="info-box">
                 <span class="info-box-icon bg-info"><i class="fas fa-graduation-cap"></i></span>
                 <div class="info-box-content">
-                    <span class="info-box-text">Carreras con inscritos</span>
+                    <span class="info-box-text">Carreras en el reporte</span>
                     <span class="info-box-number">{{ number_format($estadisticas['carreras']) }}</span>
                 </div>
             </div>
@@ -95,7 +95,7 @@
                 <i class="fas fa-table mr-1"></i> Inscritos por carrera, paralelo y turno
             </h3>
             <div class="card-tools">
-                <a href="{{ route('reportes.dashboard', ['formato' => 'excel']) }}" class="btn btn-success btn-sm">
+                <a href="{{ route('reportes.dashboard', array_merge(request()->query(), ['formato' => 'excel'])) }}" class="btn btn-success btn-sm">
                     <i class="fas fa-file-excel mr-1"></i> Exportar Excel
                 </a>
             </div>
@@ -103,8 +103,8 @@
         <div class="card-body">
             <div class="alert alert-info py-2">
                 <i class="fas fa-info-circle mr-1"></i>
-                V: varones · M: mujeres · T: total. Las columnas de aprobados, reprobados, abandono y efectivos se dejan en blanco; el sistema no tiene esos datos.
-                El Excel incluye todas las carreras y gestiones, aunque se apliquen filtros en esta pantalla.
+                V: varones · M: mujeres · T: total. Las columnas de aprobados, reprobados, abandono y efectivos se dejan en blanco porque el sistema no almacena esos resultados académicos.
+                El Excel respeta la gestión y la carrera seleccionadas y conserva la estructura de esta tabla.
             </div>
 
             <div class="table-responsive">

@@ -16,6 +16,15 @@ document.addEventListener('DOMContentLoaded', function () {
     const submitButton = form.querySelector('button[type="submit"]');
     const ciInput = document.getElementById('ci');
     const existingStudentMessage = document.getElementById('estudianteExistenteMensaje');
+    const carreraSelect = document.getElementById('id_carrera');
+    const nivelSelect = document.getElementById('nivelinicio');
+    const turnoSelect = document.getElementById('turno');
+    const paraleloSelect = document.getElementById('paralelo');
+    const cuposDisponibles = document.getElementById('cupos_disponibles');
+    const opcionesTurnos = window.opcionesTurnosEstudianteNuevo || {};
+    const nombresTurno = { 1: 'Mañana', 2: 'Tarde', 3: 'Noche' };
+    const turnoInicial = String(window.turnoEstudianteNuevoInicial || '');
+    const paraleloInicial = String(window.paraleloEstudianteNuevoInicial || '');
     const personalFieldIds = [
         'nombre', 'primerapellido', 'segundoapellido', 'lugarexpedicion',
         'fechanacimiento', 'lugarnacimiento', 'nacionalidad', 'sexo',
@@ -26,6 +35,64 @@ document.addEventListener('DOMContentLoaded', function () {
     let ciFichaEncontrada = '';
     let consultaCiPendiente = false;
     let activeCompressions = 0;
+
+    function opcionesDelNivel() {
+        return opcionesTurnos[carreraSelect.value]?.[nivelSelect.value] || [];
+    }
+
+    function actualizarCupos() {
+        if (!cuposDisponibles) return;
+
+        const opcion = opcionesDelNivel().find(item =>
+            String(item.turno) === turnoSelect.value && item.paralelo === paraleloSelect.value
+        );
+        cuposDisponibles.textContent = !opcion
+            ? ''
+            : opcion.disponibles === null
+                ? 'Este grupo no tiene una capacidad máxima configurada.'
+                : `${opcion.disponibles} cupos disponibles`;
+    }
+
+    function actualizarParalelos(seleccionado = '') {
+        const coincidentes = opcionesDelNivel()
+            .filter(opcion => String(opcion.turno) === turnoSelect.value);
+        paraleloSelect.replaceChildren(new Option(
+            coincidentes.length ? 'Selecciona un paralelo' : 'Sin paralelos disponibles',
+            ''
+        ));
+        coincidentes.forEach(opcion => {
+            const texto = opcion.disponibles === null
+                ? `Paralelo ${opcion.paralelo} · cupo no configurado`
+                : `Paralelo ${opcion.paralelo} · ${opcion.disponibles} cupos`;
+            paraleloSelect.add(new Option(texto, opcion.paralelo));
+        });
+        paraleloSelect.disabled = coincidentes.length === 0;
+        if (seleccionado && coincidentes.some(opcion => opcion.paralelo === seleccionado)) {
+            paraleloSelect.value = seleccionado;
+        }
+        actualizarCupos();
+    }
+
+    function actualizarTurnos(seleccionadoTurno = '', seleccionadoParalelo = '') {
+        const opciones = opcionesDelNivel();
+        const turnos = [...new Set(opciones.map(opcion => String(opcion.turno)))].sort((a, b) => Number(a) - Number(b));
+        turnoSelect.replaceChildren(new Option(
+            turnos.length ? 'Selecciona un turno' : 'Sin turnos disponibles',
+            ''
+        ));
+        turnos.forEach(valor => turnoSelect.add(new Option(nombresTurno[valor] || valor, valor)));
+        turnoSelect.disabled = turnos.length === 0;
+        if (seleccionadoTurno && turnos.includes(seleccionadoTurno)) {
+            turnoSelect.value = seleccionadoTurno;
+        }
+        actualizarParalelos(seleccionadoParalelo);
+    }
+
+    carreraSelect.addEventListener('change', () => actualizarTurnos());
+    nivelSelect.addEventListener('change', () => actualizarTurnos());
+    turnoSelect.addEventListener('change', () => actualizarParalelos());
+    paraleloSelect.addEventListener('change', actualizarCupos);
+    actualizarTurnos(turnoInicial, paraleloInicial);
 
     function mostrarFallback(title, message) {
         let feedback = form.querySelector('[data-form-feedback]');

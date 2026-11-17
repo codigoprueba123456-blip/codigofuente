@@ -3,26 +3,69 @@
 namespace App\Http\Controllers\Inscripciones;
 
 use App\Http\Controllers\Controller;
+use App\Models\Carrera;
+use App\Models\GestionAcademica;
+use App\Services\Inscripciones\DisponibilidadTurnos;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rule;
-use App\Models\GestionAcademica;
-use App\Models\Carrera;
 
 class EstudianteNuevoController extends Controller
 {
+    public function __construct(private DisponibilidadTurnos $disponibilidadTurnos)
+    {
+    }
+
     /**
      * Muestra la vista del formulario para registrar estudiante nuevo
      */
     public function index()
     {
-        // Cargamos las gestiones y carreras para los selectores desplegables
-        $gestiones = GestionAcademica::habilitadas()->orderByDesc('id_gestionacademica')->get();
+        $gestionVigente = GestionAcademica::habilitadas()
+            ->orderByDesc('id_gestionacademica')
+            ->first();
+        $gestiones = $gestionVigente ? collect([$gestionVigente]) : collect();
+        $opcionesTurnosCarrera = [];
+        $carreras = collect();
 
-        $carreras = Carrera::activas()->orderBy('nombre', 'asc')->get();
+        if ($gestionVigente) {
+            $carrerasActivas = Carrera::activas()->orderBy('nombre')->get();
+            $opcionesTurnosCarrera = $carrerasActivas
+                ->mapWithKeys(function (Carrera $carrera) use ($gestionVigente): array {
+                    $opcionesPorNivel = [];
 
-        return view('Inscripciones.estudiante_nuevo.index', compact('gestiones', 'carreras'));
+                    foreach (Carrera::nivelesPorRegimen((int) $carrera->regimen) as $nivel) {
+                        $opciones = $this->disponibilidadTurnos->opciones(
+                            (int) $carrera->id_carrera,
+                            (int) $gestionVigente->id_gestionacademica,
+                            null,
+                            $nivel
+                        );
+
+                        if ($opciones !== []) {
+                            $opcionesPorNivel[$nivel] = $opciones;
+                        }
+                    }
+
+                    return [$carrera->id_carrera => $opcionesPorNivel];
+                })
+                ->filter(fn (array $opciones): bool => $opciones !== [])
+                ->all();
+
+            $carreras = $carrerasActivas
+                ->filter(fn (Carrera $carrera): bool =>
+                    isset($opcionesTurnosCarrera[$carrera->id_carrera])
+                )
+                ->values();
+        }
+
+        return view('Inscripciones.estudiante_nuevo.index', compact(
+            'gestiones',
+            'gestionVigente',
+            'carreras',
+            'opcionesTurnosCarrera'
+        ));
     }
 
     public function buscar(Request $request)
@@ -73,6 +116,9 @@ class EstudianteNuevoController extends Controller
         $estudianteExistente = $personaExistente && DB::table('estudiante')
             ->where('id_persona', $personaExistente->id_persona)
             ->exists();
+        $gestionVigenteId = GestionAcademica::habilitadas()
+            ->orderByDesc('id_gestionacademica')
+            ->value('id_gestionacademica');
 
         if ($personaExistente && ! $estudianteExistente) {
             return back()->withInput()->withErrors([
@@ -84,7 +130,11 @@ class EstudianteNuevoController extends Controller
             'fecha' => 'required|date',
             'becado' => 'nullable|boolean',
             'deposito' => 'required|string|max:255',
-            'id_gestionacademica' => 'required|exists:gestionacademica,id_gestionacademica',
+            'id_gestionacademica' => [
+                'required',
+                'integer',
+                Rule::in($gestionVigenteId ? [(int) $gestionVigenteId] : []),
+            ],
             'traspaso_convalidacion' => 'nullable|boolean',
             'id_carrera' => [
                 'required',
@@ -97,6 +147,8 @@ class EstudianteNuevoController extends Controller
                     Carrera::whereKey($request->input('id_carrera'))->value('regimen')
                 )),
             ],
+            'turno' => ['required', 'integer', 'in:1,2,3'],
+            'paralelo' => ['required', 'string', 'max:20'],
             'path_bth' => 'nullable|image|mimes:jpg,jpeg,png,webp|max:350',
         ];
 
@@ -154,7 +206,10 @@ class EstudianteNuevoController extends Controller
             'diplomabachiller.required' => 'Te faltó indicar si cuentas con diploma de bachiller.',
             'deposito.required' => 'Te faltó ingresar el número de comprobante del depósito.',
             'id_gestionacademica.required' => 'Te faltó seleccionar la gestión académica.',
+            'id_gestionacademica.in' => 'Solo se permiten inscripciones en la gestión vigente.',
             'id_carrera.required' => 'Te faltó seleccionar una carrera.',
+            'turno.required' => 'Selecciona un turno con cupos disponibles para la carrera y nivel elegidos.',
+            'paralelo.required' => 'Selecciona un paralelo disponible para el turno elegido.',
             'path_ci_frontal.required' => 'Te faltó adjuntar el CI por el anverso.',
             'path_ci_frontal.image' => 'El CI por el anverso debe ser una imagen.',
             'path_ci_frontal.mimes' => 'El CI por el anverso debe estar en formato JPG, PNG o WebP.',
@@ -195,6 +250,8 @@ class EstudianteNuevoController extends Controller
             ]);
         }
 
+        $turno = isset($validated['turno']) ? (int) $validated['turno'] : null;
+        $paralelo = $validated['paralelo'] ?? null;
         $archivosGuardados = [];
         try {
             foreach ($camposDocumento as $campo => $columna) {
@@ -212,8 +269,28 @@ class EstudianteNuevoController extends Controller
                 $archivosGuardados[$columna] = $ruta;
             }
 
-            DB::transaction(function () use ($validated, $archivosGuardados, $estudianteExistente): void {
+            DB::transaction(function () use (
+                $validated,
+                $archivosGuardados,
+                $estudianteExistente,
+                $turno,
+                $paralelo
+            ): void {
                 $ahora = now();
+                $gestionVigente = DB::table('gestionacademica')
+                    ->where('vigente', true)
+                    ->where('activo', true)
+                    ->orderByDesc('id_gestionacademica')
+                    ->lockForUpdate()
+                    ->first();
+
+                if (! $gestionVigente
+                    || (int) $gestionVigente->id_gestionacademica !== (int) $validated['id_gestionacademica']) {
+                    throw \Illuminate\Validation\ValidationException::withMessages([
+                        'id_gestionacademica' => 'Solo se permiten inscripciones en la gestión vigente.',
+                    ]);
+                }
+
                 $idPersona = DB::table('personas')->where('ci', $validated['ci'])->lockForUpdate()->value('id_persona');
                 if ($idPersona && DB::table('inscrito')
                     ->where('id_persona', $idPersona)
@@ -225,6 +302,30 @@ class EstudianteNuevoController extends Controller
                     throw \Illuminate\Validation\ValidationException::withMessages([
                         'id_carrera' => 'Esta persona ya está inscrita en esa carrera durante la gestión seleccionada.',
                     ]);
+                }
+                if (DB::table('postulante')
+                    ->where('ci', $validated['ci'])
+                    ->where('id_carrera', $validated['id_carrera'])
+                    ->where('id_gestionacademica', $validated['id_gestionacademica'])
+                    ->exists()) {
+                    throw \Illuminate\Validation\ValidationException::withMessages([
+                        'id_carrera' => 'Esta persona ya tiene una postulación para esa carrera en la gestión seleccionada.',
+                    ]);
+                }
+                if ($turno !== null && $paralelo !== null) {
+                    $this->validarTurnoNoRepetido(
+                        $idPersona ? (int) $idPersona : null,
+                        $validated['ci'],
+                        (int) $validated['id_gestionacademica'],
+                        (int) $turno
+                    );
+                    $this->disponibilidadTurnos->validarDisponible(
+                        (int) $validated['id_carrera'],
+                        (int) $validated['id_gestionacademica'],
+                        (int) $turno,
+                        (string) $paralelo,
+                        nivel: (int) $validated['nivelinicio']
+                    );
                 }
                 if (DB::table('inscrito')
                     ->where('id_gestionacademica', $validated['id_gestionacademica'])
@@ -318,6 +419,8 @@ class EstudianteNuevoController extends Controller
                     'id_carrera' => $validated['id_carrera'],
                     'id_persona' => $idPersona,
                     'id_gestionacademica' => $validated['id_gestionacademica'],
+                    'turno' => $turno,
+                    'paralelo' => $paralelo,
                     'created_at' => $ahora,
                     'updated_at' => $ahora,
                 ]);
@@ -365,6 +468,29 @@ class EstudianteNuevoController extends Controller
 
             return back()->withInput()->withErrors([
                 'error' => 'No se pudo completar el registro. Verifica los datos e inténtalo nuevamente.',
+            ]);
+        }
+    }
+
+    private function validarTurnoNoRepetido(?int $idPersona, string $ci, int $gestionId, int $turno): void
+    {
+        $inscritoEnElTurno = $idPersona !== null && DB::table('inscrito')
+            ->where('id_persona', $idPersona)
+            ->where('id_gestionacademica', $gestionId)
+            ->where('turno', $turno)
+            ->where('activo', true)
+            ->whereNull('id_inscrito_reemplazo')
+            ->exists();
+
+        $postulanteEnElTurno = DB::table('postulante')
+            ->where('ci', $ci)
+            ->where('id_gestionacademica', $gestionId)
+            ->where('turno', $turno)
+            ->exists();
+
+        if ($inscritoEnElTurno || $postulanteEnElTurno) {
+            throw \Illuminate\Validation\ValidationException::withMessages([
+                'turno' => 'La persona ya tiene una inscripción o postulación en ese turno para la gestión vigente.',
             ]);
         }
     }

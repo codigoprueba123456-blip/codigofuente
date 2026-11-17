@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Carrera;
 use App\Models\GestionAcademica;
 use App\Models\Inscrito;
+use App\Services\Inscripciones\DisponibilidadTurnos;
 use Illuminate\Database\Query\Builder;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
@@ -16,6 +17,10 @@ use Illuminate\Validation\ValidationException;
 class InscritosController extends Controller
 {
     private const SQL_ORDEN_PARALELO = "CASE WHEN SUBSTR(UPPER(gr.codigo), -2, 1) = '-' THEN SUBSTR(UPPER(gr.codigo), -1) ELSE UPPER(gr.codigo) END";
+
+    public function __construct(private DisponibilidadTurnos $disponibilidadTurnos)
+    {
+    }
 
     public function index(Request $request)
     {
@@ -191,7 +196,19 @@ class InscritosController extends Controller
             $inscrito->curso = $inscrito->nivelinicio !== null
                 ? Carrera::etiquetaNivel($inscrito->regimen, $inscrito->nivelinicio)
                 : 'Sin curso registrado';
-            $inscrito->grupos_asignados = $gruposPorInscrito[$inscrito->id_inscrito] ?? collect();
+            $gruposActuales = $gruposPorInscrito[$inscrito->id_inscrito] ?? collect();
+            $paraleloInscrito = trim((string) $inscrito->paralelo);
+            if ($inscrito->turno !== null || $paraleloInscrito !== '') {
+                $grupoActual = $gruposActuales->first();
+                $inscrito->grupos_asignados = collect([(object) [
+                    'paralelo' => $paraleloInscrito ?: $grupoActual?->paralelo,
+                    'turno_etiqueta' => $inscrito->turno !== null
+                        ? $this->etiquetaTurno($inscrito->turno)
+                        : $grupoActual?->turno_etiqueta,
+                ]]);
+            } else {
+                $inscrito->grupos_asignados = $gruposActuales;
+            }
         });
 
         $carrerasPorPersonaGestion = $this->carrerasPorPersonaGestion($inscritos->getCollection());
@@ -249,6 +266,8 @@ class InscritosController extends Controller
                 'i.fecha',
                 'i.becado',
                 'i.deposito',
+                'i.turno',
+                'i.paralelo',
                 'p.nombre',
                 'p.primerapellido',
                 'p.segundoapellido',
@@ -290,12 +309,66 @@ class InscritosController extends Controller
                 'resolucionministerial2',
                 'resolucionministerial3',
             ]);
-        $gestiones = GestionAcademica::habilitadas()
+        $gestiones = GestionAcademica::query()
+            ->where(function ($query) use ($inscripcion): void {
+                $query->where(function ($habilitadas): void {
+                    $habilitadas->where('vigente', true)->where('activo', true);
+                })->orWhere('id_gestionacademica', $inscripcion->id_gestionacademica);
+            })
             ->orderByDesc('gestion')
             ->orderByDesc('periodo')
             ->get();
 
-        return view('Inscripciones.inscriptos.edit', compact('inscripcion', 'carreras', 'gestiones'));
+        $grupoActual = $this->gruposPorInscrito(collect([(int) $inscripcion->id_inscrito]))
+            ->get($inscripcion->id_inscrito, collect())
+            ->first();
+        $turnoInicial = $inscripcion->turno ?? $grupoActual?->turno;
+        $paraleloInicial = $inscripcion->paralelo ?: $grupoActual?->paralelo;
+        $opcionesTurnosCarrera = [];
+
+        foreach ($gestiones as $gestion) {
+            foreach ($carreras as $carrera) {
+                foreach (Carrera::nivelesPorRegimen((int) $carrera->regimen) as $nivel) {
+                    $opciones = $this->disponibilidadTurnos->opciones(
+                        (int) $carrera->id_carrera,
+                        (int) $gestion->id_gestionacademica,
+                        nivel: (int) $nivel,
+                        inscritoExcluir: (int) $inscripcion->id_inscrito
+                    );
+
+                    if ($opciones !== []) {
+                        $opcionesTurnosCarrera[$gestion->id_gestionacademica][$carrera->id_carrera][$nivel] = $opciones;
+                    }
+                }
+            }
+        }
+
+        if ($turnoInicial !== null && $paraleloInicial !== null && $inscripcion->nivelinicio !== null) {
+            $opcionesActuales = $opcionesTurnosCarrera[$inscripcion->id_gestionacademica][$inscripcion->id_carrera][$inscripcion->nivelinicio] ?? [];
+            $opcionActualExiste = collect($opcionesActuales)->contains(fn (array $opcion): bool =>
+                (int) $opcion['turno'] === (int) $turnoInicial
+                && mb_strtoupper($opcion['paralelo']) === mb_strtoupper($paraleloInicial)
+            );
+
+            if (! $opcionActualExiste) {
+                $opcionesTurnosCarrera[$inscripcion->id_gestionacademica][$inscripcion->id_carrera][$inscripcion->nivelinicio][] = [
+                    'turno' => (int) $turnoInicial,
+                    'paralelo' => mb_strtoupper($paraleloInicial),
+                    'capacidad' => null,
+                    'disponibles' => null,
+                    'actual' => true,
+                ];
+            }
+        }
+
+        return view('Inscripciones.inscriptos.edit', compact(
+            'inscripcion',
+            'carreras',
+            'gestiones',
+            'opcionesTurnosCarrera',
+            'turnoInicial',
+            'paraleloInicial'
+        ));
     }
 
     public function update(Request $request, Inscrito $inscrito)
@@ -330,6 +403,8 @@ class InscritosController extends Controller
             'deposito' => ['required', 'string', 'max:255'],
             'id_carrera' => ['required', 'integer', 'exists:carreras,id_carrera'],
             'id_gestionacademica' => ['required', 'integer', 'exists:gestionacademica,id_gestionacademica'],
+            'turno' => ['required', 'integer', 'in:1,2,3'],
+            'paralelo' => ['required', 'string', 'max:20'],
             'nivelinicio' => [
                 'required',
                 'integer',
@@ -367,6 +442,39 @@ class InscritosController extends Controller
                 throw ValidationException::withMessages([
                     'id_carrera' => 'No se puede cambiar carrera o gestión porque esta inscripción ya tiene materias asignadas.',
                 ]);
+            }
+
+            $nivelActual = DB::table('cursa')
+                ->where('id_persona', $actual->id_persona)
+                ->where('id_carrera', $actual->id_carrera)
+                ->where('id_gestionacademica', $actual->id_gestionacademica)
+                ->value('nivelinicio');
+                $grupoActual = $this->gruposPorInscrito(collect([(int) $inscrito->id_inscrito]))
+                    ->get($inscrito->id_inscrito, collect())
+                    ->first();
+                $turnoActual = $actual->turno ?? $grupoActual?->turno;
+                $paraleloActual = $actual->paralelo ?: $grupoActual?->paralelo;
+            $cambioDisponibilidad = $cambioAcademico
+                || (int) $nivelActual !== (int) $validated['nivelinicio']
+                    || (int) $turnoActual !== (int) $validated['turno']
+                    || mb_strtoupper(trim((string) $paraleloActual)) !== mb_strtoupper(trim($validated['paralelo']));
+
+            if ($cambioDisponibilidad) {
+                $this->validarTurnoNoRepetido(
+                    (int) $actual->id_persona,
+                    $validated['ci'],
+                    (int) $validated['id_gestionacademica'],
+                    (int) $validated['turno'],
+                    (int) $inscrito->id_inscrito
+                );
+                $this->disponibilidadTurnos->validarDisponible(
+                    (int) $validated['id_carrera'],
+                    (int) $validated['id_gestionacademica'],
+                    (int) $validated['turno'],
+                    $validated['paralelo'],
+                    nivel: (int) $validated['nivelinicio'],
+                    inscritoExcluir: (int) $inscrito->id_inscrito
+                );
             }
 
             $duplicada = DB::table('inscrito')
@@ -439,6 +547,8 @@ class InscritosController extends Controller
                 'deposito' => $voucher,
                 'id_carrera' => $validated['id_carrera'],
                 'id_gestionacademica' => $validated['id_gestionacademica'],
+                'turno' => (int) $validated['turno'],
+                'paralelo' => mb_strtoupper(trim($validated['paralelo'])),
                 'updated_at' => $ahora,
             ]);
             DB::table('comprobante')
@@ -536,6 +646,8 @@ class InscritosController extends Controller
                 'i.tipo',
                 'i.becado',
                 'i.activo',
+                'i.turno',
+                'i.paralelo',
                 'i.id_inscrito_reemplazo',
                 'p.primerapellido',
                 'p.segundoapellido',
@@ -657,6 +769,41 @@ class InscritosController extends Controller
             2 => 'Tarde',
             3 => 'Noche',
         ][(int) $turno] ?? 'Turno no definido';
+    }
+
+    private function validarTurnoNoRepetido(
+        int $idPersona,
+        string $ci,
+        int $gestionId,
+        int $turno,
+        int $inscritoExcluir
+    ): void {
+        $inscritoEnTurno = DB::table('inscrito')
+            ->where('id_persona', $idPersona)
+            ->where('id_gestionacademica', $gestionId)
+            ->where('turno', $turno)
+            ->where('activo', true)
+            ->whereNull('id_inscrito_reemplazo')
+            ->where('id_inscrito', '<>', $inscritoExcluir)
+            ->exists();
+        $postulanteEnTurno = DB::table('postulante as p')
+            ->where('p.ci', $ci)
+            ->where('p.id_gestionacademica', $gestionId)
+            ->where('p.turno', $turno)
+            ->whereNotExists(function (Builder $query): void {
+                $query->selectRaw('1')
+                    ->from('inscrito as origen')
+                    ->whereColumn('origen.id_postulante_origen', 'p.id_postulante')
+                    ->where('origen.activo', true)
+                    ->whereNull('origen.id_inscrito_reemplazo');
+            })
+            ->exists();
+
+        if ($inscritoEnTurno || $postulanteEnTurno) {
+            throw ValidationException::withMessages([
+                'turno' => 'La persona ya tiene una inscripción o postulación en ese turno para la gestión seleccionada.',
+            ]);
+        }
     }
 
     private function carrerasPorPersonaGestion($inscritos): array

@@ -27,7 +27,8 @@
                     nivelSelect.add(new Option(etiquetas[nivel], nivel));
                 });
 
-                nivelSelect.disabled = Object.keys(etiquetas).length === 0;
+                nivelSelect.disabled = Object.keys(etiquetas).length === 0
+                    || (nivelSelect.dataset.requireCarrera === 'true' && !carreraSelect.value);
                 if (Object.prototype.hasOwnProperty.call(etiquetas, valorActual)) {
                     nivelSelect.value = valorActual;
                 }

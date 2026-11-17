@@ -8,6 +8,7 @@ use App\Models\Instituto;
 use App\Models\Persona;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Tests\Support\OpensPublicPostulationWindow;
 use Tests\TestCase;
@@ -26,8 +27,10 @@ class CarreraAvailabilityTest extends TestCase
             'periodo' => 1,
             'regimen' => 1,
             'vigente' => true,
+            'activo' => true,
         ]);
         $this->openPublicPostulationWindow($gestion);
+        $this->createGroup(Carrera::where('codigo', 'TEST-ON')->firstOrFail(), $gestion);
 
         $this->get(route('postulantes.registrar'))
             ->assertOk()
@@ -65,13 +68,41 @@ class CarreraAvailabilityTest extends TestCase
         Carrera::create([
             'codigo' => 'TEST-ON',
             'nombre' => 'Carrera habilitada',
+            'regimen' => Carrera::REGIMEN_ANUAL,
+            'activo' => true,
             'id_instituto' => $institute->id_instituto,
         ]);
         Carrera::create([
             'codigo' => 'TEST-OFF',
             'nombre' => 'Carrera deshabilitada',
+            'regimen' => Carrera::REGIMEN_ANUAL,
             'activo' => false,
             'id_instituto' => $institute->id_instituto,
+        ]);
+    }
+
+    private function createGroup(Carrera $carrera, GestionAcademica $gestion): void
+    {
+        $idMateria = DB::table('materia')->insertGetId([
+            'codigo' => 'TEST-ON-MAT',
+            'nombre' => 'Materia habilitada',
+            'nivel' => 1,
+            'numero' => 1,
+            'activo' => true,
+            'id_carrera' => $carrera->id_carrera,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+        DB::table('grupo')->insert([
+            'codigo' => 'TEST-ON-MAT-A',
+            'capacidad' => 30,
+            'turno' => 1,
+            'abierto' => true,
+            'activo' => true,
+            'id_gestionacademica' => $gestion->id_gestionacademica,
+            'id_materia' => $idMateria,
+            'created_at' => now(),
+            'updated_at' => now(),
         ]);
     }
 

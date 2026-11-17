@@ -53,6 +53,8 @@ class Postulante extends Model
         'path_diploma',     // <-- Añadido
         'id_carrera',
         'id_gestionacademica',
+        'turno',
+        'paralelo',
     ];
 
     // Relación con la tabla Carrera

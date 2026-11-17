@@ -38,10 +38,6 @@ class InscripcionesDashboardController extends Controller
             return view('home');
         }
 
-        if ($request->input('formato') === 'excel') {
-            return $this->exportarExcelCompleto();
-        }
-
         $filters = $request->validate([
             'id_gestionacademica' => ['nullable', 'integer', 'exists:gestionacademica,id_gestionacademica'],
             'id_carrera' => ['nullable', 'integer', 'exists:carreras,id_carrera'],
@@ -57,6 +53,12 @@ class InscripcionesDashboardController extends Controller
         if (! $gestionActual) {
             $gestionActual = GestionAcademica::query()
                 ->where('activo', true)
+                ->orderByDesc('gestion')
+                ->orderByDesc('periodo')
+                ->first();
+        }
+        if (! $gestionActual) {
+            $gestionActual = GestionAcademica::query()
                 ->orderByDesc('gestion')
                 ->orderByDesc('periodo')
                 ->first();
@@ -78,6 +80,13 @@ class InscripcionesDashboardController extends Controller
             ->orderByDesc('periodo')
             ->get();
         $carreras = Carrera::query()->orderBy('nombre')->get();
+        if ($request->input('formato') === 'excel') {
+            $gestionExportar = isset($filters['id_gestionacademica'])
+                ? GestionAcademica::find($filters['id_gestionacademica'])
+                : null;
+
+            return $this->exportarExcelFiltrado($filasDetalle, $gestionExportar);
+        }
 
         return view('reportes.dashboard', compact(
             'filters',
@@ -129,6 +138,8 @@ class InscripcionesDashboardController extends Controller
                 'i.id_inscrito',
                 'i.id_persona',
                 'i.id_gestionacademica',
+                'i.turno as turno_inscrito',
+                'i.paralelo as paralelo_inscrito',
                 'p.sexo',
                 'c.id_carrera',
                 'c.nombre as carrera',
@@ -168,61 +179,63 @@ class InscripcionesDashboardController extends Controller
                 return $registro;
             });
 
-        if ($registros->isEmpty()) {
-            return collect();
-        }
-
-        $gruposPorEstudianteNivel = $registros->groupBy(fn (object $registro): string => implode(':', [
-            $registro->id_persona,
-            $registro->id_gestionacademica,
-            $registro->id_carrera,
-            $registro->nivel ?? 'sin-nivel',
-        ]));
         $conteos = [];
 
-        foreach ($gruposPorEstudianteNivel as $registrosNivel) {
-            $asignaciones = $registrosNivel->filter(fn (object $registro): bool => $registro->id_grupo !== null);
-            $registrosParaContar = $asignaciones->isNotEmpty()
-                ? $asignaciones
-                : $registrosNivel->take(1);
+        if ($registros->isNotEmpty()) {
+            $gruposPorEstudianteNivel = $registros->groupBy(fn (object $registro): string => implode(':', [
+                $registro->id_persona,
+                $registro->id_gestionacademica,
+                $registro->id_carrera,
+                $registro->nivel ?? 'sin-nivel',
+            ]));
 
-            foreach ($registrosParaContar as $registro) {
-                $paralelo = $registro->id_grupo === null
-                    ? 'Sin paralelo'
-                    : $this->extraerParalelo((string) $registro->codigo_grupo);
-                $turno = $registro->id_grupo === null
-                    ? 'Sin turno'
-                    : $this->turnoEtiqueta($registro->turno);
-                $clave = implode('|', [
-                    $registro->id_gestionacademica,
-                    $registro->id_carrera,
-                    $registro->nivel ?? 'sin-nivel',
-                    $paralelo,
-                    $turno,
-                ]);
+            foreach ($gruposPorEstudianteNivel as $registrosNivel) {
+                $asignaciones = $registrosNivel->filter(fn (object $registro): bool => $registro->id_grupo !== null);
+                $registrosParaContar = $asignaciones->isNotEmpty()
+                    ? $asignaciones
+                    : $registrosNivel->take(1);
 
-                if (! isset($conteos[$clave])) {
-                    $conteos[$clave] = [
-                        'id_gestionacademica' => (int) $registro->id_gestionacademica,
-                        'gestion' => $registro->gestion,
-                        'periodo' => $registro->periodo,
-                        'id_carrera' => (int) $registro->id_carrera,
-                        'carrera' => $registro->carrera,
-                        'nombre_carrera_orden' => $registro->nombre_carrera_orden,
-                        'regimen' => $registro->regimen,
-                        'nivel_numero' => $registro->nivel,
-                        'nivel' => $registro->nivel
-                            ? Carrera::etiquetaNivel($registro->regimen, $registro->nivel)
-                            : 'Sin curso',
-                        'paralelo' => $paralelo,
-                        'turno' => $turno,
-                        'estudiantes' => [],
-                    ];
+                foreach ($registrosParaContar as $registro) {
+                    $paraleloRegistrado = trim((string) ($registro->paralelo_inscrito ?? ''));
+                    $paralelo = $registro->id_grupo === null
+                        ? ($paraleloRegistrado === '' ? 'Sin paralelo' : $this->extraerParalelo($paraleloRegistrado))
+                        : $this->extraerParalelo((string) $registro->codigo_grupo);
+                    $turno = $registro->id_grupo === null
+                        ? $this->turnoEtiqueta($registro->turno_inscrito)
+                        : $this->turnoEtiqueta($registro->turno);
+                    $clave = implode('|', [
+                        $registro->id_gestionacademica,
+                        $registro->id_carrera,
+                        $registro->nivel ?? 'sin-nivel',
+                        $paralelo,
+                        $turno,
+                    ]);
+
+                    if (! isset($conteos[$clave])) {
+                        $conteos[$clave] = [
+                            'id_gestionacademica' => (int) $registro->id_gestionacademica,
+                            'gestion' => $registro->gestion,
+                            'periodo' => $registro->periodo,
+                            'id_carrera' => (int) $registro->id_carrera,
+                            'carrera' => $registro->carrera,
+                            'nombre_carrera_orden' => $registro->nombre_carrera_orden,
+                            'regimen' => $registro->regimen,
+                            'nivel_numero' => $registro->nivel,
+                            'nivel' => $registro->nivel
+                                ? Carrera::etiquetaNivel($registro->regimen, $registro->nivel)
+                                : 'Sin curso',
+                            'paralelo' => $paralelo,
+                            'turno' => $turno,
+                            'estudiantes' => [],
+                        ];
+                    }
+
+                    $conteos[$clave]['estudiantes'][$registro->id_persona] = mb_strtoupper(trim((string) $registro->sexo));
                 }
-
-                $conteos[$clave]['estudiantes'][$registro->id_persona] = mb_strtoupper(trim((string) $registro->sexo));
             }
         }
+
+        $this->agregarCombinacionesSinInscritos($conteos, $filters);
 
         return collect($conteos)
             ->map(function (array $fila): object {
@@ -247,6 +260,79 @@ class InscripcionesDashboardController extends Controller
                 return $fila;
             })
             ->values();
+    }
+
+    private function agregarCombinacionesSinInscritos(array &$conteos, array $filters): void
+    {
+        $grupos = DB::table('grupo as gr')
+            ->join('materia as m', 'm.id_materia', '=', 'gr.id_materia')
+            ->join('carreras as c', 'c.id_carrera', '=', 'm.id_carrera')
+            ->join('gestionacademica as ga', 'ga.id_gestionacademica', '=', 'gr.id_gestionacademica')
+            ->where('gr.activo', true)
+            ->where('m.activo', true)
+            ->when(
+                ! empty($filters['id_gestionacademica']),
+                fn (Builder $query) => $query->where('gr.id_gestionacademica', $filters['id_gestionacademica'])
+            )
+            ->when(
+                ! empty($filters['id_carrera']),
+                fn (Builder $query) => $query->where('c.id_carrera', $filters['id_carrera'])
+            )
+            ->select(
+                'gr.id_gestionacademica',
+                'gr.codigo as codigo_grupo',
+                'gr.turno',
+                'm.nivel',
+                'c.id_carrera',
+                'c.nombre as nombre_carrera',
+                'c.resolucionministerial1',
+                'c.resolucionministerial2',
+                'c.resolucionministerial3',
+                'c.regimen',
+                'ga.gestion',
+                'ga.periodo'
+            )
+            ->get();
+
+        foreach ($grupos as $grupo) {
+            $nivel = $grupo->nivel;
+            $paralelo = $this->extraerParalelo((string) $grupo->codigo_grupo);
+            $turno = $this->turnoEtiqueta($grupo->turno);
+            $clave = implode('|', [
+                $grupo->id_gestionacademica,
+                $grupo->id_carrera,
+                $nivel ?? 'sin-nivel',
+                $paralelo,
+                $turno,
+            ]);
+
+            if (isset($conteos[$clave])) {
+                continue;
+            }
+
+            $nombreCarrera = (string) $grupo->nombre_carrera;
+            $conteos[$clave] = [
+                'id_gestionacademica' => (int) $grupo->id_gestionacademica,
+                'gestion' => $grupo->gestion,
+                'periodo' => $grupo->periodo,
+                'id_carrera' => (int) $grupo->id_carrera,
+                'carrera' => Carrera::formatearNombreConResolucion(
+                    $nombreCarrera,
+                    $grupo->resolucionministerial1,
+                    $grupo->resolucionministerial2,
+                    $grupo->resolucionministerial3
+                ),
+                'nombre_carrera_orden' => $nombreCarrera,
+                'regimen' => $grupo->regimen,
+                'nivel_numero' => $nivel,
+                'nivel' => $nivel
+                    ? Carrera::etiquetaNivel($grupo->regimen, $nivel)
+                    : 'Sin curso',
+                'paralelo' => $paralelo,
+                'turno' => $turno,
+                'estudiantes' => [],
+            ];
+        }
     }
 
     private function filasConTotales(Collection $filasDetalle): Collection
@@ -330,31 +416,15 @@ class InscripcionesDashboardController extends Controller
         };
     }
 
-    private function exportarExcelCompleto()
+    private function exportarExcelFiltrado(Collection $filas, ?GestionAcademica $gestion)
     {
-        $filas = $this->filasReporte([]);
-        $gestiones = $filas->groupBy('id_gestionacademica');
         $libro = new Spreadsheet;
-        $hojaInicial = $libro->getActiveSheet();
-        $primeraHoja = true;
-
-        foreach ($gestiones as $filasGestion) {
-            $gestion = $filasGestion->first();
-            $nombreHoja = $this->nombreHoja($gestion->gestion, $gestion->periodo);
-            $hoja = $primeraHoja ? $hojaInicial : $libro->createSheet();
-            $primeraHoja = false;
-            $this->prepararHojaExcel($hoja, $nombreHoja, $gestion, $filasGestion);
-        }
-
-        if ($primeraHoja) {
-            $hoja = $hojaInicial;
-            $gestion = GestionAcademica::query()
-                ->where('vigente', true)
-                ->orderByDesc('gestion')
-                ->orderByDesc('periodo')
-                ->first();
-            $this->prepararHojaExcel($hoja, 'Reporte', $gestion, collect());
-        }
+        $this->prepararHojaExcel(
+            $libro->getActiveSheet(),
+            $gestion ? $this->nombreHoja($gestion->gestion, $gestion->periodo) : 'Reporte',
+            $gestion,
+            $filas
+        );
 
         return response()->streamDownload(
             fn () => (new Xlsx($libro))->save('php://output'),

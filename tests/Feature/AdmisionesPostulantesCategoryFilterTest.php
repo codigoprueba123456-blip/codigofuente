@@ -85,12 +85,67 @@ class AdmisionesPostulantesCategoryFilterTest extends TestCase
             ->assertSee('de 3 registros');
     }
 
+    public function test_turno_and_parallel_filters_show_matching_applications_in_the_list_and_pdf(): void
+    {
+        $this->withoutMiddleware(EnsureFunctionalityAccess::class);
+        $this->actingAs($this->createAdmin());
+
+        $gestion = GestionAcademica::create([
+            'gestion' => now()->year,
+            'periodo' => 1,
+            'regimen' => 1,
+            'vigente' => true,
+        ]);
+        $instituto = Instituto::create(['nombreinstituto' => 'Instituto de Prueba']);
+        $carrera = Carrera::create([
+            'codigo' => 'ADM-TURNO',
+            'nombre' => 'Carrera de prueba',
+            'id_instituto' => $instituto->id_instituto,
+        ]);
+
+        $this->crearPostulante('SHIFT-MORNING-A', 'SHIFT-001', $carrera, $gestion, 'SHIFT-VOUCHER-1', 1, 'A');
+        $this->crearPostulante('SHIFT-NIGHT-B', 'SHIFT-002', $carrera, $gestion, 'SHIFT-VOUCHER-2', 3, 'B');
+
+        $this->get(route('admisiones.postulantes.index', ['turno' => 1, 'paralelo' => 'a']))
+            ->assertOk()
+            ->assertSee('SHIFT-MORNING-A', false)
+            ->assertDontSee('SHIFT-NIGHT-B', false)
+            ->assertSee('Mañana')
+            ->assertSee('Paralelo');
+
+        $this->get(route('admisiones.postulantes.index', [
+            'turno' => 1,
+            'paralelo' => 'A',
+            'exportar' => 'filtrado',
+            'formato' => 'pdf',
+        ]))
+            ->assertOk()
+            ->assertSee('SHIFT-MORNING-A', false)
+            ->assertDontSee('SHIFT-NIGHT-B', false)
+            ->assertSee('TURNO')
+            ->assertSee('PARALELO');
+
+        $this->get(route('admisiones.postulantes.index', [
+            'turno' => 1,
+            'paralelo' => 'A',
+            'exportar' => 'filtrado',
+            'formato' => 'excel',
+        ]))
+            ->assertOk()
+            ->assertHeader(
+                'content-type',
+                'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+            );
+    }
+
     private function crearPostulante(
         string $codigo,
         string $ci,
         Carrera $carrera,
         GestionAcademica $gestion,
-        string $voucher
+        string $voucher,
+        ?int $turno = null,
+        ?string $paralelo = null
     ): Postulante {
         return Postulante::create([
             'codigo' => $codigo,
@@ -120,6 +175,8 @@ class AdmisionesPostulantesCategoryFilterTest extends TestCase
             'path_diploma' => 'postulantes/diploma.jpg',
             'id_carrera' => $carrera->id_carrera,
             'id_gestionacademica' => $gestion->id_gestionacademica,
+            'turno' => $turno,
+            'paralelo' => $paralelo,
         ]);
     }
 

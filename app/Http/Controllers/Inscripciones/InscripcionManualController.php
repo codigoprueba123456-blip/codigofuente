@@ -7,12 +7,17 @@ use App\Models\Carrera;
 use App\Models\GestionAcademica;
 use App\Models\Inscrito;
 use App\Models\Materia;
+use App\Services\Inscripciones\DisponibilidadTurnos;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
 class InscripcionManualController extends Controller
 {
+    public function __construct(private DisponibilidadTurnos $disponibilidadTurnos)
+    {
+    }
+
     public function index(Request $request)
     {
         $gestionActual = $this->gestionActual();
@@ -44,6 +49,8 @@ class InscripcionManualController extends Controller
                     'i.id_inscrito',
                     'i.id_persona',
                     'i.id_carrera',
+                    'i.turno',
+                    'i.paralelo',
                     'p.nombre',
                     'p.primerapellido',
                     'p.segundoapellido',
@@ -85,6 +92,8 @@ class InscripcionManualController extends Controller
                 ->get([
                     'i.id_inscrito',
                     'i.id_carrera',
+                    'i.turno',
+                    'i.paralelo',
                     'c.nombre as carrera',
                     'c.resolucionministerial1',
                     'c.resolucionministerial2',
@@ -102,7 +111,10 @@ class InscripcionManualController extends Controller
                 });
             $materiasActuales = DB::table('inscrito_materia as im')
                 ->join('materia as m', 'm.id_materia', '=', 'im.id_materia')
-                ->leftJoin('grupo as g', 'g.id_grupo', '=', 'im.id_grupo')
+                ->leftJoin('grupo as g', function ($join) use ($inscripcionSeleccionada): void {
+                    $join->on('g.id_grupo', '=', 'im.id_grupo')
+                        ->where('g.id_gestionacademica', $inscripcionSeleccionada->id_gestionacademica);
+                })
                 ->leftJoin('empleados as e', 'e.id_persona', '=', 'g.id_persona')
                 ->leftJoin('personas as docente', 'docente.id_persona', '=', 'e.id_persona')
                 ->where('im.id_inscrito', $inscripcionSeleccionada->id_inscrito)
@@ -177,6 +189,8 @@ class InscripcionManualController extends Controller
                 'i.id_inscrito',
                 'i.id_persona',
                 'i.id_carrera',
+                'i.turno',
+                'i.paralelo',
                 'p.nombre',
                 'p.primerapellido',
                 'p.segundoapellido',
@@ -211,6 +225,10 @@ class InscripcionManualController extends Controller
                     ),
                     'nivel' => max(1, (int) ($registro->nivelinicio ?? 1)),
                     'regimen' => Carrera::regimenEfectivo($registro->regimen),
+                    'turno' => $registro->turno === null ? null : (int) $registro->turno,
+                    'paralelo' => $registro->paralelo === null
+                        ? null
+                        : mb_strtoupper(trim((string) $registro->paralelo)),
                 ])->values(),
             ];
         })->values());
@@ -238,7 +256,13 @@ class InscripcionManualController extends Controller
     public function oferta(Request $request, Inscrito $inscrito)
     {
         $contexto = $this->contexto($inscrito);
-        $estadoCombinacion = $this->estadoCombinacion($inscrito);
+        $estadoCombinacion = $this->estadoCombinacion($inscrito, $contexto['inscripcion']);
+        $opcionesTurnoParalelo = collect($this->disponibilidadTurnos->opciones(
+            (int) $contexto['inscripcion']->id_carrera,
+            (int) $contexto['inscripcion']->id_gestionacademica,
+            nivel: (int) $contexto['inscripcion']->nivelinicio,
+            inscritoExcluir: (int) $inscrito->id_inscrito
+        ));
         $paraleloSolicitado = strtoupper((string) $request->query('paralelo', 'A'));
         if (! in_array($paraleloSolicitado, ['A', 'B', 'C', 'D'], true)) {
             $paraleloSolicitado = 'A';
@@ -262,8 +286,30 @@ class InscripcionManualController extends Controller
         } else {
             $turno = $turnoSolicitado;
             $paralelo = $paraleloSolicitado;
+            if ($turno !== null) {
+                $opcionSolicitada = $opcionesTurnoParalelo->first(fn (array $opcion): bool =>
+                    $opcion['turno'] === $turno && $opcion['paralelo'] === $paralelo
+                );
+                if (! $opcionSolicitada) {
+                    $paraleloDisponible = $opcionesTurnoParalelo
+                        ->first(fn (array $opcion): bool => $opcion['turno'] === $turno);
+                    $paralelo = $paraleloDisponible['paralelo'] ?? $paralelo;
+                }
+            }
         }
 
+        $opcionesCambioTurno = $opcionesTurnoParalelo
+            ->reject(fn (array $opcion): bool =>
+                ! $estadoCombinacion['combinacionInconsistente']
+                && $estadoCombinacion['turnoBloqueado'] !== null
+                && $opcion['turno'] === $estadoCombinacion['turnoBloqueado']
+                && $opcion['paralelo'] === $estadoCombinacion['paraleloBloqueado']
+            )
+            ->values();
+        $puedeCambiarTurno = (
+            $estadoCombinacion['turnoBloqueado'] !== null
+            || $estadoCombinacion['combinacionInconsistente']
+        ) && $opcionesCambioTurno->isNotEmpty();
         $turnos = [1 => 'Mañana', 2 => 'Tarde', 3 => 'Noche'];
         $materiasOferta = collect();
         if ($turno !== null && ! $estadoCombinacion['combinacionInconsistente']) {
@@ -321,6 +367,9 @@ class InscripcionManualController extends Controller
             'paralelo' => $paralelo,
             'turno' => $turno,
             'turnos' => $turnos,
+            'opcionesTurnoParalelo' => $opcionesTurnoParalelo,
+            'opcionesCambioTurno' => $opcionesCambioTurno,
+            'puedeCambiarTurno' => $puedeCambiarTurno,
             ...$estadoCombinacion,
             'seIntentoCambiarCombinacion' => $seIntentoCambiarCombinacion,
             'materiasOferta' => $materiasOferta,
@@ -398,12 +447,18 @@ class InscripcionManualController extends Controller
         $idGrupos = collect($validated['grupos'])->map(fn ($id): int => (int) $id)->values();
 
         DB::transaction(function () use ($inscrito, $contexto, $idGrupos, $validated): void {
-            DB::table('inscrito')
+            $inscripcionBloqueada = DB::table('inscrito')
                 ->where('id_inscrito', $inscrito->id_inscrito)
+                ->where('id_gestionacademica', $contexto['inscripcion']->id_gestionacademica)
+                ->where('activo', true)
+                ->whereNull('id_inscrito_reemplazo')
                 ->lockForUpdate()
                 ->first();
+            abort_unless($inscripcionBloqueada, 404);
+            $contexto['inscripcion']->turno = $inscripcionBloqueada->turno;
+            $contexto['inscripcion']->paralelo = $inscripcionBloqueada->paralelo;
 
-            $estadoCombinacion = $this->estadoCombinacion($inscrito);
+            $estadoCombinacion = $this->estadoCombinacion($inscrito, $contexto['inscripcion']);
             if ($estadoCombinacion['combinacionInconsistente']) {
                 throw ValidationException::withMessages([
                     'grupos' => 'El estudiante ya tiene materias asignadas en distintos turnos o paralelos. Corrija esas asignaciones antes de agregar otras.',
@@ -506,7 +561,7 @@ class InscripcionManualController extends Controller
                     ->where('id_grupo', $grupo->id_grupo)
                     ->where('id_inscrito', '<>', $inscrito->id_inscrito)
                     ->count();
-                if (! $yaAsignado && $ocupacion >= (int) $grupo->capacidad) {
+                if (! $yaAsignado && $grupo->capacidad !== null && $ocupacion >= (int) $grupo->capacidad) {
                     throw ValidationException::withMessages([
                         'grupos' => 'Uno de los grupos seleccionados ya alcanzó su capacidad.',
                     ]);
@@ -527,6 +582,14 @@ class InscripcionManualController extends Controller
                     ]
                 );
             }
+
+            DB::table('inscrito')
+                ->where('id_inscrito', $inscrito->id_inscrito)
+                ->update([
+                    'turno' => (int) $validated['turno'],
+                    'paralelo' => $validated['paralelo'],
+                    'updated_at' => $ahora,
+                ]);
         });
 
         return redirect()
@@ -535,6 +598,70 @@ class InscripcionManualController extends Controller
                 'id_inscrito' => $inscrito->id_inscrito,
             ])
             ->with('success', 'Las materias y paralelos se asignaron correctamente.');
+    }
+
+    public function cambiarTurno(Request $request, Inscrito $inscrito)
+    {
+        $validated = $request->validate([
+            'turno' => ['required', 'integer', 'in:1,2,3'],
+            'paralelo' => ['required', 'string', 'regex:/^[A-D]$/i'],
+        ]);
+        $validated['paralelo'] = mb_strtoupper($validated['paralelo']);
+        $contexto = $this->contexto($inscrito);
+
+        DB::transaction(function () use ($inscrito, $contexto, $validated): void {
+            $inscripcionBloqueada = DB::table('inscrito')
+                ->where('id_inscrito', $inscrito->id_inscrito)
+                ->where('id_gestionacademica', $contexto['inscripcion']->id_gestionacademica)
+                ->where('activo', true)
+                ->whereNull('id_inscrito_reemplazo')
+                ->lockForUpdate()
+                ->first();
+            abort_unless($inscripcionBloqueada, 404);
+            $contexto['inscripcion']->turno = $inscripcionBloqueada->turno;
+            $contexto['inscripcion']->paralelo = $inscripcionBloqueada->paralelo;
+
+            $estadoCombinacion = $this->estadoCombinacion($inscrito, $contexto['inscripcion']);
+            if (! $estadoCombinacion['combinacionInconsistente']
+                && $estadoCombinacion['turnoBloqueado'] === (int) $validated['turno']
+                && $estadoCombinacion['paraleloBloqueado'] === $validated['paralelo']) {
+                throw ValidationException::withMessages([
+                    'turno' => 'Ese turno y paralelo ya están seleccionados para esta inscripción.',
+                ]);
+            }
+
+            $this->disponibilidadTurnos->validarDisponible(
+                (int) $contexto['inscripcion']->id_carrera,
+                (int) $contexto['inscripcion']->id_gestionacademica,
+                (int) $validated['turno'],
+                $validated['paralelo'],
+                nivel: (int) $contexto['inscripcion']->nivelinicio,
+                inscritoExcluir: (int) $inscrito->id_inscrito
+            );
+
+            $gruposGestionActual = DB::table('grupo')
+                ->where('id_gestionacademica', $contexto['inscripcion']->id_gestionacademica)
+                ->select('id_grupo');
+            DB::table('inscrito_materia')
+                ->where('id_inscrito', $inscrito->id_inscrito)
+                ->whereIn('id_grupo', $gruposGestionActual)
+                ->update([
+                    'id_grupo' => null,
+                    'updated_at' => now(),
+                ]);
+
+            DB::table('inscrito')
+                ->where('id_inscrito', $inscrito->id_inscrito)
+                ->update([
+                    'turno' => (int) $validated['turno'],
+                    'paralelo' => $validated['paralelo'],
+                    'updated_at' => now(),
+                ]);
+        });
+
+        return redirect()
+            ->route('inscripcion_manual.oferta', $inscrito->id_inscrito)
+            ->with('success', 'Se actualizó el turno. Las materias de la gestión vigente se conservaron y quedaron listas para asignar a grupos del nuevo turno.');
     }
 
     private function contexto(Inscrito $inscrito): array
@@ -564,6 +691,8 @@ class InscripcionManualController extends Controller
                 'c.resolucionministerial2',
                 'c.resolucionministerial3',
                 'c.regimen',
+                'i.turno',
+                'i.paralelo',
             ]);
         abort_unless($inscripcion, 404);
         $inscripcion->carrera = Carrera::formatearNombreConResolucion(
@@ -605,11 +734,15 @@ class InscripcionManualController extends Controller
             : $codigoGrupo;
     }
 
-    private function estadoCombinacion(Inscrito $inscrito): array
+    private function estadoCombinacion(Inscrito $inscrito, object $inscripcion): array
     {
         $asignaciones = DB::table('inscrito_materia as im')
             ->leftJoin('grupo as g', 'g.id_grupo', '=', 'im.id_grupo')
             ->where('im.id_inscrito', $inscrito->id_inscrito)
+            ->where(function ($query) use ($inscripcion): void {
+                $query->where('g.id_gestionacademica', $inscripcion->id_gestionacademica)
+                    ->orWhereNull('im.id_grupo');
+            })
             ->get([
                 'im.id_grupo',
                 'g.codigo',
@@ -626,11 +759,32 @@ class InscripcionManualController extends Controller
         $combinacionesUnicas = $combinaciones
             ->unique(fn (array $combinacion): string => ($combinacion['turno'] ?? 'sin-turno').'|'.($combinacion['paralelo'] ?? 'sin-paralelo'))
             ->values();
-        $combinacionInconsistente = $combinacionesUnicas->count() > 1
+        $combinacionGruposInconsistente = $combinacionesUnicas->count() > 1
             || $combinaciones->contains(fn (array $combinacion): bool => ! in_array($combinacion['turno'], [1, 2, 3], true)
                 || ! in_array($combinacion['paralelo'], ['A', 'B', 'C', 'D'], true));
-        $combinacionActual = ! $combinacionInconsistente && $combinacionesUnicas->count() === 1
+        $combinacionGrupos = ! $combinacionGruposInconsistente && $combinacionesUnicas->count() === 1
             ? $combinacionesUnicas->first()
+            : null;
+        $turnoGuardado = $inscripcion->turno === null ? null : (int) $inscripcion->turno;
+        $paraleloGuardado = $inscripcion->paralelo === null
+            ? null
+            : mb_strtoupper(trim((string) $inscripcion->paralelo));
+        $combinacionGuardadaCompleta = in_array($turnoGuardado, [1, 2, 3], true)
+            && in_array($paraleloGuardado, ['A', 'B', 'C', 'D'], true);
+        $combinacionGuardadaParcial = ($turnoGuardado !== null || $paraleloGuardado !== null)
+            && ! $combinacionGuardadaCompleta;
+        $combinacionGuardadaDifiere = $combinacionGrupos !== null
+            && $combinacionGuardadaCompleta
+            && ($combinacionGrupos['turno'] !== $turnoGuardado
+                || $combinacionGrupos['paralelo'] !== $paraleloGuardado);
+        $combinacionInconsistente = $combinacionGruposInconsistente
+            || $combinacionGuardadaParcial
+            || $combinacionGuardadaDifiere;
+        $combinacionActual = ! $combinacionInconsistente
+            ? ($combinacionGrupos ?? ($combinacionGuardadaCompleta ? [
+                'turno' => $turnoGuardado,
+                'paralelo' => $paraleloGuardado,
+            ] : null))
             : null;
 
         return [

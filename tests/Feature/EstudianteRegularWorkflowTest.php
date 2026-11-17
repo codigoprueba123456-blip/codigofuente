@@ -48,6 +48,62 @@ class EstudianteRegularWorkflowTest extends TestCase
                 ->pluck('id')
                 ->all()
         );
+        $carreraSistemas = collect($response->json()[0]['carreras'])
+            ->firstWhere('id', $fixture['carreraUno']->id_carrera);
+        $this->assertSame(3, $carreraSistemas['turno_sugerido']);
+        $this->assertSame('A', $carreraSistemas['paralelo_sugerido']);
+    }
+
+    public function test_regular_turn_options_use_current_open_groups_for_the_selected_career_and_year(): void
+    {
+        $this->withoutMiddleware();
+        $fixture = $this->createFixture();
+        $this->createGroup($fixture['carreraUno'], $fixture['gestionActual'], 2, 3, 'B');
+        $this->createGroup($fixture['carreraUno'], $fixture['gestionActual'], 2, 2, 'C', false);
+        $this->createGroup($fixture['carreraUno'], $fixture['gestionAnterior'], 2, 2, 'D');
+        $this->createGroup($fixture['carreraDos'], $fixture['gestionActual'], 2, 2, 'E');
+
+        $this->getJson(route('estudiante_regular.turnos', [
+            'id_carrera' => $fixture['carreraUno']->id_carrera,
+            'nivelinicio' => 2,
+        ]))
+            ->assertOk()
+            ->assertExactJson([
+                'opciones' => [
+                    ['turno' => 1, 'paralelo' => 'A'],
+                    ['turno' => 3, 'paralelo' => 'B'],
+                ],
+            ]);
+    }
+
+    public function test_regular_enrollment_can_choose_a_current_shift_when_the_previous_shift_is_unavailable(): void
+    {
+        $this->withoutMiddleware();
+        $fixture = $this->createFixture();
+
+        $this->post(route('estudiante_regular.store'), [
+            'id_persona' => $fixture['persona']->id_persona,
+            'fecha' => now()->toDateString(),
+            'becado' => 0,
+            'traspaso_convalidacion' => 0,
+            'inscripciones' => [[
+                'registrar' => 1,
+                'nueva' => 0,
+                'id_carrera' => $fixture['carreraUno']->id_carrera,
+                'nivelinicio' => 3,
+                'turno' => 1,
+                'paralelo' => 'A',
+                'deposito' => 'REGULAR-CHANGED-SHIFT-VOUCHER',
+            ]],
+        ])->assertRedirect(route('estudiante_regular.index'));
+
+        $this->assertDatabaseHas('inscrito', [
+            'id_persona' => $fixture['persona']->id_persona,
+            'id_carrera' => $fixture['carreraUno']->id_carrera,
+            'id_gestionacademica' => $fixture['gestionActual']->id_gestionacademica,
+            'turno' => 1,
+            'paralelo' => 'A',
+        ]);
     }
 
     public function test_registration_forms_display_existing_career_resolutions(): void
@@ -96,6 +152,8 @@ class EstudianteRegularWorkflowTest extends TestCase
                     'registrar' => 1,
                     'id_carrera' => $fixture['carreraUno']->id_carrera,
                     'nivelinicio' => 2,
+                    'turno' => 1,
+                    'paralelo' => 'A',
                     'deposito' => 'REGULAR-VOUCHER-001',
                 ],
                 [
@@ -136,6 +194,8 @@ class EstudianteRegularWorkflowTest extends TestCase
                 'registrar' => 1,
                 'id_carrera' => $fixture['carreraNoAsociada']->id_carrera,
                 'nivelinicio' => 2,
+                'turno' => 1,
+                'paralelo' => 'A',
                 'deposito' => 'REGULAR-VOUCHER-002',
             ]],
         ];
@@ -172,6 +232,8 @@ class EstudianteRegularWorkflowTest extends TestCase
                     'nueva' => 0,
                     'id_carrera' => $fixture['carreraUno']->id_carrera,
                     'nivelinicio' => 3,
+                    'turno' => 1,
+                    'paralelo' => 'A',
                     'deposito' => 'REGULAR-SISTEMAS-VOUCHER-001',
                 ],
                 [
@@ -179,6 +241,8 @@ class EstudianteRegularWorkflowTest extends TestCase
                     'nueva' => 1,
                     'id_carrera' => $fixture['carreraNoAsociada']->id_carrera,
                     'nivelinicio' => 1,
+                    'turno' => 1,
+                    'paralelo' => 'A',
                     'deposito' => 'NUEVA-CARRERA-VOUCHER-001',
                 ],
             ],
@@ -318,6 +382,8 @@ class EstudianteRegularWorkflowTest extends TestCase
                 'nueva' => 1,
                 'id_carrera' => $fixture['carreraNoAsociada']->id_carrera,
                 'nivelinicio' => 1,
+                'turno' => 1,
+                'paralelo' => 'A',
                 'deposito' => 'REGULAR-POSTULACION-DUPLICATE',
             ]],
         ])->assertRedirect(route('estudiante_regular.index'));
@@ -414,6 +480,8 @@ class EstudianteRegularWorkflowTest extends TestCase
                 'nueva' => 0,
                 'id_carrera' => $fixture['carreraUno']->id_carrera,
                 'nivelinicio' => 4,
+                'turno' => 1,
+                'paralelo' => 'A',
                 'deposito' => 'REGULAR-VOUCHER-003',
             ]],
         ])->assertSessionHasErrors('inscripciones.0.nivelinicio');
@@ -500,12 +568,14 @@ class EstudianteRegularWorkflowTest extends TestCase
 
         foreach ([$carreraUno, $carreraDos] as $index => $carrera) {
             $now = now();
-            DB::table('inscrito')->insert([
+            $idInscrito = DB::table('inscrito')->insertGetId([
                 'codigo' => 1000 + $index,
                 'fecha' => $now->toDateString(),
                 'numero' => 1,
                 'tipo' => 1,
                 'becado' => false,
+                'turno' => $index === 0 ? 1 : 2,
+                'paralelo' => 'A',
                 'deposito' => 'HISTORIAL-VOUCHER-'.$index,
                 'id_carrera' => $carrera->id_carrera,
                 'id_persona' => $persona->id_persona,
@@ -522,9 +592,67 @@ class EstudianteRegularWorkflowTest extends TestCase
                 'created_at' => $now,
                 'updated_at' => $now,
             ]);
+
+            if ($index === 0) {
+                ['id_materia' => $idMateria, 'id_grupo' => $idGrupo] = $this->createGroup(
+                    $carrera,
+                    $gestionAnterior,
+                    2,
+                    3,
+                    'A'
+                );
+                DB::table('inscrito_materia')->insert([
+                    'id_inscrito' => $idInscrito,
+                    'id_materia' => $idMateria,
+                    'id_grupo' => $idGrupo,
+                    'created_at' => $now,
+                    'updated_at' => $now,
+                ]);
+            }
+        }
+
+        foreach ([$carreraUno, $carreraDos, $carreraNoAsociada] as $carrera) {
+            foreach ([1, 2, 3] as $nivel) {
+                $this->createGroup($carrera, $gestionActual, $nivel, 1, 'A');
+            }
         }
 
         return compact('persona', 'gestionAnterior', 'gestionActual', 'carreraUno', 'carreraDos', 'carreraNoAsociada');
+    }
+
+    private function createGroup(
+        Carrera $carrera,
+        GestionAcademica $gestion,
+        int $nivel,
+        int $turno,
+        string $paralelo,
+        bool $abierto = true
+    ): array {
+        $codigoMateria = "{$carrera->codigo}-N{$nivel}-T{$turno}-{$paralelo}";
+        $idMateria = DB::table('materia')->insertGetId([
+            'codigo' => $codigoMateria,
+            'nombre' => "Materia {$codigoMateria}",
+            'nivel' => $nivel,
+            'numero' => 1,
+            'activo' => true,
+            'curricular' => true,
+            'id_carrera' => $carrera->id_carrera,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+        $idGrupo = DB::table('grupo')->insertGetId([
+            'codigo' => "{$codigoMateria}-{$paralelo}",
+            'capacidad' => 30,
+            'turno' => $turno,
+            'abierto' => $abierto,
+            'activo' => true,
+            'id_gestionacademica' => $gestion->id_gestionacademica,
+            'id_materia' => $idMateria,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        return ['id_materia' => $idMateria, 'id_grupo' => $idGrupo];
     }
 
     private function createCarrera(Instituto $instituto, string $codigo, string $nombre, ?string $resolucion): Carrera

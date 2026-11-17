@@ -842,12 +842,42 @@
                                     @endforeach
 
                                 </select>
+                                @if ($carrerasExcluidasPorHistorial ?? false)
+                                    <div class="alert alert-info mt-2 mb-0">
+                                        Las carreras que ya forman parte de tu historial de estudiante no aparecen en esta lista.
+                                    </div>
+                                @endif
                                 @if (($carrerasExcluidasPorHistorial ?? false) && ($carreras ?? collect())->isEmpty())
                                     <div class="alert alert-warning mt-2 mb-0">
                                         No hay carreras activas adicionales disponibles para postular.
                                     </div>
+                                @elseif (($carreras ?? collect())->isEmpty())
+                                    <div class="alert alert-warning mt-2 mb-0">
+                                        No hay carreras con grupos abiertos y cupos disponibles en la gestión vigente.
+                                    </div>
                                 @endif
 
+                            </div>
+
+                            <div class="col-md-4">
+                                <label for="turno" class="form-label">
+                                    Turno:
+                                    <span class="text-danger">*</span>
+                                </label>
+                                <select name="turno" id="turno" class="form-select" required disabled>
+                                    <option value="">Primero selecciona una carrera</option>
+                                </select>
+                            </div>
+
+                            <div class="col-md-4">
+                                <label for="paralelo" class="form-label">
+                                    Paralelo:
+                                    <span class="text-danger">*</span>
+                                </label>
+                                <select name="paralelo" id="paralelo" class="form-select" required disabled>
+                                    <option value="">Primero selecciona un turno</option>
+                                </select>
+                                <small id="cupos_disponibles" class="form-text text-muted" aria-live="polite"></small>
                             </div>
 
 
@@ -1402,6 +1432,10 @@
 <script src="{{ asset('js/postulantes/registro-pasos.js') }}"></script>
 <script>
     window.postulanteValidationErrors = @json($errors->messages());
+    window.opcionesTurnosCarrera = @json($opcionesTurnos ?? []);
+    window.turnoPostulacionInicial = @json(old('turno'));
+    window.paraleloPostulacionInicial = @json(old('paralelo'));
 </script>
 @include('partials.sweetalert-assets')
+<script src="{{ asset('js/postulantes/turnos-postulacion.js') }}"></script>
 <script src="{{ asset('js/postulantes/postulante-form.js') }}"></script>

@@ -167,6 +167,19 @@
                             <input type="hidden" name="id_gestionacademica" value="{{ $gestionActiva->id_gestionacademica }}">
                         </div>
                         <div class="col-md-4 mb-3">
+                            <label for="turno" class="font-weight-bold">Turno: <span class="text-danger">*</span></label>
+                            <select name="turno" id="turno" class="form-control custom-select" required disabled>
+                                <option value="">Selecciona un turno</option>
+                            </select>
+                        </div>
+                        <div class="col-md-4 mb-3">
+                            <label for="paralelo" class="font-weight-bold">Paralelo: <span class="text-danger">*</span></label>
+                            <select name="paralelo" id="paralelo" class="form-control custom-select" required disabled>
+                                <option value="">Selecciona un paralelo</option>
+                            </select>
+                            <small id="cupos_disponibles" class="form-text text-muted" aria-live="polite"></small>
+                        </div>
+                        <div class="col-md-4 mb-3">
                             <label for="id_carrera" class="font-weight-bold">Carrera a postular: <span class="text-danger">*</span></label>
                             <select name="id_carrera" id="id_carrera" class="form-control custom-select" required>
                                 <option value="">-- Seleccionar carrera --</option>
@@ -346,6 +359,10 @@
 
 <script>
     window.postulanteValidationErrors = @json($errors->messages());
+    window.opcionesTurnosCarrera = @json($opcionesTurnos ?? []);
+    window.turnoPostulacionInicial = @json(old('turno', $postulante->turno));
+    window.paraleloPostulacionInicial = @json(old('paralelo', $postulante->paralelo));
 </script>
 @include('partials.sweetalert-assets')
+<script src="{{ asset('js/postulantes/turnos-postulacion.js') }}"></script>
 <script src="{{ asset('js/postulantes/postulante-form.js') }}"></script>

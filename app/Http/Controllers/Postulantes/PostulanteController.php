@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Carrera;
 use App\Models\GestionAcademica;
 use App\Models\Postulante;
+use App\Services\Inscripciones\DisponibilidadTurnos;
 use App\Services\Postulantes\VentanaPostulacionPublica;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -18,8 +19,10 @@ use Illuminate\View\View;
 
 class PostulanteController extends Controller
 {
-    public function __construct(private VentanaPostulacionPublica $ventanaPostulacion)
-    {
+    public function __construct(
+        private VentanaPostulacionPublica $ventanaPostulacion,
+        private DisponibilidadTurnos $disponibilidadTurnos
+    ) {
     }
 
     public function bienvenida(Request $request): View
@@ -72,7 +75,22 @@ class PostulanteController extends Controller
                 ->with('error', 'No hay una gestión académica activa para iniciar el registro.');
         }
 
-        $carreras = Carrera::activas()->orderBy('nombre')->get();
+        $opcionesTurnos = Carrera::activas()
+            ->orderBy('nombre')
+            ->get()
+            ->mapWithKeys(fn (Carrera $carrera): array => [
+                $carrera->id_carrera => $this->disponibilidadTurnos->opciones(
+                    (int) $carrera->id_carrera,
+                    (int) $gestionActiva->id_gestionacademica
+                ),
+            ])
+            ->all();
+        $carreras = Carrera::activas()
+            ->whereIn('id_carrera', collect($opcionesTurnos)
+                ->filter(fn (array $opciones): bool => $opciones !== [])
+                ->keys())
+            ->orderBy('nombre')
+            ->get();
 
         $ciBuscado = $request->query('ci_consulta') ?? $request->query('ci');
         $postulanteBase = null;
@@ -88,19 +106,27 @@ class PostulanteController extends Controller
                 ?? $this->buscarPostulanteHistorico($ciLimpio);
 
             $idPersona = DB::table('personas')->where('ci', $ciLimpio)->value('id_persona');
-            if ($idPersona && DB::table('estudiante')->where('id_persona', $idPersona)->exists()) {
-                $carrerasAsociadas = $this->carrerasRegistradasPorPersona((int) $idPersona);
-                $carrerasExcluidasPorHistorial = $carrerasAsociadas->isNotEmpty();
-                $carreras = $carreras
-                    ->reject(fn (Carrera $carrera): bool => $carrerasAsociadas->contains((int) $carrera->id_carrera))
-                    ->values();
-            }
+            $carrerasAsociadas = $idPersona
+                ? $this->carrerasRegistradasPorPersona((int) $idPersona)
+                : collect();
+            $carrerasExcluidasPorHistorial = $carrerasAsociadas->isNotEmpty();
+            $carrerasYaPostuladas = Postulante::where('ci', $ciLimpio)
+                ->where('id_gestionacademica', $gestionActiva->id_gestionacademica)
+                ->pluck('id_carrera')
+                ->map(fn ($id): int => (int) $id);
+            $carrerasBloqueadas = $carrerasAsociadas
+                ->merge($carrerasYaPostuladas)
+                ->unique();
+            $carreras = $carreras
+                ->reject(fn (Carrera $carrera): bool => $carrerasBloqueadas->contains((int) $carrera->id_carrera))
+                ->values();
         }
         $tutorialVideoUrl = $this->tutorialVideoUrl();
 
         return view('postulantes.crear', compact(
             'gestionActiva',
             'carreras',
+            'opcionesTurnos',
             'carrerasExcluidasPorHistorial',
             'postulanteBase',
             'ciBuscado',
@@ -136,13 +162,41 @@ class PostulanteController extends Controller
             abort(404);
         }
 
+        $opcionesTurnos = Carrera::activas()
+            ->orderBy('nombre')
+            ->get()
+            ->mapWithKeys(fn (Carrera $carrera): array => [
+                $carrera->id_carrera => $this->disponibilidadTurnos->opciones(
+                    (int) $carrera->id_carrera,
+                    (int) $gestionActiva->id_gestionacademica,
+                    (int) $postulante->id_postulante
+                ),
+            ])
+            ->all();
+        $idPersona = DB::table('personas')
+            ->where('ci', $this->normalizarCi((string) $postulante->ci))
+            ->value('id_persona');
+        $carrerasAsociadas = $idPersona
+            ? $this->carrerasRegistradasPorPersona((int) $idPersona)
+            : collect();
+        $otrasPostulaciones = Postulante::where('ci', $postulante->ci)
+            ->where('id_gestionacademica', $gestionActiva->id_gestionacademica)
+            ->where('id_postulante', '!=', $postulante->id_postulante)
+            ->pluck('id_carrera')
+            ->map(fn ($id): int => (int) $id);
+        $carrerasBloqueadas = $carrerasAsociadas
+            ->reject(fn ($id): bool => (int) $id === (int) $postulante->id_carrera)
+            ->merge($otrasPostulaciones)
+            ->unique();
         $carreras = Carrera::query()
             ->where('activo', true)
             ->orWhere('id_carrera', $postulante->id_carrera)
             ->orderBy('nombre')
-            ->get();
+            ->get()
+            ->reject(fn (Carrera $carrera): bool => $carrerasBloqueadas->contains((int) $carrera->id_carrera))
+            ->values();
 
-        return view('postulantes.editar', compact('postulante', 'carreras', 'gestionActiva'));
+        return view('postulantes.editar', compact('postulante', 'carreras', 'gestionActiva', 'opcionesTurnos'));
     }
 
     public function imprimir(int $id): View
@@ -225,9 +279,28 @@ class PostulanteController extends Controller
         );
         $datos = $this->prepararDocumentos($request, $datos, $ci, $gestion, $postulanteExistente);
         $datos['ci'] = $ci;
+        $datos['turno'] = (int) $datos['turno'];
+        $datos['paralelo'] = mb_strtoupper(trim($datos['paralelo']));
         $datos['diplomabachiller'] = $request->boolean('diplomabachiller');
 
         return DB::transaction(function () use ($datos, $gestion): Postulante {
+            DB::table('gestionacademica')
+                ->where('id_gestionacademica', $gestion->id_gestionacademica)
+                ->lockForUpdate()
+                ->first();
+            $this->validarCarreraNoRepetida($datos['ci'], $datos['id_carrera'], $gestion);
+            $this->disponibilidadTurnos->validarDisponible(
+                (int) $datos['id_carrera'],
+                (int) $gestion->id_gestionacademica,
+                (int) $datos['turno'],
+                (string) $datos['paralelo']
+            );
+            $this->validarTurnoNoRepetido(
+                (string) $datos['ci'],
+                (int) $gestion->id_gestionacademica,
+                (int) $datos['turno']
+            );
+
             $postulante = Postulante::create($datos);
             $postulante->update([
                 'codigo' => 'POST-'.now()->format('Y').'-'.str_pad(
@@ -295,14 +368,41 @@ class PostulanteController extends Controller
         $this->validarVoucherDisponible((string) $datos['deposito'], $gestion, $postulante);
         $datos = $this->prepararDocumentos($request, $datos, $ci, $gestion, $postulante);
         $datos['ci'] = $ci;
+        $datos['turno'] = (int) $datos['turno'];
+        $datos['paralelo'] = mb_strtoupper(trim($datos['paralelo']));
         $datos['diplomabachiller'] = $request->boolean('diplomabachiller');
 
-        $postulante->update($datos);
-        DB::table('comprobante')->where('id_postulante', $postulante->id_postulante)->update([
-            'deposito' => $postulante->deposito,
-            'fecha' => $postulante->fecha,
-            'updated_at' => now(),
-        ]);
+        DB::transaction(function () use ($datos, $postulante, $gestion): void {
+            DB::table('gestionacademica')
+                ->where('id_gestionacademica', $gestion->id_gestionacademica)
+                ->lockForUpdate()
+                ->first();
+            $this->validarCarreraNoRepetida(
+                $datos['ci'],
+                $datos['id_carrera'],
+                $gestion,
+                $postulante
+            );
+            $this->disponibilidadTurnos->validarDisponible(
+                (int) $datos['id_carrera'],
+                (int) $gestion->id_gestionacademica,
+                (int) $datos['turno'],
+                (string) $datos['paralelo'],
+                (int) $postulante->id_postulante
+            );
+            $this->validarTurnoNoRepetido(
+                (string) $datos['ci'],
+                (int) $gestion->id_gestionacademica,
+                (int) $datos['turno'],
+                (int) $postulante->id_postulante
+            );
+            $postulante->update($datos);
+            DB::table('comprobante')->where('id_postulante', $postulante->id_postulante)->update([
+                'deposito' => $postulante->deposito,
+                'fecha' => $postulante->fecha,
+                'updated_at' => now(),
+            ]);
+        });
 
         return $postulante;
     }
@@ -380,8 +480,31 @@ class PostulanteController extends Controller
             'egresocolegio' => ['required', 'integer', 'between:1900,2100'],
             'id_gestionacademica' => ['required', 'exists:gestionacademica,id_gestionacademica'],
             'id_carrera' => ['required', $carreraActiva],
+            'turno' => ['required', 'integer', 'in:1,2,3'],
+            'paralelo' => ['required', 'string', 'max:20'],
             'diplomabachiller' => ['nullable', 'boolean'],
         ];
+    }
+
+    private function validarTurnoNoRepetido(
+        string $ci,
+        int $gestionId,
+        int $turno,
+        ?int $postulanteExcluir = null
+    ): void {
+        $postulaciones = Postulante::where('ci', $ci)
+            ->where('id_gestionacademica', $gestionId)
+            ->where('turno', $turno);
+
+        if ($postulanteExcluir !== null) {
+            $postulaciones->where('id_postulante', '!=', $postulanteExcluir);
+        }
+
+        if ($postulaciones->exists()) {
+            throw ValidationException::withMessages([
+                'turno' => 'La persona ya tiene una postulación en ese turno para la gestión vigente.',
+            ]);
+        }
     }
 
     private function reglaComprobanteUnico(
@@ -519,7 +642,10 @@ class PostulanteController extends Controller
         }
 
         if (! $consulta->exists()) {
-            if (! $postulanteActual && $this->tieneHistorialEstudiantilEnCarrera($ci, $carreraId)) {
+            $edicionConMismaIdentidadYCarrera = $postulanteActual
+                && $this->normalizarCi((string) $postulanteActual->ci) === $ci
+                && (int) $postulanteActual->id_carrera === (int) $carreraId;
+            if (! $edicionConMismaIdentidadYCarrera && $this->tieneHistorialEstudiantilEnCarrera($ci, $carreraId)) {
                 $carrera = Carrera::where('id_carrera', $carreraId)->first();
                 $nombreCarrera = $carrera ? $carrera->nombre : 'la carrera seleccionada';
 
@@ -550,10 +676,6 @@ class PostulanteController extends Controller
 
         $idPersona = DB::table('personas')->where('ci', $ci)->value('id_persona');
         if (! $idPersona) {
-            return false;
-        }
-
-        if (! DB::table('estudiante')->where('id_persona', $idPersona)->exists()) {
             return false;
         }
 
@@ -632,7 +754,8 @@ class PostulanteController extends Controller
 
     private function gestionActiva(): ?GestionAcademica
     {
-        return GestionAcademica::where('vigente', 1)
+        return GestionAcademica::where('vigente', true)
+            ->where('activo', true)
             ->orderByDesc('id_gestionacademica')
             ->first();
     }

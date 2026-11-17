@@ -51,10 +51,10 @@
     <div class="card card-outline card-primary shadow-sm">
         <div class="card-body">
 
-            {{-- FILTROS DE GESTIÓN, CARRERA Y CATEGORÍA --}}
+            {{-- FILTROS DE GESTIÓN, CARRERA, CATEGORÍA, TURNO Y PARALELO --}}
             <form method="GET" action="{{ route('admisiones.postulantes.index') }}" id="formFiltros">
                 <div class="row mb-3">
-                    <div class="col-md-3">
+                    <div class="col-md-4">
                         <label for="id_gestionacademica" class="font-weight-bold">Gestión Académica:</label>
                         <select name="id_gestionacademica" id="id_gestionacademica" class="form-control" onchange="this.form.submit()">
                             <option value="">-- Todas las Gestiones --</option>
@@ -65,7 +65,7 @@
                             @endforeach
                         </select>
                     </div>
-                    <div class="col-md-3">
+                    <div class="col-md-4">
                         <label for="id_carrera" class="font-weight-bold">Carrera:</label>
                         <select name="id_carrera" id="id_carrera" class="form-control" onchange="this.form.submit()">
                             <option value="">-- Todas las Carreras --</option>
@@ -79,7 +79,7 @@
                             @endforeach
                         </select>
                     </div>
-                    <div class="col-md-3">
+                    <div class="col-md-4">
                         <label for="categoria" class="font-weight-bold">Categoría de Postulación:</label>
                         <select name="categoria" id="categoria" class="form-control" onchange="this.form.submit()">
                             <option value="">-- Todas las Categorías --</option>
@@ -87,7 +87,29 @@
                             <option value="unica" {{ request('categoria') == 'unica' ? 'selected' : '' }}>Postulantes en Carrera Única</option>
                         </select>
                     </div>
-                    <div class="col-md-3">
+                    <div class="col-md-4">
+                        <label for="turno" class="font-weight-bold">Turno:</label>
+                        <select name="turno" id="turno" class="form-control" onchange="this.form.submit()">
+                            <option value="">-- Todos los turnos --</option>
+                            @foreach ($turnos as $valor => $nombre)
+                                <option value="{{ $valor }}" {{ request('turno') == $valor ? 'selected' : '' }}>
+                                    {{ $nombre }}
+                                </option>
+                            @endforeach
+                        </select>
+                    </div>
+                    <div class="col-md-4">
+                        <label for="paralelo" class="font-weight-bold">Paralelo:</label>
+                        <select name="paralelo" id="paralelo" class="form-control" onchange="this.form.submit()">
+                            <option value="">-- Todos los paralelos --</option>
+                            @foreach ($paralelos as $paralelo)
+                                <option value="{{ $paralelo }}" {{ mb_strtoupper(request('paralelo', '')) === $paralelo ? 'selected' : '' }}>
+                                    {{ $paralelo }}
+                                </option>
+                            @endforeach
+                        </select>
+                    </div>
+                    <div class="col-md-4">
                         <label for="estado" class="font-weight-bold">Estado:</label>
                         <select name="estado" id="estado" class="form-control" onchange="this.form.submit()">
                             <option value="">-- Todos los estados --</option>
@@ -112,6 +134,12 @@
                     @endif
                     @if (request('estado'))
                         <input type="hidden" name="estado" value="{{ request('estado') }}">
+                    @endif
+                    @if (request('turno'))
+                        <input type="hidden" name="turno" value="{{ request('turno') }}">
+                    @endif
+                    @if (request('paralelo'))
+                        <input type="hidden" name="paralelo" value="{{ request('paralelo') }}">
                     @endif
 
                     <input type="text" name="buscar_rapido" value="{{ request('buscar_rapido') }}" class="form-control" placeholder="Buscar por nombre o CI...">
@@ -145,6 +173,8 @@
                             <th>CI</th>
                             <th>Celular</th>
                             <th>Carrera</th>
+                            <th>Turno</th>
+                            <th>Paralelo</th>
                             <th>Estado</th>
                             <th class="text-center">Acciones</th>
                         </tr>
@@ -170,6 +200,8 @@
                                     @endif
                                 </td>
                                 <td>{{ $p->carrera?->nombreConResolucionMinisterial() ?? 'Sin Carrera' }}</td>
+                                <td>{{ $turnos[(int) $p->turno] ?? 'Sin turno' }}</td>
+                                <td>{{ $p->paralelo ?: 'Sin paralelo' }}</td>
                                 <td>
                                     @if ($p->inscripcion_origen_exists)
                                         <span class="badge badge-success">Inscrito como estudiante</span>
@@ -185,7 +217,7 @@
                             </tr>
                         @empty
                             <tr>
-                                <td colspan="10" class="text-center text-muted py-4">
+                                <td colspan="12" class="text-center text-muted py-4">
                                     <i class="fas fa-info-circle mr-1"></i> No se encontraron registros de postulantes.
                                 </td>
                             </tr>
