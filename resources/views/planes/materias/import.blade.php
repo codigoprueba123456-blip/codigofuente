@@ -20,6 +20,7 @@
 
                 <div class="form-group">
                     <label for="archivo">Archivo del plan de estudios</label>
+                    {{-- El importador admite Excel/CSV y PDF y enlaza los prerrequisitos mediante códigos de materia. --}}
                     <input type="file" name="archivo" id="archivo" class="form-control-file @error('archivo') is-invalid @enderror" accept=".xlsx,.xls,.csv,.pdf" required>
                     <small class="form-text text-muted">
                         Puede cargar Excel o PDF con el formato de materias.xls. Se importan nivel, número, código, nombre, horas, estado curricular y prerrequisitos.

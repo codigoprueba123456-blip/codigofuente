@@ -19,6 +19,9 @@ use Illuminate\Validation\ValidationException;
 
 class EmpleadoController extends Controller
 {
+    /**
+     * Lista empleados y aplica la búsqueda sobre su código y datos de contacto/personales.
+     */
     public function index(Request $request)
     {
         $buscar = trim((string) $request->input('q', ''));
@@ -41,6 +44,9 @@ class EmpleadoController extends Controller
         return view('admin.empleados.index', compact('empleados'));
     }
 
+    /**
+     * Prepara el formulario de alta con los roles que se pueden asignar.
+     */
     public function create()
     {
         $roles = Rol::activos()->orderBy('nombre')->get();
@@ -48,6 +54,10 @@ class EmpleadoController extends Controller
         return view('admin.empleados.create', compact('roles'));
     }
 
+    /**
+     * Crea la persona, el registro laboral, los documentos y las credenciales de forma atómica.
+     * Devuelve al navegador el comprobante PDF con el username y contraseña generados.
+     */
     public function store(Request $request)
     {
         $validated = $request->validate($this->rules());
@@ -78,6 +88,8 @@ class EmpleadoController extends Controller
                 ]);
             }
 
+            // Los usernames usan año + correlativo de cuatro dígitos. Como la secuencia es compartida
+            // por usuarios y empleados, se toma el mayor username de ese año antes de sumar uno.
             $anio = date('Y');
             $ultimoUsuario = User::where('usuario', 'LIKE', $anio.'%')
                 ->orderByDesc('usuario')
@@ -131,6 +143,9 @@ class EmpleadoController extends Controller
         return $pdf->stream('credenciales_'.$persona->ci.'.pdf');
     }
 
+    /**
+     * Carga el empleado, sus documentos, su cuenta y los roles válidos para editarlo.
+     */
     public function edit($id)
     {
         $empleado = Empleado::with('documentos')->findOrFail($id);
@@ -144,6 +159,10 @@ class EmpleadoController extends Controller
         return view('admin.empleados.edit', compact('empleado', 'roles', 'usuario'));
     }
 
+    /**
+     * Actualiza datos personales, laborales, documentos y cuenta, preservando los archivos anteriores
+     * que no fueron reemplazados y la contraseña cuando no se solicita un cambio.
+     */
     public function update(Request $request, $id)
     {
         $empleado = Empleado::findOrFail($id);
@@ -203,6 +222,8 @@ class EmpleadoController extends Controller
                 $usuario->update(['password' => $password]);
                 $cuentaData['password'] = $password;
             } elseif ($cuenta) {
+                // Sin una contraseña nueva, no se modifica la de users y se conserva el hash actual
+                // de cuenta para que cambiar nombre de usuario o rol no restablezca la contraseña.
                 $cuentaData['password'] = $cuenta->password;
             } else {
                 $cuentaData['password'] = $usuario->password;
@@ -213,6 +234,9 @@ class EmpleadoController extends Controller
         return redirect()->route('admin.empleados.index')->with('success', 'Empleado actualizado exitosamente.');
     }
 
+    /**
+     * Habilita o deshabilita al empleado, impidiendo que el usuario actual se quite su propio acceso.
+     */
     public function cambiarEstado(Request $request, $id)
     {
         $empleado = Empleado::findOrFail($id);
@@ -230,6 +254,10 @@ class EmpleadoController extends Controller
             ->with('success', 'Estado del empleado actualizado correctamente.');
     }
 
+    /**
+     * Define las reglas compartidas para el alta y edición, permitiendo conservar IDs existentes
+     * al validar valores únicos y el rol que ya tiene el empleado.
+     */
     private function rules(?int $personaId = null, ?int $usuarioId = null, ?int $rolActual = null): array
     {
         return [

@@ -35,6 +35,7 @@
 				<div class="form-group">
 					<label>Recursos del menú</label>
 					@php($recursosSeleccionados = old('recursos', []))
+					{{-- El partial agrupa por módulo y permite marcar recursos individualmente o en bloque. --}}
 					@include('admin.roles.partials.resource-groups', ['menu' => $menu, 'recursos' => $recursos, 'selectedResources' => $recursosSeleccionados])
 					@error('recursos')
 						<span class="invalid-feedback d-block">{{ $message }}</span>

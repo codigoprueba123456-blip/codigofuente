@@ -1,4 +1,5 @@
 @php
+    // Si no hay datos reenviados por validación, infiere la audiencia desde las relaciones guardadas.
     $audiencia = old('audiencia');
     if (!$audiencia && isset($actividad)) {
         $audiencia = $actividad->carreras->isNotEmpty() ? 'carrera' : ($actividad->usuarios->isNotEmpty() ? 'usuario' : 'general');
@@ -80,6 +81,7 @@
 
 @push('js')
 <script>
+    // Solo se muestra el selector de carreras o usuarios que corresponda a la audiencia elegida.
     document.querySelectorAll('.audiencia-opcion').forEach(function (option) {
         option.addEventListener('change', function () {
             document.querySelectorAll('.audiencia-destino').forEach(function (destino) {
@@ -92,10 +94,12 @@
     var buscarUsuario = document.querySelector('[data-user-search-input]');
     var opcionesUsuarios = document.querySelector('[data-user-search-options]');
     if (buscarUsuario && opcionesUsuarios) {
+        // Quita marcas diacríticas y no distingue mayúsculas para facilitar búsquedas por nombre.
         function normalizarBusqueda(texto) {
             return texto.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLocaleLowerCase();
         }
 
+        // Mantiene visibles las coincidencias y también las cuentas marcadas aunque no coincidan.
         function filtrarUsuarios() {
             var termino = normalizarBusqueda(buscarUsuario.value.trim());
             opcionesUsuarios.querySelectorAll('[data-user-search-option]').forEach(function (usuario) {

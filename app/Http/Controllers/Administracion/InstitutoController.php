@@ -12,6 +12,9 @@ use Illuminate\Support\Facades\Storage;
 
 class InstitutoController extends Controller
 {
+    /**
+     * Muestra la configuración institucional y los empleados disponibles para asignar autoridades.
+     */
     public function index()
     {
         $instituto = Instituto::first() ?? new Instituto;
@@ -28,6 +31,10 @@ class InstitutoController extends Controller
         return view('admin.instituto.index', compact('instituto', 'empleados'));
     }
 
+    /**
+     * Valida y guarda los datos del instituto y sincroniza el creditaje de sus carreras.
+     * Tras guardar correctamente, elimina el logo anterior si se reemplazó o se pidió quitarlo.
+     */
     public function update(Request $request, CareerCreditageService $creditage)
     {
         $validated = $request->validate([

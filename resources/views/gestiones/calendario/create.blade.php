@@ -42,6 +42,7 @@
             </div>
             <div class="form-group mb-0">
                 <label>Habilitar secciones</label>
+                {{-- Cada recurso marcado se habilita durante el evento y solo para su audiencia. --}}
                 <div class="border rounded p-2 @error('funcionalidades') border-danger @enderror @error('funcionalidades.*') border-danger @enderror" style="max-height: 240px; overflow-y: auto;">
                     @foreach($funcionalidades as $funcionalidad)
                         <div class="custom-control custom-checkbox">

@@ -63,12 +63,14 @@
 @section('js')
     @parent
     <script>
+        // Mantiene la fecha de fin dentro del rango permitido mientras se editan las fechas.
         (() => {
             const inicio = document.getElementById('inicio');
             const fin = document.getElementById('fin');
             const error = document.getElementById('fin-date-error');
             const mensaje = 'La fecha de fin no puede ser anterior a la fecha de inicio.';
 
+            // Refleja inmediatamente el error en el campo y evita enviar un rango invertido.
             const validarFechas = () => {
                 fin.min = inicio.value;
                 const fechaInvalida = inicio.value && fin.value && fin.value < inicio.value;

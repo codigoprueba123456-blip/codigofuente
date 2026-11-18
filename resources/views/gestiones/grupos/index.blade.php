@@ -162,6 +162,7 @@
 
 @push('js')
 <script>
+    // Cambiar gestión o carrera vuelve a consultar la lista para evitar mostrar filtros incompatibles.
     document.addEventListener('DOMContentLoaded', function () {
         const form = document.getElementById('filterForm');
         const gestion = document.getElementById('id_gestionacademica');

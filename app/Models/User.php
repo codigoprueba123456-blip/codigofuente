@@ -29,13 +29,17 @@ class User extends Authenticatable
     ];
 
     /**
-     * Mapea la columna de contraseña real para Laravel Auth.
+     * Devuelve el hash almacenado en password para la autenticación de Laravel.
      */
     public function getAuthPassword()
     {
         return $this->password;
     }
 
+    /**
+     * Expone el nombre completo de la persona; usa la relación cargada o consulta la base de datos
+     * y, si no hay persona asociada, recurre al username.
+     */
     public function getNameAttribute()
     {
         if ($this->relationLoaded('persona') && $this->persona) {
@@ -52,7 +56,7 @@ class User extends Authenticatable
     }
 
     /**
-     * Relación uno a uno / pertenece a Persona.
+     * Obtiene la persona propietaria de esta cuenta de acceso.
      */
     public function persona()
     {
@@ -60,23 +64,33 @@ class User extends Authenticatable
     }
 
     /**
-     * Relación uno a muchos con Cuenta.
+     * Obtiene la cuenta de rol principal usada por las vistas que esperan una sola cuenta.
      */
     public function cuenta()
     {
         return $this->hasOne(Cuenta::class, 'id_persona', 'id_persona');
     }
 
+    /**
+     * Obtiene todas las cuentas de rol asociadas al usuario.
+     */
     public function cuentas(): HasMany
     {
         return $this->hasMany(Cuenta::class, 'id_persona', 'id_persona');
     }
 
+    /**
+     * Obtiene las carreras en las que el estudiante está registrado.
+     */
     public function carreras()
     {
         return $this->belongsToMany(Carrera::class, 'cursa', 'id_persona', 'id_carrera', 'id_persona', 'id_carrera');
     }
 
+    /**
+     * Decide si el usuario puede acceder a una ruta: aplica reglas especiales al portal estudiantil
+     * y, para otros usuarios, comprueba los recursos de sus roles activos.
+     */
     public function tieneAccesoA($url)
     {
         $urlNormalizada = trim((string) $url, '/');
@@ -113,6 +127,10 @@ class User extends Authenticatable
             ->exists();
     }
 
+    /**
+     * Reconoce administradores por su rol activo y mantiene compatibilidad con cuentas heredadas
+     * que todavía no tienen roles asociados.
+     */
     public function isAdministrator(): bool
     {
         if (! $this->isActive()) {
@@ -137,6 +155,9 @@ class User extends Authenticatable
             || $this->usuario === '20260001';
     }
 
+    /**
+     * Obtiene nombres normalizados de los roles activos del usuario.
+     */
     private function roleNames(): Collection
     {
         return $this->cuentas()
@@ -148,22 +169,34 @@ class User extends Authenticatable
             ->map(fn (string $name): string => $this->normalizeRole($name));
     }
 
+    /**
+     * Considera activo a quien no es empleado o tiene un registro laboral habilitado.
+     */
     public function isActive(): bool
     {
         return ! $this->empleado()->exists()
             || $this->empleado()->where('activo', true)->exists();
     }
 
+    /**
+     * Obtiene el registro laboral de la persona, cuando existe.
+     */
     public function empleado()
     {
         return $this->hasOne(Empleado::class, 'id_persona', 'id_persona');
     }
 
+    /**
+     * Alias usado por los filtros de menú para consultar permisos de acceso.
+     */
     public function canAccess($path)
     {
         return $this->tieneAccesoA($path);
     }
 
+    /**
+     * Normaliza nombres de roles y alias históricos para comparar permisos de manera uniforme.
+     */
     private function normalizeRole(string $role): string
     {
         return match (mb_strtolower(trim($role))) {

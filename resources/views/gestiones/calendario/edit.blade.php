@@ -43,6 +43,7 @@
             </div>
             <div class="form-group mb-0">
                 <label>Habilitar secciones</label>
+                {{-- Se muestran también recursos ya asignados aunque hayan salido del menú actual. --}}
                 <div class="border rounded p-2 @error('funcionalidades') border-danger @enderror @error('funcionalidades.*') border-danger @enderror" style="max-height: 240px; overflow-y: auto;">
                     @if($actividad->funcionalidad && !$funcionalidades->contains('id_recurso', $actividad->funcionalidad))
                         <div class="custom-control custom-checkbox">

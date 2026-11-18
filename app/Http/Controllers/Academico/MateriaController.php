@@ -16,6 +16,9 @@ use RuntimeException;
 
 class MateriaController extends Controller
 {
+    /**
+     * Lista materias con prerrequisitos y carrera, con filtros opcionales por nombre, código y carrera.
+     */
     public function index()
     {
         $query = Materia::with(['carrera', 'prerequisitos'])
@@ -34,6 +37,9 @@ class MateriaController extends Controller
         return view('planes.materias.index', compact('materias', 'carreras'));
     }
 
+    /**
+     * Prepara el alta con carreras y materias activas disponibles para relacionar.
+     */
     public function create()
     {
         $carreras = Carrera::activas()->orderBy('nombre')->get();
@@ -42,6 +48,9 @@ class MateriaController extends Controller
         return view('planes.materias.create', compact('carreras', 'materiasDisponibles'));
     }
 
+    /**
+     * Muestra la pantalla de importación para la carrera indicada.
+     */
     public function importForm($id)
     {
         $carrera = Carrera::findOrFail($id);
@@ -49,6 +58,10 @@ class MateriaController extends Controller
         return view('planes.materias.import', compact('carrera'));
     }
 
+    /**
+     * Importa materias en dos pasadas para poder resolver prerrequisitos por código.
+     * La transacción garantiza que filas y relaciones se guarden todas o ninguna.
+     */
     public function import(Request $request, $id, PlanEstudiosImporter $importer, CareerCreditageService $creditage)
     {
         $carrera = Carrera::findOrFail($id);
@@ -62,6 +75,8 @@ class MateriaController extends Controller
                 $count = 0;
                 $materiasImportadas = [];
 
+                // Primera pasada: crea o actualiza todas las materias y guarda sus códigos de prerrequisitos.
+                // Esto permite que una materia dependa de otra que aparezca más adelante en el archivo.
                 foreach ($rows as $index => $row) {
                     $validator = Validator::make($row, [
                         'codigo' => ['nullable', 'string', 'max:255'],
@@ -101,6 +116,7 @@ class MateriaController extends Controller
                     ->get()
                     ->keyBy(fn (Materia $materia): string => mb_strtoupper(trim($materia->codigo)));
 
+                // Segunda pasada: resuelve los códigos contra las materias ya persistidas y enlaza sus IDs.
                 foreach ($materiasImportadas as $importada) {
                     $idsPrerequisitos = [];
                     foreach ($importada['prerequisitos'] as $codigo) {
@@ -122,6 +138,8 @@ class MateriaController extends Controller
                     $importada['materia']->prerequisitos()->sync($idsPrerequisitos);
                 }
 
+                // La lectura, validación, alta de materias y relaciones están dentro de una transacción:
+                // cualquier fila inválida o prerrequisito inexistente revierte la importación completa.
                 $creditage->syncCareer($carrera);
 
                 return $count;
@@ -134,6 +152,9 @@ class MateriaController extends Controller
             ->with('success', $imported . ' materias cargadas correctamente para ' . $carrera->nombre . '.');
     }
 
+    /**
+     * Valida y crea una materia junto con sus prerrequisitos y actualiza el creditaje de la carrera.
+     */
     public function store(Request $request, CareerCreditageService $creditage)
     {
         $nivelesPermitidos = Carrera::nivelesPorRegimen(
@@ -181,6 +202,9 @@ class MateriaController extends Controller
         return redirect()->route('planes.materias.index')->with('success', 'Materia creada correctamente.');
     }
 
+    /**
+     * Carga la materia, sus prerrequisitos y las opciones válidas para modificarla.
+     */
     public function edit($id)
     {
         $materia = Materia::with('prerequisitos')->findOrFail($id);
@@ -201,6 +225,9 @@ class MateriaController extends Controller
         return view('planes.materias.edit', compact('materia', 'carreras', 'materiasDisponibles'));
     }
 
+    /**
+     * Actualiza datos y prerrequisitos; si cambia de carrera, recalcula el creditaje de ambas.
+     */
     public function update(Request $request, $id, CareerCreditageService $creditage)
     {
         $materia = Materia::with('prerequisitos')->findOrFail($id);
@@ -249,6 +276,8 @@ class MateriaController extends Controller
             ]);
 
             $materia->prerequisitos()->sync($validated['prerequisitos'] ?? []);
+            // Al mover una materia cambia el reparto de ambos planes; si no se movió, solo se recalcula
+            // la carrera de origen. El servicio considera únicamente materias curriculares activas.
             $creditage->syncCareer(Carrera::findOrFail($carreraAnterior));
             if ((int) $materia->id_carrera !== (int) $carreraAnterior) {
                 $creditage->syncCareer($materia->carrera);
@@ -258,6 +287,9 @@ class MateriaController extends Controller
         return redirect()->route('planes.materias.index')->with('success', 'Materia actualizada correctamente.');
     }
 
+    /**
+     * Cambia el estado de la materia y actualiza el reparto de creditaje de su carrera.
+     */
     public function cambiarEstado(Request $request, $id, CareerCreditageService $creditage)
     {
         $materia = Materia::findOrFail($id);

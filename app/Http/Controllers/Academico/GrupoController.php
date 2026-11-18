@@ -13,6 +13,9 @@ use Illuminate\Validation\ValidationException;
 
 class GrupoController extends Controller
 {
+    /**
+     * Lista grupos filtrados por gestión y carrera, agrupándolos por nivel para mostrarlos.
+     */
     public function index(Request $request)
     {
         $request->validate([
@@ -39,6 +42,9 @@ class GrupoController extends Controller
         ));
     }
 
+    /**
+     * Prepara la programación masiva usando la gestión habilitada más reciente y carreras activas.
+     */
     public function programar(Request $request)
     {
         $gestion = GestionAcademica::habilitadas()
@@ -50,6 +56,9 @@ class GrupoController extends Controller
         return view('gestiones.grupos.create', compact('gestion', 'carreras'));
     }
 
+    /**
+     * Crea un grupo para cada materia activa del nivel elegido en la gestión habilitada.
+     */
     public function store(Request $request)
     {
         $gestion = GestionAcademica::habilitadas()
@@ -73,6 +82,8 @@ class GrupoController extends Controller
             ]);
         }
 
+        // La programación es masiva: crea un grupo por cada materia activa del nivel elegido,
+        // aplicando a todos la capacidad, turno y estado recibidos en el formulario.
         $gruposCreados = 0;
 
         foreach ($materias as $index => $materia) {
@@ -96,6 +107,9 @@ class GrupoController extends Controller
         ])->with('success', 'Se programaron ' . $gruposCreados . ' grupos correctamente.');
     }
 
+    /**
+     * Carga el grupo y permite elegir materias activas, manteniendo disponible la materia actual.
+     */
     public function edit($id)
     {
         $grupo = Grupo::with('materia')->findOrFail($id);
@@ -114,6 +128,9 @@ class GrupoController extends Controller
         return view('gestiones.grupos.edit', compact('grupo', 'gestiones', 'materias'));
     }
 
+    /**
+     * Actualiza un grupo solo si las gestiones y las nuevas asignaciones siguen habilitadas.
+     */
     public function update(Request $request, $id)
     {
         $grupo = Grupo::findOrFail($id);
@@ -136,6 +153,9 @@ class GrupoController extends Controller
         ])->with('success', 'Grupo actualizado correctamente.');
     }
 
+    /**
+     * Cambia el estado del grupo y vuelve a la lista con los filtros de gestión y carrera.
+     */
     public function cambiarEstado(Request $request, $id)
     {
         $grupo = Grupo::findOrFail($id);
@@ -151,6 +171,9 @@ class GrupoController extends Controller
         ])->with('success', 'Estado del grupo actualizado correctamente.');
     }
 
+    /**
+     * Construye la consulta de grupos con sus relaciones y aplica los filtros recibidos.
+     */
     private function query(Request $request)
     {
         return Grupo::with(['materia', 'docente'])
@@ -171,6 +194,9 @@ class GrupoController extends Controller
             ->orderBy('codigo');
     }
 
+    /**
+     * Valida la carrera, el nivel permitido por su régimen y los datos del grupo nuevo.
+     */
     private function rules(Request $request): array
     {
         return [
@@ -191,6 +217,9 @@ class GrupoController extends Controller
         ];
     }
 
+    /**
+     * Valida la edición; permite conservar la materia actual aunque ahora esté inactiva.
+     */
     private function updateRules(Grupo $grupo): array
     {
         return [
@@ -210,6 +239,9 @@ class GrupoController extends Controller
         ];
     }
 
+    /**
+     * Genera un código a partir del código de materia y busca un sufijo libre entre los grupos.
+     */
     private function buildGrupoCodigo(int $index, Materia $materia): string
     {
         $letter = strtolower(chr(97 + ($index % 26)));
@@ -218,6 +250,8 @@ class GrupoController extends Controller
         $codigo = $base . '-' . $letter;
         $counter = 1;
 
+        // Los códigos deben ser únicos entre gestiones, no solo dentro de la gestión actual;
+        // si el sufijo calculado ya se usó, se prueba el siguiente.
         while (Grupo::where('codigo', $codigo)->exists()) {
             $counter++;
             $codigo = $base . '-' . strtolower(chr(97 + (($index + $counter - 1) % 26)));
@@ -226,6 +260,9 @@ class GrupoController extends Controller
         return $codigo;
     }
 
+    /**
+     * Impide modificar el grupo si su gestión académica está deshabilitada.
+     */
     private function ensureEnabled(int $idGestion): void
     {
         if (!GestionAcademica::habilitadas()->whereKey($idGestion)->exists()) {

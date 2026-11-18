@@ -17,6 +17,9 @@ use App\Support\MenuResourceSync;
 
 class ActividadController extends Controller
 {
+    /**
+     * Lista actividades por gestión o nombre y restringe los resultados según el usuario actual.
+     */
     public function index(Request $request)
     {
         $gestiones = GestionAcademica::query()->orderByDesc('gestion')->orderBy('periodo')->get();
@@ -35,6 +38,9 @@ class ActividadController extends Controller
         return view('gestiones.calendario.index', compact('gestiones', 'actividades'));
     }
 
+    /**
+     * Prepara el formulario con gestiones, carreras, usuarios y recursos seleccionables.
+     */
     public function create(Request $request)
     {
         $gestiones = GestionAcademica::habilitadas()->orderByDesc('gestion')->orderBy('periodo')->get();
@@ -46,6 +52,9 @@ class ActividadController extends Controller
         return view('gestiones.calendario.create', compact('gestiones', 'gestionSeleccionada', 'carreras', 'usuarios', 'funcionalidades'));
     }
 
+    /**
+     * Valida y crea una actividad, sincronizando en una transacción su audiencia y recursos.
+     */
     public function store(Request $request)
     {
         $validated = $request->validate($this->rules(), $this->messages());
@@ -63,6 +72,9 @@ class ActividadController extends Controller
         ])->with('success', 'Actividad creada correctamente.');
     }
 
+    /**
+     * Carga la actividad y restaura sus selecciones de audiencia y funcionalidades para editar.
+     */
     public function edit($id)
     {
         $actividad = Actividad::with(['carreras', 'usuarios', 'funcionalidades'])->findOrFail($id);
@@ -96,6 +108,9 @@ class ActividadController extends Controller
         ));
     }
 
+    /**
+     * Actualiza actividad, audiencia y recursos, después de comprobar las gestiones involucradas.
+     */
     public function update(Request $request, $id)
     {
         $actividad = Actividad::findOrFail($id);
@@ -115,6 +130,9 @@ class ActividadController extends Controller
         ])->with('success', 'Actividad actualizada correctamente.');
     }
 
+    /**
+     * Habilita o deshabilita la actividad sin modificar su audiencia ni sus fechas.
+     */
     public function cambiarEstado(Request $request, $id)
     {
         $actividad = Actividad::findOrFail($id);
@@ -129,6 +147,9 @@ class ActividadController extends Controller
         ])->with('success', 'Estado de la actividad actualizado correctamente.');
     }
 
+    /**
+     * Define las reglas de actividad, audiencia, carreras, usuarios y recursos permitidos.
+     */
     private function rules(?Actividad $actividad = null): array
     {
         $carrerasActuales = $actividad?->carreras->pluck('id_carrera')->all() ?? [];
@@ -140,6 +161,7 @@ class ActividadController extends Controller
             'inicio' => ['nullable', 'date'],
             'fin' => ['nullable', 'date', 'after_or_equal:inicio'],
             'funcionalidades' => ['nullable', 'array'],
+            // El calendario no habilita pantallas de reportes ni rutas del portal de estudiantes.
             'funcionalidades.*' => [
                 'integer',
                 'distinct',
@@ -171,6 +193,9 @@ class ActividadController extends Controller
         ];
     }
 
+    /**
+     * Lista usuarios que pueden ser audiencia y conserva a los que ya estaban seleccionados.
+     */
     private function usuariosDisponibles(?Actividad $actividad = null)
     {
         $usuariosActuales = $actividad?->usuarios->pluck('id_persona') ?? collect();
@@ -188,6 +213,9 @@ class ActividadController extends Controller
             ->get();
     }
 
+    /**
+     * Define los mensajes personalizados de validación para las fechas de la actividad.
+     */
     private function messages(): array
     {
         return [
@@ -195,19 +223,31 @@ class ActividadController extends Controller
         ];
     }
 
+    /**
+     * Sincroniza las relaciones de visibilidad de acuerdo con la audiencia seleccionada.
+     */
     private function syncVisibility(Actividad $actividad, array $validated): void
     {
+        // La audiencia es excluyente: general no guarda vínculos, por carrera sincroniza solo carreras
+        // y por usuario solo usuarios. sync([]) elimina vínculos que hayan quedado de una edición previa.
         $actividad->carreras()->sync($validated['audiencia'] === 'carrera' ? $validated['carreras'] : []);
         $actividad->usuarios()->sync($validated['audiencia'] === 'usuario' ? $validated['usuarios'] : []);
     }
 
+    /**
+     * Indica si el usuario puede consultar actividades sin filtrar por audiencia.
+     */
     private function isAdministrator(?User $user): bool
     {
         return $user?->isAdministrator() ?? false;
     }
 
+    /**
+     * Exige que la gestión exista y esté habilitada antes de asociarle una actividad.
+     */
     private function ensureEnabled(int $idGestion): void
     {
+        // La gestión debe estar activa y vigente para crear, editar o mover actividades dentro de ella.
         if (!GestionAcademica::habilitadas()->whereKey($idGestion)->exists()) {
             throw ValidationException::withMessages([
                 'id_gestionacademica' => 'La gestión académica seleccionada está deshabilitada.',
@@ -215,6 +255,10 @@ class ActividadController extends Controller
         }
     }
 
+    /**
+     * Sincroniza el menú y devuelve recursos habilitables en calendario, excluyendo administración,
+     * reportes y secciones propias del portal de estudiantes.
+     */
     private function funcionalidades()
     {
         MenuResourceSync::sync();

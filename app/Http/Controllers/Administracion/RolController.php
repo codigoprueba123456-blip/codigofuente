@@ -13,6 +13,9 @@ use Illuminate\Validation\ValidationException;
 
 class RolController extends Controller
 {
+	/**
+	 * Lista roles con sus recursos y filtra por nombre de rol o nombre de recurso.
+	 */
 	public function index(Request $request)
 	{
 		$buscar = trim((string) $request->input('q', ''));
@@ -27,6 +30,9 @@ class RolController extends Controller
 		return view('admin.roles.index', compact('roles'));
 	}
 
+	/**
+	 * Sincroniza las URLs del menú y prepara los recursos que se pueden asignar al rol.
+	 */
 	public function create()
 	{
 		MenuResourceSync::sync();
@@ -36,6 +42,9 @@ class RolController extends Controller
 		return view('admin.roles.create', compact('recursos', 'menu'));
 	}
 
+	/**
+	 * Valida el nombre y los recursos seleccionados, crea el rol y enlaza sus permisos.
+	 */
 	public function store(Request $request)
 	{
 		$validated = $request->validate([
@@ -45,12 +54,16 @@ class RolController extends Controller
 		]);
 
 		$rol = Rol::create(['nombre' => $validated['nombre']]);
+		// sync guarda exactamente los recursos seleccionados y elimina cualquier asociación anterior.
 		$rol->recursos()->sync($validated['recursos'] ?? []);
 
 		return redirect()->route('admin.roles.index')
 			->with('success', 'Rol creado correctamente.');
 	}
 
+	/**
+	 * Carga el rol con sus permisos y prepara el catálogo para cambiar esas asignaciones.
+	 */
 	public function edit($id)
 	{
 		MenuResourceSync::sync();
@@ -61,6 +74,9 @@ class RolController extends Controller
 		return view('admin.roles.edit', compact('rol', 'recursos', 'menu'));
 	}
 
+	/**
+	 * Actualiza el nombre y reemplaza por completo la lista de recursos asignados.
+	 */
 	public function update(Request $request, $id)
 	{
 		$rol = Rol::findOrFail($id);
@@ -77,12 +93,17 @@ class RolController extends Controller
 		]);
 
 		$rol->update(['nombre' => $validated['nombre']]);
+		// En edición se reemplazan las asociaciones existentes; si no se marca ninguno,
+		// la lista vacía revoca todos los recursos del rol.
 		$rol->recursos()->sync($validated['recursos'] ?? []);
 
 		return redirect()->route('admin.roles.index')
 			->with('success', 'Rol actualizado correctamente.');
 	}
 
+	/**
+	 * Cambia el estado del rol y evita que el usuario actual deshabilite su propio rol.
+	 */
 	public function cambiarEstado(Request $request, $id)
 	{
 		$validated = $request->validate([

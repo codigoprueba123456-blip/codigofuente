@@ -78,6 +78,7 @@
             </div>
         </div>
 
+        {{-- Los campos manuales son opcionales; vacíos mantienen el cálculo automático indicado aquí. --}}
         @php($creditajeAutomatico = (int) ($instituto->preciocredito ?? 0) * 10)
         <div class="row">
             <div class="col-md-6 form-group">

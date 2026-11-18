@@ -28,6 +28,9 @@ class GestionAcademica extends Model
         'activo' => 'boolean',
     ];
 
+    /**
+     * Construye la etiqueta corta según el régimen: anual, semestral o periodo no estándar.
+     */
     public function getEtiquetaAttribute(): string
     {
         $periodo = (int) $this->periodo;
@@ -43,16 +46,25 @@ class GestionAcademica extends Model
         return $this->gestion . ' - Periodo ' . $this->periodo;
     }
 
+    /**
+     * Filtra gestiones que están habilitadas y marcadas como vigentes.
+     */
     public function scopeHabilitadas($query)
     {
         return $query->where('vigente', true)->where('activo', true);
     }
 
+    /**
+     * Obtiene las actividades asociadas a esta gestión académica.
+     */
     public function actividades()
     {
         return $this->hasMany(Actividad::class, 'id_gestionacademica');
     }
 
+    /**
+     * Obtiene los grupos programados para esta gestión académica.
+     */
     public function grupos()
     {
         return $this->hasMany(Grupo::class, 'id_gestionacademica');

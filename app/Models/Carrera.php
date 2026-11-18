@@ -21,11 +21,17 @@ class Carrera extends Model
         'activo' => 'boolean',
     ];
 
+    /**
+     * Filtra carreras habilitadas para selección u operaciones académicas.
+     */
     public function scopeActivas($query)
     {
         return $query->where('activo', true);
     }
 
+    /**
+     * Devuelve las etiquetas de niveles válidas para los regímenes anual y semestral.
+     */
     public static function etiquetasNivelesPorRegimen(): array
     {
         return [
@@ -45,6 +51,9 @@ class Carrera extends Model
         ];
     }
 
+    /**
+     * Obtiene los números de nivel que corresponden al régimen recibido.
+     */
     public static function nivelesPorRegimen(int|string|null $regimen): array
     {
         $regimen = self::regimenEfectivo($regimen);
@@ -52,6 +61,9 @@ class Carrera extends Model
         return array_keys(self::etiquetasNivelesPorRegimen()[$regimen] ?? []);
     }
 
+    /**
+     * Devuelve la etiqueta del nivel o el valor original si no hay una etiqueta definida.
+     */
     public static function etiquetaNivel(int|string|null $regimen, int|string|null $nivel): string
     {
         $regimen = self::regimenEfectivo($regimen);
@@ -60,6 +72,9 @@ class Carrera extends Model
             ?? (string) $nivel;
     }
 
+    /**
+     * Convierte el régimen recibido a una constante válida; si está vacío, asume el régimen anual.
+     */
     public static function regimenEfectivo(int|string|null $regimen): ?int
     {
         if ($regimen === null || $regimen === '') {
@@ -71,6 +86,9 @@ class Carrera extends Model
         return array_key_exists($regimen, self::etiquetasNivelesPorRegimen()) ? $regimen : null;
     }
 
+    /**
+     * Limpia prefijos repetidos de las resoluciones y devuelve solo los números registrados.
+     */
     public function resolucionesMinisteriales(): array
     {
         return array_values(array_filter(array_map(function (?string $resolucion): ?string {
@@ -88,6 +106,9 @@ class Carrera extends Model
         ])));
     }
 
+    /**
+     * Formatea el nombre de esta carrera junto con sus resoluciones ministeriales.
+     */
     public function nombreConResolucionMinisterial(): string
     {
         return self::formatearNombreConResolucion(
@@ -98,6 +119,9 @@ class Carrera extends Model
         );
     }
 
+    /**
+     * Formatea un nombre de carrera y hasta tres resoluciones sin depender de un registro persistido.
+     */
     public static function formatearNombreConResolucion(
         string $nombre,
         ?string $resolucion1,
@@ -117,11 +141,17 @@ class Carrera extends Model
             : '');
     }
 
+    /**
+     * Obtiene el instituto al que está asociada la carrera.
+     */
     public function instituto()
     {
         return $this->belongsTo(Instituto::class, 'id_instituto', 'id_instituto');
     }
 
+    /**
+     * Obtiene al empleado asignado como jefe de carrera.
+     */
     public function jefeCarrera()
     {
         return $this->belongsTo(Empleado::class, 'id_jefecarrera', 'id_persona');

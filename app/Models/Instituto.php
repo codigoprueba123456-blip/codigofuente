@@ -15,11 +15,17 @@ class Instituto extends Model
         'abreviatura', 'logo', 'telefono', 'id_directoracademico', 'id_rector'
     ];
 
+    /**
+     * Obtiene el empleado asignado como rector del instituto.
+     */
     public function rector(): BelongsTo
     {
         return $this->belongsTo(Empleado::class, 'id_rector', 'id_persona');
     }
 
+    /**
+     * Obtiene el empleado asignado como director académico del instituto.
+     */
     public function directorAcademico(): BelongsTo
     {
         return $this->belongsTo(Empleado::class, 'id_directoracademico', 'id_persona');

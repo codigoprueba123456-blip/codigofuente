@@ -14,6 +14,9 @@ use Illuminate\Validation\ValidationException;
 
 class AsignacionDocenteController extends Controller
 {
+    /**
+     * Lista grupos con filtros de gestión, carrera o búsqueda y carga docentes asignados/disponibles.
+     */
     public function index(Request $request)
     {
         $gestiones = GestionAcademica::orderByDesc('gestion')->orderBy('periodo')->get();
@@ -46,6 +49,9 @@ class AsignacionDocenteController extends Controller
         ));
     }
 
+    /**
+     * Busca el grupo solicitado y prepara docentes permitidos para la nueva asignación.
+     */
     public function create(Request $request)
     {
         $grupo = Grupo::with('materia')->findOrFail($request->integer('id_grupo'));
@@ -55,6 +61,9 @@ class AsignacionDocenteController extends Controller
         return view('gestiones.asignacion-docente.create', compact('grupo', 'docentes'));
     }
 
+    /**
+     * Prepara la edición de la asignación actual después de comprobar que el grupo se pueda asignar.
+     */
     public function edit($id)
     {
         $grupo = Grupo::with('materia')->findOrFail($id);
@@ -64,6 +73,9 @@ class AsignacionDocenteController extends Controller
         return view('gestiones.asignacion-docente.edit', compact('grupo', 'docentes'));
     }
 
+    /**
+     * Asigna o quita el docente de un grupo después de validar empleado y estado académico.
+     */
     public function asignar(Request $request, $id)
     {
         $grupo = Grupo::with('materia')->findOrFail($id);
@@ -85,11 +97,16 @@ class AsignacionDocenteController extends Controller
         ])->with('success', 'Docente asignado correctamente.');
     }
 
+    /**
+     * Devuelve empleados activos y conserva en la lista a cualquier docente ya asignado.
+     */
     private function docentes(array $actuales = [])
     {
         $empleadosActivos = Empleado::activos()->pluck('id_persona');
         $actuales = collect($actuales)->filter()->unique()->values();
 
+        // El selector ofrece empleados activos y conserva al docente que ya estaba asignado aunque
+        // se haya desactivado; así se puede mantener esa asignación o cambiarla explícitamente.
         return Persona::where('tipo', 'empleado')
             ->where(function ($query) use ($empleadosActivos, $actuales): void {
                 $query->whereIn('id_persona', $empleadosActivos);
@@ -102,6 +119,9 @@ class AsignacionDocenteController extends Controller
             ->get();
     }
 
+    /**
+     * Rechaza asignaciones en una gestión deshabilitada o en grupos, materias o carreras inactivos.
+     */
     private function ensureAssignable(Grupo $grupo): void
     {
         if (!GestionAcademica::habilitadas()->whereKey($grupo->id_gestionacademica)->exists()) {

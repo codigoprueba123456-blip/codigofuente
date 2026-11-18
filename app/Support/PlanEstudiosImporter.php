@@ -9,6 +9,9 @@ use Smalot\PdfParser\Parser as PdfParser;
 
 class PlanEstudiosImporter
 {
+    /**
+     * Lee un plan de estudios y selecciona el lector PDF o de hoja de cálculo según la extensión.
+     */
     public function rows(UploadedFile $file): array
     {
         return strtolower($file->getClientOriginalExtension()) === 'pdf'
@@ -16,6 +19,9 @@ class PlanEstudiosImporter
             : $this->spreadsheetRows($file);
     }
 
+    /**
+     * Detecta los encabezados de las primeras diez filas y convierte las filas siguientes al formato común.
+     */
     private function spreadsheetRows(UploadedFile $file): array
     {
         $spreadsheet = IOFactory::load($file->getRealPath());
@@ -39,6 +45,9 @@ class PlanEstudiosImporter
         return $this->mapRows(array_slice($rawRows, $headerIndex + 1), $headers, $headerIndex + 2);
     }
 
+    /**
+     * Extrae líneas de un PDF, detecta niveles y reconstruye materias incluso si sus datos ocupan varias líneas.
+     */
     private function pdfRows(UploadedFile $file): array
     {
         $text = (new PdfParser())->parseFile($file->getRealPath())->getText();
@@ -112,6 +121,9 @@ class PlanEstudiosImporter
         return $rows;
     }
 
+    /**
+     * Interpreta una materia que aparece completa en una sola línea del PDF, o devuelve null si no coincide.
+     */
     private function inlinePdfRow(string $line, ?int $nivelActual): ?array
     {
         if (! preg_match(
@@ -148,6 +160,9 @@ class PlanEstudiosImporter
         ]);
     }
 
+    /**
+     * Une líneas consecutivas cuando el extractor PDF separó el código de materia en dos partes.
+     */
     private function joinBrokenCodes(array $lines): array
     {
         $joined = [];
@@ -167,6 +182,9 @@ class PlanEstudiosImporter
         return $joined;
     }
 
+    /**
+     * Reconoce encabezados de nivel como "Primer año" o "Semestre 2" y devuelve su número.
+     */
     private function pdfLevelLabel(string $line): ?int
     {
         $normalized = $this->header($line);
@@ -183,6 +201,9 @@ class PlanEstudiosImporter
         return null;
     }
 
+    /**
+     * Resuelve nombres alternativos de columnas, omite filas vacías y normaliza cada fila importada.
+     */
     private function mapRows(array $rawRows, array $headers, int $firstDataRow = 2): array
     {
         $aliases = [
@@ -238,6 +259,9 @@ class PlanEstudiosImporter
         return $rows;
     }
 
+    /**
+     * Convierte una fila de archivo a los campos estándar y valida nivel, carácter curricular y prerrequisitos.
+     */
     private function normalizedRow(array $row): array
     {
         $nivel = $row['nivel'] ?? null;
@@ -262,6 +286,9 @@ class PlanEstudiosImporter
         ];
     }
 
+    /**
+     * Convierte números o nombres ordinales de nivel a un entero; devuelve null si no puede reconocerlos.
+     */
     private function parseLevel(string $value): ?int
     {
         $value = $this->header($value);
@@ -291,6 +318,9 @@ class PlanEstudiosImporter
         return null;
     }
 
+    /**
+     * Interpreta los valores admitidos para el campo curricular y rechaza cualquier otro texto.
+     */
     private function parseBoolean(mixed $value): bool
     {
         $value = $this->header((string) $value);
@@ -307,6 +337,9 @@ class PlanEstudiosImporter
         throw new RuntimeException('El campo curricular debe indicar Sí o No.');
     }
 
+    /**
+     * Extrae códigos de materia del texto de prerrequisitos, los convierte a mayúsculas y quita duplicados.
+     */
     private function parsePrerequisites(string $value): array
     {
         preg_match_all('/[A-Z0-9][A-Z0-9._-]*-\d{2,}[A-Z0-9._-]*/iu', $value, $matches);
@@ -317,12 +350,18 @@ class PlanEstudiosImporter
         )));
     }
 
+    /**
+     * Normaliza un valor vacío a null y convierte coma decimal a punto.
+     */
     private function value(mixed $value): ?string
     {
         $value = trim((string) $value);
         return $value === '' ? null : str_replace(',', '.', $value);
     }
 
+    /**
+     * Normaliza encabezados eliminando acentos, espacios y signos para facilitar su comparación.
+     */
     private function header(string $value): string
     {
         $value = mb_strtolower(trim($value));
@@ -334,6 +373,9 @@ class PlanEstudiosImporter
         return preg_replace('/[^a-z0-9]/u', '', $value) ?? '';
     }
 
+    /**
+     * Determina si una línea contiene las columnas clave que identifican el encabezado de una tabla.
+     */
     private function looksLikeHeader(string $line): bool
     {
         $normalized = $this->header($line);

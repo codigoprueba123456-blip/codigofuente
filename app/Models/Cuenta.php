@@ -28,7 +28,7 @@ class Cuenta extends Authenticatable
     ];
 
     /**
-     * Campo identificador para inicio de sesión.
+     * Indica a Laravel Auth que el nombre de usuario de esta cuenta está en la columna usuario.
      */
     public function username(): string
     {
@@ -36,7 +36,7 @@ class Cuenta extends Authenticatable
     }
 
     /**
-     * Relación pertenece a Persona.
+     * Obtiene la persona propietaria de la cuenta y sus datos de identidad.
      */
     public function persona(): BelongsTo
     {
@@ -44,7 +44,7 @@ class Cuenta extends Authenticatable
     }
 
     /**
-     * Relación pertenece a Rol.
+     * Obtiene el rol cuyos permisos están asociados a esta cuenta.
      */
     public function rol(): BelongsTo
     {

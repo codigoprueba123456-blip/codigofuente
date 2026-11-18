@@ -18,6 +18,7 @@
                     </div>
                 </div>
                 <div class="row">
+                    {{-- El índice del archivo documentos[] se traduce en el tipo de documento del expediente. --}}
                     @foreach(range(1, 4) as $slot)
                         <div class="col-md-3 form-group">
                             <label for="documento_{{ $slot }}">{{ \App\Models\EmpleadoDocumento::nombreParaSlot($slot) }}</label>

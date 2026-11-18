@@ -30,6 +30,7 @@
 
 @push('js')
 <script>
+    // El cambio de carrera descarta selecciones incompatibles y oculta materias de otras carreras.
     document.addEventListener('DOMContentLoaded', function () {
         const carrera = document.getElementById('id_carrera');
         const prerequisitos = document.querySelector('[data-prerequisitos-select]');
@@ -39,6 +40,7 @@
 
         const opciones = Array.from(prerequisitos.options);
 
+        // En el render inicial conserva únicamente lo seleccionado que siga perteneciendo a la carrera.
         function filtrarPrerequisitos(conservarSeleccion) {
             const seleccionados = conservarSeleccion
                 ? Array.from(prerequisitos.selectedOptions).map(function (option) {

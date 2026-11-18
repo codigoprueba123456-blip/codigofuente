@@ -14,17 +14,25 @@ class Empleado extends Model
 
     protected $casts = ['activo' => 'boolean'];
 
+    /**
+     * Filtra los registros laborales que están habilitados.
+     */
     public function scopeActivos($query)
     {
         return $query->where('activo', true);
     }
 
-    // Relación con Persona (uno a uno)
+    /**
+     * Obtiene los datos personales vinculados al registro laboral.
+     */
     public function persona()
     {
-        return $this->belongsTo(Persona::class, 'id_persona', 'id_persona'); // Relación con Persona usando id_persona como clave foránea
+        return $this->belongsTo(Persona::class, 'id_persona', 'id_persona');
     }
 
+    /**
+     * Obtiene los documentos adjuntos al expediente de este empleado.
+     */
     public function documentos(): HasMany
     {
         return $this->hasMany(EmpleadoDocumento::class, 'id_persona', 'id_persona');

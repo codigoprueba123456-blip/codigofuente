@@ -45,34 +45,31 @@ Route::get('/reportes/dashboard', [InscripcionesDashboardController::class, 'ind
     ->middleware('auth')
     ->name('reportes.dashboard');
 
+// Estas rutas internas requieren sesión y permiso para el recurso asociado a cada URL.
 Route::middleware(['auth', 'resource.access'])->group(function () {
-//Configuracion de instituto 
+// Administración: configuración del instituto y gestión de empleados, usuarios, roles y recursos.
 Route::get('/admin/instituto', [InstitutoController::class, 'index'])->name('admin.instituto.index')->middleware('auth');
 Route::put('/admin/instituto', [InstitutoController::class, 'update'])->name('admin.instituto.update')->middleware('auth');
-//rutas para los empleados
 Route::get('/admin/empleados', [EmpleadoController::class, 'index'])->name('admin.empleados.index')->middleware('auth');
 Route::get('/admin/empleados/create', [EmpleadoController::class, 'create'])->name('admin.empleados.create')->middleware('auth');
 Route::post('/admin/empleados/create', [EmpleadoController::class, 'store'])->name('admin.empleados.store')->middleware('auth');
 Route::get('/admin/empleados/{id}/edit', [EmpleadoController::class, 'edit'])->name('admin.empleados.edit')->middleware('auth');
 Route::put('/admin/empleados/{id}', [EmpleadoController::class, 'update'])->name('admin.empleados.update')->middleware('auth');
 Route::patch('/admin/empleados/{id}/estado', [EmpleadoController::class, 'cambiarEstado'])->name('admin.empleados.estado')->middleware('auth');
-//rutas para los usuarios
 Route::get('/admin/usuarios', [UserController::class, 'index'])->name('admin.usuarios.index')->middleware('auth');
 Route::get('/admin/usuarios/{id}/edit', [UserController::class, 'edit'])->name('admin.usuarios.edit')->middleware('auth');
 Route::put('/admin/usuarios/{id}', [UserController::class, 'update'])->name('admin.usuarios.update')->middleware('auth');
 Route::post('/admin/usuarios/{id}/regenerar-credenciales', [UserController::class, 'regenerarCredenciales'])->name('admin.usuarios.regenerar-credenciales')->middleware('auth');
-//rutas para los roles
 Route::get('/admin/roles', [RolController::class, 'index'])->name('admin.roles.index')->middleware('auth');
 Route::get('/admin/roles/create', [RolController::class, 'create'])->name('admin.roles.create')->middleware('auth');
 Route::post('/admin/roles/create', [RolController::class, 'store'])->name('admin.roles.store')->middleware('auth');
 Route::get('/admin/roles/{id}/edit', [RolController::class, 'edit'])->name('admin.roles.edit')->middleware('auth');
 Route::put('/admin/roles/{id}', [RolController::class, 'update'])->name('admin.roles.update')->middleware('auth');
 Route::patch('/admin/roles/{id}/estado', [RolController::class, 'cambiarEstado'])->name('admin.roles.estado')->middleware('auth');
-//rutas para los recursos
 Route::get('/admin/recursos', [RecursoController::class, 'index'])->name('admin.recursos.index')->middleware('auth');
 Route::get('/admin/recursos/create', [RecursoController::class, 'create'])->name('admin.recursos.create')->middleware('auth');
 Route::post('/admin/recursos/create', [RecursoController::class, 'store'])->name('admin.recursos.store')->middleware('auth');
-//rutas para las carreras
+// Planes de estudio: mantenimiento de carreras y materias, incluida la importación de planes.
 Route::get('/planes/carreras', [CarreraController::class, 'index'])->name('planes.carreras.index')->middleware('auth');
 Route::get('/planes/carreras/create', [CarreraController::class, 'create'])->name('planes.carreras.create')->middleware('auth');
 Route::post('/planes/carreras/create', [CarreraController::class, 'store'])->name('planes.carreras.store')->middleware('auth');
@@ -81,14 +78,13 @@ Route::post('/planes/carreras/{id}/materias/import', [MateriaController::class, 
 Route::get('/planes/carreras/{id}/edit', [CarreraController::class, 'edit'])->name('planes.carreras.edit')->middleware('auth');
 Route::put('/planes/carreras/{id}', [CarreraController::class, 'update'])->name('planes.carreras.update')->middleware('auth');
 Route::patch('/planes/carreras/{id}/estado', [CarreraController::class, 'cambiarEstado'])->name('planes.carreras.estado')->middleware('auth');
-//rutas para materias y prerequisitos
 Route::get('/planes/materias', [MateriaController::class, 'index'])->name('planes.materias.index')->middleware('auth');
 Route::get('/planes/materias/create', [MateriaController::class, 'create'])->name('planes.materias.create')->middleware('auth');
 Route::post('/planes/materias', [MateriaController::class, 'store'])->name('planes.materias.store')->middleware('auth');
 Route::get('/planes/materias/{id}/edit', [MateriaController::class, 'edit'])->name('planes.materias.edit')->middleware('auth');
 Route::put('/planes/materias/{id}', [MateriaController::class, 'update'])->name('planes.materias.update')->middleware('auth');
 Route::patch('/planes/materias/{id}/estado', [MateriaController::class, 'cambiarEstado'])->name('planes.materias.estado')->middleware('auth');
-// INICIO: Módulo temporal de organización del proceso de inscripción.
+// Consulta jerárquica de la oferta académica: gestión, carrera, paralelo/turno y materia.
 Route::get('/planes/gestiones/inicio-inscripcion', [InicioInscripcionController::class, 'index'])
     ->name('inicio_inscripcion.index');
 Route::get('/planes/gestiones/inicio-inscripcion/{gestionId}', [InicioInscripcionController::class, 'gestion'])
@@ -111,29 +107,26 @@ Route::get('/planes/gestiones/inicio-inscripcion/{gestionId}/carreras/{carreraId
     ->whereNumber('turno')
     ->whereNumber('materiaId')
     ->name('inicio_inscripcion.materia');
-// FIN: Módulo temporal de organización del proceso de inscripción.
-//rutas para gestiones académicas
+// Gestiones académicas: configuración de periodos, calendario de actividades y grupos.
 Route::get('/planes/gestiones', [GestionAcademicaController::class, 'index'])->name('admin.gestionacademica.index')->middleware('auth');
 Route::get('/planes/gestiones/create', [GestionAcademicaController::class, 'create'])->name('admin.gestionacademica.create')->middleware('auth');
 Route::post('/planes/gestiones', [GestionAcademicaController::class, 'store'])->name('admin.gestionacademica.store')->middleware('auth');
 Route::get('/planes/gestiones/{id}/edit', [GestionAcademicaController::class, 'edit'])->name('admin.gestionacademica.edit')->middleware('auth');
 Route::put('/planes/gestiones/{id}', [GestionAcademicaController::class, 'update'])->name('admin.gestionacademica.update')->middleware('auth');
 Route::patch('/planes/gestiones/{id}/estado', [GestionAcademicaController::class, 'cambiarEstado'])->name('admin.gestionacademica.estado')->middleware('auth');
-//rutas para calendario y actividades
 Route::get('/planes/calendario', [ActividadController::class, 'index'])->name('admin.actividad.index')->middleware('auth');
 Route::get('/planes/calendario/create', [ActividadController::class, 'create'])->name('admin.actividad.create')->middleware('auth');
 Route::post('/planes/calendario', [ActividadController::class, 'store'])->name('admin.actividad.store')->middleware('auth');
 Route::get('/planes/calendario/{id}/edit', [ActividadController::class, 'edit'])->name('admin.actividad.edit')->middleware('auth');
 Route::put('/planes/calendario/{id}', [ActividadController::class, 'update'])->name('admin.actividad.update')->middleware('auth');
 Route::patch('/planes/calendario/{id}/estado', [ActividadController::class, 'cambiarEstado'])->name('admin.actividad.estado')->middleware('auth');
-//rutas para grupos
 Route::get('/planes/grupos', [GrupoController::class, 'index'])->name('admin.grupos.index')->middleware('auth');
 Route::get('/planes/grupos/programar', [GrupoController::class, 'programar'])->name('admin.grupos.programar')->middleware('auth');
 Route::post('/planes/grupos', [GrupoController::class, 'store'])->name('admin.grupos.store')->middleware('auth');
 Route::get('/planes/grupos/{id}/edit', [GrupoController::class, 'edit'])->name('admin.grupos.edit')->middleware('auth');
 Route::put('/planes/grupos/{id}', [GrupoController::class, 'update'])->name('admin.grupos.update')->middleware('auth');
 Route::patch('/planes/grupos/{id}/estado', [GrupoController::class, 'cambiarEstado'])->name('admin.grupos.estado')->middleware('auth');
-// Rutas para la asignación docente
+// Asignación docente: consulta grupos y registra o cambia la persona asignada.
 Route::get('/planes/asignacion-docente', [AsignacionDocenteController::class, 'index'])->name('admin.asignacion-docente.index')->middleware('auth');
 Route::get('/planes/asignacion-docente/create', [AsignacionDocenteController::class, 'create'])->name('admin.asignacion-docente.create')->middleware('auth');
 Route::get('/planes/asignacion-docente/{id}/edit', [AsignacionDocenteController::class, 'edit'])->name('admin.asignacion-docente.edit')->middleware('auth');

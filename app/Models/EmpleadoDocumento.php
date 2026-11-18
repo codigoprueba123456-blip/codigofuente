@@ -17,16 +17,25 @@ class EmpleadoDocumento extends Model
 
     protected $fillable = ['id_persona', 'tipo', 'ruta'];
 
+    /**
+     * Traduce el número de campo del formulario al tipo de documento almacenado.
+     */
     public static function tipoParaSlot(int $slot): string
     {
         return self::TIPOS_POR_SLOT[$slot] ?? 'Documento ' . $slot;
     }
 
+    /**
+     * Devuelve la etiqueta que debe mostrarse para el campo de documento seleccionado.
+     */
     public static function nombreParaSlot(int $slot): string
     {
         return self::tipoParaSlot($slot);
     }
 
+    /**
+     * Obtiene el empleado al que pertenece este documento.
+     */
     public function empleado()
     {
         return $this->belongsTo(Empleado::class, 'id_persona', 'id_persona');

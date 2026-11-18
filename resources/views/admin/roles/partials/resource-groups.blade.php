@@ -4,6 +4,7 @@
 
 <div class="accordion" id="recursosAccordion">
     @php
+        // Los enlaces sin submenú se agrupan aparte porque no pertenecen a un módulo anidado.
         $standaloneItems = array_values(array_filter($menu, function ($item) {
             return !empty($item['url']) && !isset($item['type']);
         }));
@@ -48,6 +49,7 @@
     @foreach($menu as $item)
         @if(!empty($item['submenu']) && is_array($item['submenu']) && !isset($item['type']))
             @php
+                // Solo los enlaces directos forman checkboxes de este módulo; los encabezados se omiten.
                 $submenuItems = array_values(array_filter($item['submenu'], function ($subItem) {
                     return !empty($subItem['url']) && !isset($subItem['type']);
                 }));
@@ -114,6 +116,8 @@
 
 <script>
     document.addEventListener('DOMContentLoaded', function () {
+        // El checkbox del encabezado marca o desmarca todos los recursos de su módulo.
+        // Se actualiza como marcado, vacío o indeterminado según cuántos recursos estén seleccionados.
         document.querySelectorAll('.module-check').forEach(function (moduleCheck) {
             const moduleId = moduleCheck.dataset.module;
             const checks = document.querySelectorAll('.resource-check.' + moduleId);

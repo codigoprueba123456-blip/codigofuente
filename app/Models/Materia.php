@@ -25,21 +25,33 @@ class Materia extends Model
         'curricular' => 'boolean',
     ];
 
+    /**
+     * Filtra materias habilitadas para selección académica.
+     */
     public function scopeActivas($query)
     {
         return $query->where('activo', true);
     }
 
+    /**
+     * Obtiene la carrera propietaria de esta materia.
+     */
     public function carrera()
     {
         return $this->belongsTo(Carrera::class, 'id_carrera', 'id_carrera');
     }
 
+    /**
+     * Obtiene los grupos programados para esta materia.
+     */
     public function grupos()
     {
         return $this->hasMany(Grupo::class, 'id_materia', 'id_materia');
     }
 
+    /**
+     * Obtiene las materias que deben cursarse antes que esta materia.
+     */
     public function prerequisitos()
     {
         return $this->belongsToMany(
@@ -52,6 +64,9 @@ class Materia extends Model
         )->withTimestamps();
     }
 
+    /**
+     * Obtiene las materias que tienen esta materia como prerrequisito.
+     */
     public function materiasDependientes()
     {
         return $this->belongsToMany(

@@ -22,6 +22,7 @@
                     </div>
                 </div>
                 <div class="row">
+                    {{-- Cada slot muestra el archivo vigente y solo se reemplaza si se carga uno nuevo. --}}
                     @foreach(range(1, 4) as $slot)
                         @php($documentoActual = $empleado->documentos->firstWhere('tipo', \App\Models\EmpleadoDocumento::tipoParaSlot($slot)))
                         <div class="col-md-3 form-group">

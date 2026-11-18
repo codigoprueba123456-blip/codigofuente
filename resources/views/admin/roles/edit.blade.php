@@ -36,6 +36,7 @@
                 <div class="form-group">
                     <label>Recursos del menú</label>
                     @php($recursosSeleccionados = old('recursos', $rol->recursos->pluck('id_recurso')->toArray()))
+                    {{-- Se reutiliza el selector de creación, precargando los recursos actuales del rol. --}}
                     @include('admin.roles.partials.resource-groups', ['menu' => $menu, 'recursos' => $recursos, 'selectedResources' => $recursosSeleccionados])
                     @error('recursos')
                         <span class="invalid-feedback d-block">{{ $message }}</span>

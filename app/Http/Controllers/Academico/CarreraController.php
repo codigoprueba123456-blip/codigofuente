@@ -13,6 +13,9 @@ use Illuminate\Validation\Rule;
 
 class CarreraController extends Controller
 {
+    /**
+     * Lista carreras con sus responsables y permite filtrar por código, nombre o resolución.
+     */
     public function index(Request $request)
     {
         $buscar = trim((string) $request->input('q', ''));
@@ -29,11 +32,18 @@ class CarreraController extends Controller
         return view('planes.carreras.index', compact('carreras'));
     }
 
+    /**
+     * Prepara los datos institucionales y los jefes de carrera para el formulario de alta.
+     */
     public function create()
     {
         return view('planes.carreras.create', $this->formData());
     }
 
+    /**
+     * Valida y crea una carrera asociada al instituto configurado; sincroniza el creditaje
+     * y revierte ambos cambios si falla cualquier paso.
+     */
     public function store(Request $request, CareerCreditageService $creditage)
     {
         $validated = $request->validate($this->rules());
@@ -47,6 +57,8 @@ class CarreraController extends Controller
         $carrera = DB::transaction(function () use ($validated, $instituto, $creditage): Carrera {
             $validated['id_instituto'] = $instituto->id_instituto;
             $carrera = Carrera::create($validated);
+            // La carrera y su distribución curricular se guardan juntas: así, si el recálculo falla,
+            // tampoco queda persistida una carrera con creditajes derivados desactualizados.
             $creditage->syncCareer($carrera);
 
             return $carrera;
@@ -55,6 +67,9 @@ class CarreraController extends Controller
         return redirect()->route('planes.carreras.index')->with('success', 'Carrera creada correctamente.');
     }
 
+    /**
+     * Carga la carrera y prepara las opciones del formulario, incluyendo al jefe actual.
+     */
     public function edit($id)
     {
         $carrera = Carrera::findOrFail($id);
@@ -64,6 +79,9 @@ class CarreraController extends Controller
         ], $this->formData($carrera->id_jefecarrera)));
     }
 
+    /**
+     * Actualiza la carrera y recalcula sus valores de creditaje en la misma transacción.
+     */
     public function update(Request $request, $id, CareerCreditageService $creditage)
     {
         $carrera = Carrera::findOrFail($id);
@@ -78,12 +96,16 @@ class CarreraController extends Controller
         DB::transaction(function () use ($carrera, $validated, $instituto, $creditage): void {
             $validated['id_instituto'] = $instituto->id_instituto;
             $carrera->update($validated);
+            // Un cambio de precio, creditaje manual o composición curricular afecta los valores derivados.
             $creditage->syncCareer($carrera);
         });
 
         return redirect()->route('planes.carreras.index')->with('success', 'Carrera actualizada correctamente.');
     }
 
+    /**
+     * Cambia únicamente el estado de habilitación de la carrera.
+     */
     public function cambiarEstado(Request $request, $id)
     {
         $validated = $request->validate([
@@ -97,6 +119,10 @@ class CarreraController extends Controller
             ->with('success', 'Estado de la carrera actualizado correctamente.');
     }
 
+    /**
+     * Devuelve el instituto y los empleados activos que pueden ser jefes; conserva también
+     * al jefe actual aunque haya dejado de estar activo para no perder la selección al editar.
+     */
     private function formData(?int $jefeActual = null): array
     {
         return [
@@ -108,6 +134,10 @@ class CarreraController extends Controller
         ];
     }
 
+    /**
+     * Construye reglas comunes para alta y edición, permitiendo excluir de la validación única
+     * la carrera actual y mantener al jefe asignado aunque esté inactivo.
+     */
     private function rules(?int $id = null, ?int $jefeActual = null): array
     {
         return [

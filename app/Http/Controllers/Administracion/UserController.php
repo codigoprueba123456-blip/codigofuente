@@ -14,6 +14,9 @@ use Barryvdh\DomPDF\Facade\Pdf;
 
 class UserController extends Controller
 {
+    /**
+     * Lista cuentas y permite buscar por username, datos de persona o nombre del rol.
+     */
     public function index(Request $request)
     {
         $buscar = trim((string) $request->input('search', ''));
@@ -33,11 +36,17 @@ class UserController extends Controller
         return view('admin.usuarios.index', compact('usuarios'));
     }
 
+    /**
+     * Método reservado para el formulario de alta; actualmente no prepara una vista.
+     */
     public function create()
     {
         
     }
 
+    /**
+     * Crea credenciales para una persona existente y transmite un PDF con la contraseña inicial.
+     */
     public function store(Request $request)
     {
 
@@ -80,6 +89,9 @@ class UserController extends Controller
 
     /**
      */
+    /**
+     * Genera una nueva contraseña, sincroniza sus hashes en users y cuenta y entrega el comprobante PDF.
+     */
     public function regenerarCredenciales($id_persona)
     {
         $usuario = User::with('persona', 'cuenta.rol')->findOrFail($id_persona);
@@ -88,6 +100,8 @@ class UserController extends Controller
         $newPlainPassword = Str::password(8, letters: true, numbers: true, symbols: false, spaces: false);
         $passwordHash = Hash::make($newPlainPassword);
 
+        // El login autentica contra users, pero cuenta conserva la credencial asociada al rol.
+        // La transacción evita que ambas tablas queden con contraseñas distintas si falla una escritura.
         DB::transaction(function () use ($usuario, $passwordHash) {
             $usuario->update(['password' => $passwordHash]);
             if ($usuario->cuenta) {
@@ -114,6 +128,9 @@ class UserController extends Controller
         return $pdf->stream('credenciales-' . $usuario->usuario . '.pdf');
     }
 
+    /**
+     * Carga la cuenta y ofrece roles activos, además del rol actual si está deshabilitado.
+     */
     public function edit($id_persona)
     {
         $usuario = User::with('persona', 'cuenta.rol')->findOrFail($id_persona);
@@ -126,6 +143,9 @@ class UserController extends Controller
         return view('admin.usuarios.edit', compact('usuario', 'roles'));
     }
 
+    /**
+     * Actualiza email, username y rol; crea la cuenta asociada si todavía no existe.
+     */
     public function update(Request $request, $id_persona)
     {
         $usuario = User::findOrFail($id_persona);

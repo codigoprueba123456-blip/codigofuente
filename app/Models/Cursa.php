@@ -18,11 +18,17 @@ class Cursa extends Model
         'nivelinicio',
     ];
 
+    /**
+     * Obtiene a la persona asociada al historial de cursado.
+     */
     public function persona()
     {
         return $this->belongsTo(Persona::class, 'id_persona', 'id_persona');
     }
 
+    /**
+     * Obtiene la carrera en la que se registra el nivel de inicio.
+     */
     public function carrera()
     {
         return $this->belongsTo(Carrera::class, 'id_carrera', 'id_carrera');

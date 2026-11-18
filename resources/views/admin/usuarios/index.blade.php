@@ -108,6 +108,7 @@
 
 @section('js')
 <script>
+    // El botón de cada fila aporta la URL y el nombre que se inyectan al modal de confirmación.
     $('#resetPasswordModal').on('show.bs.modal', function (event) {
         var button = $(event.relatedTarget);
         $('#resetPasswordForm').attr('action', button.data('action'));

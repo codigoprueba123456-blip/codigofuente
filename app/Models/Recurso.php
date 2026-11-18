@@ -10,7 +10,9 @@ class Recurso extends Model
     protected $primaryKey = 'id_recurso';
     protected $fillable = ['nombre', 'urlpattern'];
 
-    // Relación muchos a muchos con Rol (a través de la tabla privilegio)
+    /**
+     * Obtiene los roles que reciben acceso a esta URL mediante la tabla de privilegios.
+     */
     public function roles()
     {
         return $this->belongsToMany(Rol::class, 'privilegio', 'id_recurso', 'id_rol');

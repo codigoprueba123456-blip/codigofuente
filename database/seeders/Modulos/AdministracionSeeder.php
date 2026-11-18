@@ -16,6 +16,8 @@ use RuntimeException;
 
 class AdministracionSeeder extends Seeder
 {
+    // Los roles que no son de acceso completo usan una lista explícita de URL del menú.
+    // Mantener estas rutas aquí evita asignarles permisos nuevos solo porque se agregue una opción al menú.
     private const ROLE_RESOURCE_URLS = [
         'Docente' => [
             'planes/materias',
@@ -64,6 +66,9 @@ class AdministracionSeeder extends Seeder
         'Director Administrativo',
     ];
 
+    /**
+     * Sincroniza recursos del menú y luego asegura las cuentas de prueba y sus permisos.
+     */
     public function run(): void
     {
         $menuItems = $this->menuItems();
@@ -71,6 +76,9 @@ class AdministracionSeeder extends Seeder
         $this->seedDemoAccounts($menuItems);
     }
 
+    /**
+     * Crea o actualiza las cuentas de prueba y sincroniza los permisos definidos para cada rol.
+     */
     private function seedDemoAccounts(array $menuItems): void
     {
         // Credenciales solo para pruebas; reemplazarlas antes de usar datos reales.
@@ -232,6 +240,9 @@ class AdministracionSeeder extends Seeder
         }
     }
 
+    /**
+     * Devuelve el menú de funcionalidades y usa el menú AdminLTE si no hay uno personalizado.
+     */
     private function menuItems(): array
     {
         $menu = config('functionality.menu', []);
@@ -239,9 +250,14 @@ class AdministracionSeeder extends Seeder
         return $menu ?: config('adminlte.menu', []);
     }
 
+    /**
+     * Reemplaza los permisos del rol por los recursos requeridos y falla si falta una URL configurada.
+     */
     private function syncRoleResources(Rol $role, array $menuItems): void
     {
         $menuUrls = $this->menuResourceUrls($menuItems);
+        // Administrador, Rector y Director Académico reciben el menú completo; para los demás,
+        // una URL no declarada significa que el recurso no se asigna.
         $resourceUrls = in_array($role->nombre, self::FULL_ACCESS_ROLES, true)
             ? $menuUrls
             : (self::ROLE_RESOURCE_URLS[$role->nombre] ?? []);
@@ -268,14 +284,19 @@ class AdministracionSeeder extends Seeder
         $role->recursos()->sync($resources->pluck('id_recurso')->all());
     }
 
+    /**
+     * Extrae URLs navegables del menú de forma recursiva y elimina duplicados.
+     */
     private function menuResourceUrls(array $items): array
     {
         $urls = [];
         foreach ($items as $item) {
+            // Solo las entradas navegables son permisos; encabezados y elementos decorativos no lo son.
             if (! empty($item['url']) && $item['url'] !== '#' && ! isset($item['type'])) {
                 $urls[] = trim($item['url'], '/');
             }
 
+            // También incluye los enlaces anidados dentro de los submenús.
             if (! empty($item['submenu']) && is_array($item['submenu'])) {
                 $urls = [...$urls, ...$this->menuResourceUrls($item['submenu'])];
             }
@@ -284,6 +305,9 @@ class AdministracionSeeder extends Seeder
         return array_values(array_unique($urls));
     }
 
+    /**
+     * Conserva el username numérico existente o genera el siguiente correlativo del año actual.
+     */
     private function employeeUsername(Persona $persona): string
     {
         $year = date('Y');
@@ -302,6 +326,9 @@ class AdministracionSeeder extends Seeder
         return $year . str_pad((string) $counter, 4, '0', STR_PAD_LEFT);
     }
 
+    /**
+     * Conserva un username numérico existente; si no existe, busca un número libre en users y cuenta.
+     */
     private function studentUsername(Persona $persona): string
     {
         $existingUsername = User::where('id_persona', $persona->id_persona)->value('usuario');

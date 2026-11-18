@@ -25,16 +25,25 @@ class Actividad extends Model
         'fin' => 'datetime',
     ];
 
+    /**
+     * Obtiene la gestión académica a la que pertenece la actividad.
+     */
     public function gestionAcademica()
     {
         return $this->belongsTo(GestionAcademica::class, 'id_gestionacademica', 'id_gestionacademica');
     }
 
+    /**
+     * Obtiene el recurso asociado por el campo de funcionalidad heredado.
+     */
     public function funcionalidadRecurso()
     {
         return $this->belongsTo(Recurso::class, 'funcionalidad', 'id_recurso');
     }
 
+    /**
+     * Obtiene todos los recursos que la actividad habilita actualmente.
+     */
     public function funcionalidades()
     {
         return $this->belongsToMany(
@@ -47,16 +56,25 @@ class Actividad extends Model
         );
     }
 
+    /**
+     * Obtiene las carreras que forman parte de la audiencia de la actividad.
+     */
     public function carreras()
     {
         return $this->belongsToMany(Carrera::class, 'actividad_carrera', 'id_actividad', 'id_carrera', 'id_actividad', 'id_carrera');
     }
 
+    /**
+     * Obtiene los usuarios seleccionados explícitamente como audiencia.
+     */
     public function usuarios()
     {
         return $this->belongsToMany(User::class, 'actividad_usuario', 'id_actividad', 'id_persona', 'id_actividad', 'id_persona');
     }
 
+    /**
+     * Limita la consulta a actividades activas generales, dirigidas al usuario o a sus carreras.
+     */
     public function scopeVisibleTo(Builder $query, User $user): Builder
     {
         $careerIds = $user->carreras()->pluck('carreras.id_carrera');

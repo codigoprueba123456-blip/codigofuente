@@ -9,6 +9,9 @@ use Illuminate\Http\Request;
 
 class RecursoController extends Controller
 {
+    /**
+     * Sincroniza los enlaces actuales del menú con el catálogo y lista los recursos resultantes.
+     */
     public function index()
     {
         MenuResourceSync::sync();
@@ -17,6 +20,9 @@ class RecursoController extends Controller
         return view('admin.recursos.index', compact('recursos'));
     }
 
+    /**
+     * Sincroniza el menú antes de mostrar la vista para que el catálogo de recursos esté al día.
+     */
     public function create()
     {
         MenuResourceSync::sync();
@@ -24,6 +30,9 @@ class RecursoController extends Controller
         return view('admin.recursos.create');
     }
 
+    /**
+     * Crea o actualiza el recurso identificado por su URL normalizada.
+     */
     public function store(Request $request)
     {
         $validated = $request->validate([

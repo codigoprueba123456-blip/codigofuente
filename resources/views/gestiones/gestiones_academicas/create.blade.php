@@ -63,12 +63,14 @@
 @section('js')
     @parent
     <script>
+        // La validación del navegador complementa la regla del servidor: fin no puede preceder a inicio.
         (() => {
             const inicio = document.getElementById('inicio');
             const fin = document.getElementById('fin');
             const error = document.getElementById('fin-date-error');
             const mensaje = 'La fecha de fin no puede ser anterior a la fecha de inicio.';
 
+            // Actualiza el mínimo permitido y muestra el error sin esperar al envío del formulario.
             const validarFechas = () => {
                 fin.min = inicio.value;
                 const fechaInvalida = inicio.value && fin.value && fin.value < inicio.value;

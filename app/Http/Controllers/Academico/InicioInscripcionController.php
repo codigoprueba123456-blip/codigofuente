@@ -11,6 +11,9 @@ use Illuminate\Database\Eloquent\Collection;
 
 class InicioInscripcionController extends Controller
 {
+    /**
+     * Muestra el resumen de gestiones, grupos, carreras y materias disponibles.
+     */
     public function index()
     {
         $gestiones = GestionAcademica::query()
@@ -32,6 +35,9 @@ class InicioInscripcionController extends Controller
         ]);
     }
 
+    /**
+     * Organiza los grupos y actividades de una gestión por carrera y estado de habilitación.
+     */
     public function gestion(int $gestionId)
     {
         $gestion = GestionAcademica::findOrFail($gestionId);
@@ -102,6 +108,9 @@ class InicioInscripcionController extends Controller
         ]);
     }
 
+    /**
+     * Agrupa los grupos de una carrera por paralelo y turno dentro de la gestión seleccionada.
+     */
     public function carrera(int $gestionId, int $carreraId)
     {
         $gestion = GestionAcademica::findOrFail($gestionId);
@@ -151,6 +160,9 @@ class InicioInscripcionController extends Controller
         ]);
     }
 
+    /**
+     * Filtra los grupos de una carrera por paralelo y turno y los organiza por materia.
+     */
     public function paralelo(int $gestionId, int $carreraId, string $paralelo, int $turno)
     {
         $gestion = GestionAcademica::findOrFail($gestionId);
@@ -189,6 +201,9 @@ class InicioInscripcionController extends Controller
         ]);
     }
 
+    /**
+     * Muestra los grupos correspondientes a una materia en el paralelo y turno indicados.
+     */
     public function materia(
         int $gestionId,
         int $carreraId,
@@ -224,6 +239,9 @@ class InicioInscripcionController extends Controller
         ]);
     }
 
+    /**
+     * Obtiene grupos de una gestión cuya materia pertenece a la carrera solicitada.
+     */
     private function gruposDeCarrera(GestionAcademica $gestion, Carrera $carrera): Collection
     {
         return Grupo::query()
@@ -235,6 +253,9 @@ class InicioInscripcionController extends Controller
             ->get();
     }
 
+    /**
+     * Formatea las resoluciones ministeriales para mostrarlas como etiqueta de carrera.
+     */
     private function etiquetaResolucion(Carrera $carrera): string
     {
         $resoluciones = $carrera->resolucionesMinisteriales();
@@ -244,11 +265,16 @@ class InicioInscripcionController extends Controller
             : 'Sin resolución registrada';
     }
 
+    /**
+     * Extrae el paralelo del sufijo de una letra del código de grupo, si existe.
+     */
     private function nombreParalelo(string $codigo): string
     {
         $partes = explode('-', trim($codigo));
         $ultimoSegmento = end($partes);
 
+        // Los grupos se codifican como MATERIA-a, MATERIA-b, etc.; la última letra representa
+        // el paralelo visible (A, B...). Si el código no termina en una sola letra, se conserva completo.
         return is_string($ultimoSegmento) && preg_match('/^[a-z]$/i', $ultimoSegmento)
             ? mb_strtoupper($ultimoSegmento)
             : $codigo;

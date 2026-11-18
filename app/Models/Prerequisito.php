@@ -18,11 +18,17 @@ class Prerequisito extends Pivot
         'id_prerequisito',
     ];
 
+    /**
+     * Obtiene la materia que declara el prerrequisito.
+     */
     public function materia(): BelongsTo
     {
         return $this->belongsTo(Materia::class, 'id_materia', 'id_materia');
     }
 
+    /**
+     * Obtiene la materia que debe haberse aprobado previamente.
+     */
     public function materiaPrerequisito(): BelongsTo
     {
         return $this->belongsTo(Materia::class, 'id_prerequisito', 'id_materia');
