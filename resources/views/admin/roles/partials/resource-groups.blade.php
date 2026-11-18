@@ -3,6 +3,48 @@
 @endphp
 
 <div class="accordion" id="recursosAccordion">
+    @php
+        $standaloneItems = array_values(array_filter($menu, function ($item) {
+            return !empty($item['url']) && !isset($item['type']);
+        }));
+    @endphp
+
+    @if(!empty($standaloneItems))
+        <div class="card card-light mb-2 shadow-sm">
+            <div class="card-header py-2 px-3">
+                <label class="mb-0 d-flex align-items-center">
+                    <input type="checkbox" class="module-check mr-2" data-module="module-general">
+                    <span><strong>General</strong></span>
+                </label>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    @foreach($standaloneItems as $item)
+                        @php
+                            $url = trim((string) $item['url'], '/');
+                            $recurso = $recursos->firstWhere('urlpattern', $url);
+                        @endphp
+
+                        @if($recurso)
+                            <div class="col-md-4 mb-2">
+                                <label class="d-flex align-items-center border rounded p-2 bg-light mb-0 w-100">
+                                    <input
+                                        type="checkbox"
+                                        name="recursos[]"
+                                        value="{{ $recurso->id_recurso }}"
+                                        class="resource-check module-general mr-2"
+                                        {{ in_array($recurso->id_recurso, $selectedResources) ? 'checked' : '' }}
+                                    >
+                                    <span>{{ $item['text'] }}</span>
+                                </label>
+                            </div>
+                        @endif
+                    @endforeach
+                </div>
+            </div>
+        </div>
+    @endif
+
     @foreach($menu as $item)
         @if(!empty($item['submenu']) && is_array($item['submenu']) && !isset($item['type']))
             @php

@@ -56,22 +56,15 @@
                             <td class="text-center align-middle">{{ $index + 1 }}</td>
                             <td class="align-middle font-weight-bold">{{ $role->nombre }}</td>
                             <td>
-                                {{-- Caja desplegable/scrollable para los recursos del rol --}}
-                                <div class="border rounded p-2 bg-white" style="max-height: 130px; overflow-y: auto;">
-                                    @if(isset($role->recursos) && count($role->recursos) > 0)
+                                <div class="border rounded p-2 bg-white" style="max-height: 180px; overflow-y: auto;">
+                                    @if($role->recursos->isNotEmpty())
                                         @foreach($role->recursos as $recurso)
                                             <div class="text-muted small py-1 border-bottom last-border-0">
                                                 {{ $recurso->nombre }}
                                             </div>
                                         @endforeach
                                     @else
-                                        <div class="text-muted small">Administrador &gt; Empleados</div>
-                                        <div class="text-muted small">Administrador &gt; Empresas</div>
-                                        <div class="text-muted small">Administrador &gt; Instituto</div>
-                                        <div class="text-muted small">Administrador &gt; Logs</div>
-                                        <div class="text-muted small">Administrador &gt; Plantillas</div>
-                                        <div class="text-muted small">Administrador &gt; Roles</div>
-                                        <div class="text-muted small">Administrador &gt; Usuarios</div>
+                                        <div class="text-muted small">Sin recursos asignados</div>
                                     @endif
                                 </div>
                             </td>

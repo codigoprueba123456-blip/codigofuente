@@ -12,16 +12,66 @@ use App\Models\User;
 use App\Support\MenuResourceSync;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\Hash;
+use RuntimeException;
 
 class AdministracionSeeder extends Seeder
 {
+    private const ROLE_RESOURCE_URLS = [
+        'Docente' => [
+            'planes/materias',
+        ],
+        'Secretaria' => [
+            'admisiones/postulantes',
+            'inscripciones/estudiante_nuevo',
+            'inscripciones/estudiante_nuevo_postulacion',
+            'inscripciones/estudiante_regular',
+            'inscripciones/cambio_carrera',
+            'inscripciones/inscripcion_manual',
+            'inscripciones/inscriptos',
+            'pagos/pago',
+        ],
+        'Estudiante' => [
+            'estudiantes/estado_inscripcion',
+            'estudiantes/historial_economico',
+            'estudiantes/file_estudiante',
+        ],
+        'Director Administrativo' => [
+            'admin/instituto',
+            'admin/empleados',
+            'admin/usuarios',
+            'pagos/pago',
+            'reportes/malla-curricular',
+            'reportes/dashboard',
+            'reportes/inscripciones/lista-postulantes',
+            'reportes/inscripciones/lista-inscritos-carrera',
+            'reportes/inscripciones/lista-inscritos-paralelo',
+            'reportes/inscripciones/lista-inscritos-grupo',
+            'reportes/inscripciones/libro-inscripciones',
+            'reportes/inscripciones/libro-inscripciones-carrera',
+            'reportes/inscripciones/lista-inscritos-multicarrera',
+        ],
+    ];
+
+    private const FULL_ACCESS_ROLES = [
+        'Administrador',
+        'Rector',
+        'Director Académico',
+    ];
+
+    private const ADDITIONAL_ROLES = [
+        'Rector',
+        'Director Académico',
+        'Director Administrativo',
+    ];
+
     public function run(): void
     {
-        MenuResourceSync::sync();
-        $this->seedDemoAccounts();
+        $menuItems = $this->menuItems();
+        MenuResourceSync::sync($menuItems);
+        $this->seedDemoAccounts($menuItems);
     }
 
-    private function seedDemoAccounts(): void
+    private function seedDemoAccounts(array $menuItems): void
     {
         // Credenciales solo para pruebas; reemplazarlas antes de usar datos reales.
         $accounts = [
@@ -93,7 +143,6 @@ class AdministracionSeeder extends Seeder
             ],
             [
                 'role' => 'Estudiante',
-                'username' => 'estudiante_prueba',
                 'password' => 'Estudiante2026!',
                 'ci' => '99000004',
                 'name' => 'Esteban',
@@ -154,7 +203,7 @@ class AdministracionSeeder extends Seeder
             $password = Hash::make($account['password']);
             $username = $account['employee']
                 ? $this->employeeUsername($persona)
-                : $account['username'];
+                : $this->studentUsername($persona);
             $user = User::updateOrCreate(
                 ['id_persona' => $persona->id_persona],
                 [
@@ -174,10 +223,65 @@ class AdministracionSeeder extends Seeder
                 ]
             );
 
-            if ($account['role'] === 'Administrador') {
-                $role->recursos()->sync(Recurso::query()->pluck('id_recurso')->all());
+            $this->syncRoleResources($role, $menuItems);
+        }
+
+        foreach (self::ADDITIONAL_ROLES as $roleName) {
+            $role = Rol::firstOrCreate(['nombre' => $roleName]);
+            $this->syncRoleResources($role, $menuItems);
+        }
+    }
+
+    private function menuItems(): array
+    {
+        $menu = config('functionality.menu', []);
+
+        return $menu ?: config('adminlte.menu', []);
+    }
+
+    private function syncRoleResources(Rol $role, array $menuItems): void
+    {
+        $menuUrls = $this->menuResourceUrls($menuItems);
+        $resourceUrls = in_array($role->nombre, self::FULL_ACCESS_ROLES, true)
+            ? $menuUrls
+            : (self::ROLE_RESOURCE_URLS[$role->nombre] ?? []);
+        $missingUrls = array_diff($resourceUrls, $menuUrls);
+
+        if ($missingUrls) {
+            throw new RuntimeException(
+                'No se encontraron estos recursos en el menú: '.implode(', ', $missingUrls)
+            );
+        }
+
+        $resources = Recurso::query()
+            ->whereIn('urlpattern', $resourceUrls)
+            ->get(['id_recurso', 'urlpattern'])
+            ->keyBy('urlpattern');
+        $missingResources = array_diff($resourceUrls, $resources->keys()->all());
+
+        if ($missingResources) {
+            throw new RuntimeException(
+                'No se pudieron sincronizar estos recursos: '.implode(', ', $missingResources)
+            );
+        }
+
+        $role->recursos()->sync($resources->pluck('id_recurso')->all());
+    }
+
+    private function menuResourceUrls(array $items): array
+    {
+        $urls = [];
+        foreach ($items as $item) {
+            if (! empty($item['url']) && $item['url'] !== '#' && ! isset($item['type'])) {
+                $urls[] = trim($item['url'], '/');
+            }
+
+            if (! empty($item['submenu']) && is_array($item['submenu'])) {
+                $urls = [...$urls, ...$this->menuResourceUrls($item['submenu'])];
             }
         }
+
+        return array_values(array_unique($urls));
     }
 
     private function employeeUsername(Persona $persona): string
@@ -196,5 +300,35 @@ class AdministracionSeeder extends Seeder
         $counter = $lastUsername ? ((int) substr($lastUsername, 4)) + 1 : 1;
 
         return $year . str_pad((string) $counter, 4, '0', STR_PAD_LEFT);
+    }
+
+    private function studentUsername(Persona $persona): string
+    {
+        $existingUsername = User::where('id_persona', $persona->id_persona)->value('usuario');
+
+        if (is_string($existingUsername) && preg_match('/^20\d{6,}$/', $existingUsername)) {
+            return $existingUsername;
+        }
+
+        $year = now()->format('Y');
+        $pattern = '/^'.preg_quote($year, '/').'(\d{4,})$/';
+        $usernames = User::where('usuario', 'like', $year.'%')
+            ->pluck('usuario')
+            ->merge(Cuenta::where('usuario', 'like', $year.'%')->pluck('usuario'));
+        $lastNumber = $usernames->reduce(
+            static function (int $current, string $username) use ($pattern): int {
+                return preg_match($pattern, $username, $matches)
+                    ? max($current, (int) $matches[1])
+                    : $current;
+            },
+            0
+        );
+
+        do {
+            $username = $year.str_pad((string) ++$lastNumber, 4, '0', STR_PAD_LEFT);
+        } while (User::where('usuario', $username)->exists()
+            || Cuenta::where('usuario', $username)->exists());
+
+        return $username;
     }
 }

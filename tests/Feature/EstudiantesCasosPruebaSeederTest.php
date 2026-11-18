@@ -82,8 +82,14 @@ class EstudiantesCasosPruebaSeederTest extends TestCase
             'activo' => false,
         ]);
 
-        $cuentaDemo = User::where('usuario', 'demo-estudiante-01')->firstOrFail();
+        $personaDemo = Persona::where('ci', 'DEMO-EST-001')->firstOrFail();
+        $cuentaDemo = User::where('id_persona', $personaDemo->id_persona)->firstOrFail();
+        $this->assertMatchesRegularExpression('/^' . date('Y') . '\d{4,}$/', $cuentaDemo->usuario);
         $this->assertTrue(Hash::check('DemoEstudiante2026!', $cuentaDemo->password));
+        $this->assertDatabaseHas('cuenta', [
+            'id_persona' => $personaDemo->id_persona,
+            'usuario' => $cuentaDemo->usuario,
+        ]);
 
         foreach ([
             'demo/inscripciones/documentos/carnet1.jpeg',

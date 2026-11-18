@@ -69,7 +69,7 @@ class EstudianteRegularSeeder extends Seeder
         $usuario = User::updateOrCreate(
             ['id_persona' => $persona->id_persona],
             [
-                'usuario' => 'andrea_quispe_9843201',
+                'usuario' => $this->studentUsername($persona),
                 'password' => $password,
             ]
         );
@@ -111,5 +111,35 @@ class EstudianteRegularSeeder extends Seeder
             ],
             ['nivelinicio' => 2]
         );
+    }
+
+    private function studentUsername(Persona $persona): string
+    {
+        $existingUsername = User::where('id_persona', $persona->id_persona)->value('usuario');
+
+        if (is_string($existingUsername) && preg_match('/^20\d{6,}$/', $existingUsername)) {
+            return $existingUsername;
+        }
+
+        $year = now()->format('Y');
+        $pattern = '/^'.preg_quote($year, '/').'(\d{4,})$/';
+        $usernames = User::where('usuario', 'like', $year.'%')
+            ->pluck('usuario')
+            ->merge(Cuenta::where('usuario', 'like', $year.'%')->pluck('usuario'));
+        $lastNumber = $usernames->reduce(
+            static function (int $current, string $username) use ($pattern): int {
+                return preg_match($pattern, $username, $matches)
+                    ? max($current, (int) $matches[1])
+                    : $current;
+            },
+            0
+        );
+
+        do {
+            $username = $year.str_pad((string) ++$lastNumber, 4, '0', STR_PAD_LEFT);
+        } while (User::where('usuario', $username)->exists()
+            || Cuenta::where('usuario', $username)->exists());
+
+        return $username;
     }
 }

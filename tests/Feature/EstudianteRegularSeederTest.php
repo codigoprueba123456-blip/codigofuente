@@ -29,11 +29,11 @@ class EstudianteRegularSeederTest extends TestCase
         $this->assertNotNull($gestion);
         $this->assertNotNull($carrera);
         $usuario = User::where('id_persona', $persona->id_persona)->firstOrFail();
-        $this->assertSame('andrea_quispe_9843201', $usuario->usuario);
+        $this->assertMatchesRegularExpression('/^'.date('Y').'\d{4,}$/', $usuario->usuario);
         $this->assertTrue(Hash::check('Andrea2025!', $usuario->password));
         $this->assertDatabaseHas('cuenta', [
             'id_persona' => $persona->id_persona,
-            'usuario' => 'andrea_quispe_9843201',
+            'usuario' => $usuario->usuario,
         ]);
         $this->assertDatabaseCount('inscrito', 1);
         $this->assertDatabaseHas('estudiante', [
@@ -59,7 +59,7 @@ class EstudianteRegularSeederTest extends TestCase
         $this->assertNotEmpty($response->json('0.carreras_disponibles'));
 
         $this->withMiddleware()->post(route('login'), [
-            'usuario' => 'andrea_quispe_9843201',
+            'usuario' => $usuario->usuario,
             'password' => 'Andrea2025!',
         ])->assertRedirect('/home');
 

@@ -34,22 +34,13 @@
 
 				<div class="form-group">
 					<label>Recursos del menú</label>
-					@php($recursosPorUrl = $recursos->keyBy('urlpattern'))
 					@php($recursosSeleccionados = old('recursos', []))
-					<select
-						id="recursos"
-						name="recursos[]"
-						class="form-control @error('recursos') is-invalid @enderror"
-						multiple
-						size="10"
-					>
-						@include('admin.roles.partials.menu-checkboxes', ['items' => $menu, 'nivel' => 0])
-					</select>
+					@include('admin.roles.partials.resource-groups', ['menu' => $menu, 'recursos' => $recursos, 'selectedResources' => $recursosSeleccionados])
 					@error('recursos')
-						<span class="invalid-feedback">{{ $message }}</span>
+						<span class="invalid-feedback d-block">{{ $message }}</span>
 					@enderror
 					@error('recursos.*')
-						<span class="invalid-feedback">{{ $message }}</span>
+						<span class="invalid-feedback d-block">{{ $message }}</span>
 					@enderror
 				</div>
 			</div>

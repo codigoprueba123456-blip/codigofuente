@@ -584,6 +584,49 @@ class FunctionalityAccessTest extends TestCase
         $this->assertDatabaseHas('rol', ['id_rol' => $role->id_rol, 'activo' => true]);
     }
 
+    public function test_role_creation_form_selects_resources_with_checkboxes(): void
+    {
+        $user = $this->createUser();
+        MenuResourceSync::sync();
+        $resource = Recurso::where('urlpattern', 'planes/materias')->firstOrFail();
+        $standaloneResource = Recurso::where('urlpattern', 'planes/gestiones/inicio-inscripcion')->firstOrFail();
+
+        $this->actingAs($user)
+            ->get(route('admin.roles.create'))
+            ->assertOk()
+            ->assertSee('type="checkbox"', false)
+            ->assertSee('name="recursos[]"', false)
+            ->assertSee('value="'.$resource->id_recurso.'"', false)
+            ->assertSee('value="'.$standaloneResource->id_recurso.'"', false)
+            ->assertSee('Planes de Estudio')
+            ->assertDontSee('<select', false);
+
+        $this->post(route('admin.roles.store'), [
+            'nombre' => 'Rol creado con checkbox',
+            'recursos' => [$resource->id_recurso],
+        ])->assertRedirect(route('admin.roles.index'));
+
+        $role = Rol::where('nombre', 'Rol creado con checkbox')->firstOrFail();
+        $this->assertSame(
+            [$resource->id_recurso],
+            $role->recursos()->pluck('recurso.id_recurso')->all()
+        );
+    }
+
+    public function test_roles_list_does_not_show_resources_for_roles_without_assignments(): void
+    {
+        $admin = $this->createUser();
+        $role = Rol::create(['nombre' => 'Rol sin recursos']);
+
+        $this->actingAs($admin)
+            ->get(route('admin.roles.index'))
+            ->assertOk()
+            ->assertSee('Rol sin recursos')
+            ->assertSee('Sin recursos asignados')
+            ->assertDontSee('Administrador &gt; Empleados')
+            ->assertDontSee('Administrador &gt; Usuarios');
+    }
+
     public function test_groups_activities_and_gestiones_can_be_disabled_without_deleting_them(): void
     {
         $user = $this->createUser();

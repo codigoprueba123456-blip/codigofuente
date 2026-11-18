@@ -439,7 +439,7 @@ class EstudiantesCasosPruebaSeeder extends Seeder
         $usuario = User::updateOrCreate(
             ['id_persona' => $persona->id_persona],
             [
-                'usuario' => sprintf('demo-estudiante-%02d', $numero),
+                'usuario' => $this->studentUsername($persona),
                 'password' => Hash::make(self::PASSWORD),
             ]
         );
@@ -781,5 +781,35 @@ class EstudiantesCasosPruebaSeeder extends Seeder
             ['numero' => 11, 'codigo' => 'EST-11', 'ci' => 'DEMO-EST-011', 'nombre' => 'Lucía Belén', 'primerapellido' => 'Calderón', 'segundoapellido' => 'Siles', 'sexo' => 'F', 'fechanacimiento' => '2004-10-04', 'colegio' => 'Unidad Educativa Demo Andina', 'egreso' => 2022, 'contacto' => 'María Siles', 'parentesco' => 'Madre', 'bth' => false, 'traspaso_convalidacion' => false, 'completado' => false, 'carreras' => [['codigo' => 'SIS', 'nivel_historico' => 1, 'nivel_actual' => 2, 'paralelo_actual' => 'A']]],
             ['numero' => 12, 'codigo' => 'EST-12', 'ci' => 'DEMO-EST-012', 'nombre' => 'Omar Felipe', 'primerapellido' => 'Salvatierra', 'segundoapellido' => 'Paz', 'sexo' => 'M', 'fechanacimiento' => '2003-12-17', 'colegio' => 'Unidad Educativa Demo Central', 'egreso' => 2021, 'contacto' => 'Claudia Paz', 'parentesco' => 'Madre', 'bth' => false, 'traspaso_convalidacion' => false, 'completado' => false, 'carreras' => [['codigo' => 'ADM', 'nivel_historico' => 1, 'nivel_actual' => 2, 'paralelo_actual' => 'A']]],
         ];
+    }
+
+    private function studentUsername(Persona $persona): string
+    {
+        $existingUsername = User::where('id_persona', $persona->id_persona)->value('usuario');
+
+        if (is_string($existingUsername) && preg_match('/^20\d{6,}$/', $existingUsername)) {
+            return $existingUsername;
+        }
+
+        $year = now()->format('Y');
+        $pattern = '/^'.preg_quote($year, '/').'(\d{4,})$/';
+        $usernames = User::where('usuario', 'like', $year.'%')
+            ->pluck('usuario')
+            ->merge(Cuenta::where('usuario', 'like', $year.'%')->pluck('usuario'));
+        $lastNumber = $usernames->reduce(
+            static function (int $current, string $username) use ($pattern): int {
+                return preg_match($pattern, $username, $matches)
+                    ? max($current, (int) $matches[1])
+                    : $current;
+            },
+            0
+        );
+
+        do {
+            $username = $year.str_pad((string) ++$lastNumber, 4, '0', STR_PAD_LEFT);
+        } while (User::where('usuario', $username)->exists()
+            || Cuenta::where('usuario', $username)->exists());
+
+        return $username;
     }
 }

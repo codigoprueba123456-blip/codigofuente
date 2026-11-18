@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Models\Cuenta;
+use App\Models\Recurso;
 use App\Models\Rol;
 use App\Models\User;
 use Database\Seeders\Modulos\AdministracionSeeder;
@@ -22,7 +23,7 @@ class EmptyModuleSeedersTest extends TestCase
         $this->assertDatabaseCount('empleados', 3);
         $this->assertDatabaseCount('users', 4);
         $this->assertDatabaseCount('cuenta', 4);
-        $this->assertDatabaseCount('rol', 4);
+        $this->assertDatabaseCount('rol', 7);
         $this->assertDatabaseCount('estudiante', 1);
         $this->assertDatabaseHas('personas', [
             'ci' => '99000001',
@@ -52,9 +53,9 @@ class EmptyModuleSeedersTest extends TestCase
             $user = User::where('id_persona', $account->id_persona)->firstOrFail();
 
             if ($roleName === 'Estudiante') {
-                $this->assertSame('estudiante_prueba', $user->usuario);
+                $this->assertMatchesRegularExpression('/^' . date('Y') . '\d{4,}$/', $user->usuario);
             } else {
-                $this->assertMatchesRegularExpression('/^' . date('Y') . '\d{4}$/', $user->usuario);
+                $this->assertMatchesRegularExpression('/^' . date('Y') . '\d{4,}$/', $user->usuario);
             }
             $this->assertSame($user->usuario, $account->usuario);
             $this->assertTrue(Hash::check($password, $account->password));
@@ -73,7 +74,55 @@ class EmptyModuleSeedersTest extends TestCase
             $this->assertSame($username, $account->usuario);
         }
 
-        $studentAccount = User::where('usuario', 'estudiante_prueba')->firstOrFail();
+        $studentAccount = User::whereHas('persona', fn ($query) => $query->where('ci', '99000004'))
+            ->firstOrFail();
         $this->assertDatabaseHas('estudiante', ['id_persona' => $studentAccount->id_persona]);
+
+        $this->assertRoleResources('Docente', ['planes/materias']);
+        $this->assertRoleResources('Secretaria', [
+            'admisiones/postulantes',
+            'inscripciones/estudiante_nuevo',
+            'inscripciones/estudiante_nuevo_postulacion',
+            'inscripciones/estudiante_regular',
+            'inscripciones/cambio_carrera',
+            'inscripciones/inscripcion_manual',
+            'inscripciones/inscriptos',
+            'pagos/pago',
+        ]);
+        $this->assertRoleResources('Estudiante', [
+            'estudiantes/estado_inscripcion',
+            'estudiantes/historial_economico',
+            'estudiantes/file_estudiante',
+        ]);
+        $this->assertRoleResources('Director Administrativo', [
+            'admin/instituto',
+            'admin/empleados',
+            'admin/usuarios',
+            'pagos/pago',
+            'reportes/malla-curricular',
+            'reportes/dashboard',
+            'reportes/inscripciones/lista-postulantes',
+            'reportes/inscripciones/lista-inscritos-carrera',
+            'reportes/inscripciones/lista-inscritos-paralelo',
+            'reportes/inscripciones/lista-inscritos-grupo',
+            'reportes/inscripciones/libro-inscripciones',
+            'reportes/inscripciones/libro-inscripciones-carrera',
+            'reportes/inscripciones/lista-inscritos-multicarrera',
+        ]);
+
+        $allMenuResources = Recurso::pluck('urlpattern')->all();
+        $this->assertRoleResources('Administrador', $allMenuResources);
+        $this->assertRoleResources('Rector', $allMenuResources);
+        $this->assertRoleResources('Director Académico', $allMenuResources);
+    }
+
+    private function assertRoleResources(string $roleName, array $expectedUrls): void
+    {
+        $role = Rol::where('nombre', $roleName)->firstOrFail();
+        $this->assertEqualsCanonicalizing(
+            $expectedUrls,
+            $role->recursos()->pluck('urlpattern')->all(),
+            "Los recursos asignados al rol {$roleName} no coinciden."
+        );
     }
 }
