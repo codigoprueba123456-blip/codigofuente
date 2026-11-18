@@ -13,7 +13,7 @@ class Carrera extends Model
 
     protected $table = 'carreras';
     protected $primaryKey = 'id_carrera';
-    protected $fillable = [ 'codigo', 'creditajeadmision','creditajematricula', 'nivelacademico', 'nombre', 'activo', 'regimen', 'resolucionministerial1', 'resolucionministerial2',
+    protected $fillable = [ 'codigo', 'creditajeadmision', 'creditajematricula', 'creditajeadmision_manual', 'creditajematricula_manual', 'nivelacademico', 'nombre', 'activo', 'regimen', 'resolucionministerial1', 'resolucionministerial2',
             'resolucionministerial3', 'version', 'id_instituto', 'id_jefecarrera'
     ];
 

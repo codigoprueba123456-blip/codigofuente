@@ -269,6 +269,21 @@ class InscritosManagementWorkflowTest extends TestCase
             ->assertDontSee('Sin turno asignado');
     }
 
+    public function test_index_shows_credential_reset_action_for_enrolled_students_with_login_accounts(): void
+    {
+        $this->withoutMiddleware(EnsureFunctionalityAccess::class);
+        $admin = $this->createAdmin();
+        $record = $this->createEnrollment();
+        $student = $this->createStudentUser($record['persona']);
+
+        $this->actingAs($admin)
+            ->get(route('inscriptos.index'))
+            ->assertOk()
+            ->assertSee(route('admin.usuarios.regenerar-credenciales', $student->id_persona), false)
+            ->assertSee('Restablecer credenciales')
+            ->assertSee('resetInscritoCredentialsModal');
+    }
+
     public function test_index_displays_saved_enrollment_turn_and_parallel_when_groups_are_linked(): void
     {
         $this->withoutMiddleware(EnsureFunctionalityAccess::class);

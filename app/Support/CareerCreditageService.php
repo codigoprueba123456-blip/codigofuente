@@ -31,8 +31,8 @@ class CareerCreditageService
         $creditajeTotal = $precioCredito * 10;
 
         $carrera->update([
-            'creditajeadmision' => $creditajeTotal,
-            'creditajematricula' => $creditajeTotal,
+            'creditajeadmision' => $carrera->creditajeadmision_manual ?? $creditajeTotal,
+            'creditajematricula' => $carrera->creditajematricula_manual ?? $creditajeTotal,
         ]);
 
         $materias = Materia::query()

@@ -105,8 +105,17 @@
                                 @endif
                             </td>
                             <td class="text-center">
-                                <span class="badge badge-{{ $actividad->activo ? 'success' : 'secondary' }}">
-                                    {{ $actividad->activo ? 'Habilitada' : 'Deshabilitada' }}
+                                @php
+                                    $estadoActividad = ! $actividad->activo
+                                        ? ['Deshabilitada', 'secondary']
+                                        : ($actividad->inicio?->isFuture()
+                                            ? ['Programada', 'info']
+                                            : ($actividad->fin?->isPast()
+                                                ? ['Finalizada', 'secondary']
+                                                : ['Habilitada', 'success']));
+                                @endphp
+                                <span class="badge badge-{{ $estadoActividad[1] }}">
+                                    {{ $estadoActividad[0] }}
                                 </span>
                             </td>
                             <td class="text-center">

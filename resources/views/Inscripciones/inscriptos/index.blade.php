@@ -280,6 +280,18 @@
                                             </button>
                                         </form>
                                     @endif
+                                    @if ($inscrito->usuario_id)
+                                        <button type="button"
+                                                class="btn btn-xs btn-warning"
+                                                title="Restablecer credenciales"
+                                                aria-label="Restablecer credenciales de {{ $inscrito->nombre }} {{ $inscrito->primerapellido }}"
+                                                data-toggle="modal"
+                                                data-target="#resetInscritoCredentialsModal"
+                                                data-action="{{ route('admin.usuarios.regenerar-credenciales', $inscrito->usuario_id) }}"
+                                                data-user="{{ trim($inscrito->nombre . ' ' . $inscrito->primerapellido . ' ' . ($inscrito->segundoapellido ?? '')) }}">
+                                            <i class="fas fa-key"></i> Restablecer credenciales
+                                        </button>
+                                    @endif
                                     @if ($inscrito->carreras_inscritas->count() > 1)
                                         <button type="button" class="btn btn-xs btn-warning" data-toggle="modal" data-target="#modalCarreras{{ $inscrito->id_inscrito }}" title="Ver carreras de este estudiante">
                                             <i class="fas fa-layer-group"></i> {{ $inscrito->carreras_inscritas->count() }} carreras
@@ -405,10 +417,47 @@
             </div>
         @endif
     @endforeach
+
+    <div class="modal fade" id="resetInscritoCredentialsModal" tabindex="-1" role="dialog" aria-labelledby="resetInscritoCredentialsModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered" role="document">
+            <div class="modal-content">
+                <div class="modal-header bg-warning">
+                    <h5 class="modal-title" id="resetInscritoCredentialsModalLabel">
+                        <i class="fas fa-key mr-2"></i> Restablecer credenciales
+                    </h5>
+                    <button type="button" class="close" data-dismiss="modal" aria-label="Cerrar">
+                        <span aria-hidden="true">&times;</span>
+                    </button>
+                </div>
+                <form id="resetInscritoCredentialsForm" method="POST">
+                    @csrf
+                    <div class="modal-body">
+                        <p class="mb-0">
+                            ¿Deseas generar nuevas credenciales para
+                            <strong id="resetInscritoCredentialsUser"></strong>?
+                            Se actualizará su contraseña y se abrirá el comprobante PDF.
+                        </p>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancelar</button>
+                        <button type="submit" class="btn btn-warning">
+                            <i class="fas fa-check mr-1"></i> Sí, restablecer
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
 @stop
 
 @push('js')
 <script>
+    $('#resetInscritoCredentialsModal').on('show.bs.modal', function (event) {
+        var button = $(event.relatedTarget);
+        $('#resetInscritoCredentialsForm').attr('action', button.data('action'));
+        $('#resetInscritoCredentialsUser').text(button.data('user'));
+    });
+
     document.addEventListener('DOMContentLoaded', function () {
         const carrera = document.getElementById('id_carrera');
         const nivel = document.querySelector('[data-nivel-filtro]');

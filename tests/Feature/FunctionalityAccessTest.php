@@ -677,6 +677,66 @@ class FunctionalityAccessTest extends TestCase
             ->assertDontSee('Sección ' . $employeeResource->id_recurso . ' - Empleados');
     }
 
+    public function test_calendar_specific_user_list_can_be_searched_by_name_or_username(): void
+    {
+        $admin = $this->createUser();
+        $usuario = $this->createUser('usuario-buscable');
+
+        $this->actingAs($admin)
+            ->get(route('admin.actividad.create'))
+            ->assertOk()
+            ->assertSee('data-user-search-input', false)
+            ->assertSee('placeholder="Buscar por nombre o username..."', false)
+            ->assertSee('data-user-search-options', false)
+            ->assertSee('name="usuarios[]"', false)
+            ->assertSee('type="checkbox"', false)
+            ->assertSee(e($usuario->name . ' (' . $usuario->usuario . ')'), false);
+    }
+
+    public function test_reports_dashboard_and_student_sections_are_not_calendar_functionalities(): void
+    {
+        $user = $this->createUser();
+        $dashboard = Recurso::create([
+            'nombre' => 'Dashboard',
+            'urlpattern' => 'reportes/dashboard',
+        ]);
+        $report = Recurso::create([
+            'nombre' => 'Reporte de prueba',
+            'urlpattern' => 'reportes/inscripciones/prueba',
+        ]);
+        $studentSection = Recurso::create([
+            'nombre' => 'Estado de inscripción',
+            'urlpattern' => 'estudiantes/estado_inscripcion',
+        ]);
+        $allowedSection = Recurso::create([
+            'nombre' => 'Sección permitida',
+            'urlpattern' => 'planes/seccion-permitida',
+        ]);
+        $gestion = GestionAcademica::create([
+            'gestion' => 2026,
+            'periodo' => 1,
+            'regimen' => 1,
+            'vigente' => true,
+        ]);
+
+        $this->actingAs($user)
+            ->get(route('admin.actividad.create'))
+            ->assertOk()
+            ->assertSee('Sección ' . $allowedSection->id_recurso . ' - Sección permitida')
+            ->assertDontSee('Sección ' . $dashboard->id_recurso . ' - Dashboard')
+            ->assertDontSee('Sección ' . $report->id_recurso . ' - Reporte de prueba')
+            ->assertDontSee('Sección ' . $studentSection->id_recurso . ' - Estado de inscripción');
+
+        foreach ([$dashboard, $report, $studentSection] as $recurso) {
+            $this->post(route('admin.actividad.store'), [
+                'nombre' => 'Actividad de prueba',
+                'id_gestionacademica' => $gestion->id_gestionacademica,
+                'audiencia' => 'general',
+                'funcionalidades' => [$recurso->id_recurso],
+            ])->assertSessionHasErrors('funcionalidades.0');
+        }
+    }
+
     public function test_new_menu_modules_receive_functionality_numbers_automatically(): void
     {
         $menu = config('functionality.menu', []);
@@ -732,6 +792,31 @@ class FunctionalityAccessTest extends TestCase
             ->assertForbidden();
     }
 
+    public function test_future_calendar_activity_does_not_enable_a_section_before_its_start_date(): void
+    {
+        $admin = $this->createUser();
+        $user = $this->createUser('future');
+        $menu = config('functionality.menu', []);
+        $menu[] = ['text' => 'Módulo futuro', 'url' => 'planes/modulo-futuro'];
+        config(['functionality.menu' => $menu]);
+        Route::middleware('web')
+            ->post('/planes/modulo-futuro', fn () => response('módulo habilitado'));
+        MenuResourceSync::sync();
+
+        $resource = Recurso::where('urlpattern', 'planes/modulo-futuro')->firstOrFail();
+        $this->createActivity($resource->id_recurso, $user, now()->addHour(), now()->addHours(2));
+
+        $this->actingAs($user)
+            ->post('/planes/modulo-futuro')
+            ->assertForbidden();
+
+        $this->actingAs($admin)
+            ->get(route('admin.actividad.index'))
+            ->assertOk()
+            ->assertSee('Programada')
+            ->assertDontSee('Habilitada');
+    }
+
     public function test_one_calendar_activity_can_enable_multiple_sections_until_its_end_date(): void
     {
         $admin = $this->createUser();
@@ -763,9 +848,11 @@ class FunctionalityAccessTest extends TestCase
         $this->actingAs($admin)
             ->get(route('admin.actividad.edit', $actividad->id_actividad))
             ->assertOk()
-            ->assertSee('multiple', false)
-            ->assertSee('value="' . $recursoUno->id_recurso . '" selected', false)
-            ->assertSee('value="' . $recursoDos->id_recurso . '" selected', false);
+            ->assertSee('name="funcionalidades[]"', false)
+            ->assertSee('type="checkbox"', false)
+            ->assertSee('id="funcionalidad_' . $recursoUno->id_recurso . '"', false)
+            ->assertSee('id="funcionalidad_' . $recursoDos->id_recurso . '"', false)
+            ->assertSee('checked', false);
 
         $this->put(route('admin.actividad.update', $actividad->id_actividad), [
             'nombre' => 'Habilitación de dos módulos',

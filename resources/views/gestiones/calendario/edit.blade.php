@@ -42,22 +42,42 @@
                 </div>
             </div>
             <div class="form-group mb-0">
-                <label for="funcionalidades">Habilitar secciones</label>
-                <select name="funcionalidades[]" id="funcionalidades" class="form-control @error('funcionalidades') is-invalid @enderror @error('funcionalidades.*') is-invalid @enderror" multiple size="6">
+                <label>Habilitar secciones</label>
+                <div class="border rounded p-2 @error('funcionalidades') border-danger @enderror @error('funcionalidades.*') border-danger @enderror" style="max-height: 240px; overflow-y: auto;">
                     @if($actividad->funcionalidad && !$funcionalidades->contains('id_recurso', $actividad->funcionalidad))
-                        <option value="{{ $actividad->funcionalidad }}" @selected(in_array((string) $actividad->funcionalidad, array_map('strval', old('funcionalidades', $funcionalidadesSeleccionadas)), true))>
-                            Sección anterior #{{ $actividad->funcionalidad }}
-                        </option>
+                        <div class="custom-control custom-checkbox">
+                            <input
+                                type="checkbox"
+                                id="funcionalidad_anterior_{{ $actividad->funcionalidad }}"
+                                name="funcionalidades[]"
+                                value="{{ $actividad->funcionalidad }}"
+                                class="custom-control-input"
+                                @checked(in_array((string) $actividad->funcionalidad, array_map('strval', old('funcionalidades', $funcionalidadesSeleccionadas)), true))
+                            >
+                            <label class="custom-control-label" for="funcionalidad_anterior_{{ $actividad->funcionalidad }}">
+                                Sección anterior #{{ $actividad->funcionalidad }}
+                            </label>
+                        </div>
                     @endif
                     @foreach($funcionalidades as $funcionalidad)
-                        <option value="{{ $funcionalidad->id_recurso }}" @selected(in_array((string) $funcionalidad->id_recurso, array_map('strval', old('funcionalidades', $funcionalidadesSeleccionadas)), true))>
-                            Sección {{ $funcionalidad->id_recurso }} - {{ $funcionalidad->nombre }}
-                        </option>
+                        <div class="custom-control custom-checkbox">
+                            <input
+                                type="checkbox"
+                                id="funcionalidad_{{ $funcionalidad->id_recurso }}"
+                                name="funcionalidades[]"
+                                value="{{ $funcionalidad->id_recurso }}"
+                                class="custom-control-input"
+                                @checked(in_array((string) $funcionalidad->id_recurso, array_map('strval', old('funcionalidades', $funcionalidadesSeleccionadas)), true))
+                            >
+                            <label class="custom-control-label" for="funcionalidad_{{ $funcionalidad->id_recurso }}">
+                                Sección {{ $funcionalidad->id_recurso }} - {{ $funcionalidad->nombre }}
+                            </label>
+                        </div>
                     @endforeach
-                </select>
+                </div>
                 @error('funcionalidades')<span class="invalid-feedback d-block">{{ $message }}</span>@enderror
                 @error('funcionalidades.*')<span class="invalid-feedback d-block">{{ $message }}</span>@enderror
-                <small class="form-text text-muted">Usa Ctrl (Windows) o Cmd (Mac) para seleccionar varias secciones. Quedan habilitadas durante las fechas indicadas y para la audiencia seleccionada.</small>
+                <small class="form-text text-muted">Selecciona una o varias secciones. Quedan habilitadas durante las fechas indicadas y para la audiencia seleccionada.</small>
             </div>
         </div>
         <div class="card-footer d-flex justify-content-end">

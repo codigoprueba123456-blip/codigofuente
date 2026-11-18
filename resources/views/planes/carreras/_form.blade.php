@@ -78,6 +78,44 @@
             </div>
         </div>
 
+        @php($creditajeAutomatico = (int) ($instituto->preciocredito ?? 0) * 10)
+        <div class="row">
+            <div class="col-md-6 form-group">
+                <label for="creditajeadmision_manual">Creditaje manual de admisión</label>
+                <input
+                    type="number"
+                    name="creditajeadmision_manual"
+                    id="creditajeadmision_manual"
+                    class="form-control @error('creditajeadmision_manual') is-invalid @enderror"
+                    min="0"
+                    step="1"
+                    value="{{ old('creditajeadmision_manual', $carrera->creditajeadmision_manual ?? '') }}"
+                    placeholder="Automático"
+                >
+                @error('creditajeadmision_manual')<span class="invalid-feedback">{{ $message }}</span>@enderror
+                <small class="form-text text-muted">
+                    Opcional. Déjalo vacío para calcular {{ $creditajeAutomatico }} (precio por crédito × 10).
+                </small>
+            </div>
+            <div class="col-md-6 form-group">
+                <label for="creditajematricula_manual">Creditaje manual de matrícula</label>
+                <input
+                    type="number"
+                    name="creditajematricula_manual"
+                    id="creditajematricula_manual"
+                    class="form-control @error('creditajematricula_manual') is-invalid @enderror"
+                    min="0"
+                    step="1"
+                    value="{{ old('creditajematricula_manual', $carrera->creditajematricula_manual ?? '') }}"
+                    placeholder="Automático"
+                >
+                @error('creditajematricula_manual')<span class="invalid-feedback">{{ $message }}</span>@enderror
+                <small class="form-text text-muted">
+                    Opcional. Déjalo vacío para calcular {{ $creditajeAutomatico }} (precio por crédito × 10).
+                </small>
+            </div>
+        </div>
+
         <div class="row">
             @for($number = 1; $number <= 3; $number++)
                 <div class="col-md-4 form-group">

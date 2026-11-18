@@ -75,8 +75,14 @@ class ActividadController extends Controller
             ->get();
         $usuarios = $this->usuariosDisponibles($actividad);
         $funcionalidades = $this->funcionalidades();
-        $funcionalidadesSeleccionadas = $actividad->funcionalidades->pluck('id_recurso')->all();
-        if ($funcionalidadesSeleccionadas === [] && $actividad->funcionalidad !== null) {
+        $idsFuncionalidadesDisponibles = $funcionalidades->pluck('id_recurso');
+        $funcionalidadesSeleccionadas = $actividad->funcionalidades
+            ->whereIn('id_recurso', $idsFuncionalidadesDisponibles)
+            ->pluck('id_recurso')
+            ->all();
+        if ($funcionalidadesSeleccionadas === []
+            && $actividad->funcionalidad !== null
+            && $idsFuncionalidadesDisponibles->contains($actividad->funcionalidad)) {
             $funcionalidadesSeleccionadas[] = $actividad->funcionalidad;
         }
 
@@ -134,7 +140,15 @@ class ActividadController extends Controller
             'inicio' => ['nullable', 'date'],
             'fin' => ['nullable', 'date', 'after_or_equal:inicio'],
             'funcionalidades' => ['nullable', 'array'],
-            'funcionalidades.*' => ['integer', 'distinct', 'exists:recurso,id_recurso'],
+            'funcionalidades.*' => [
+                'integer',
+                'distinct',
+                Rule::exists('recurso', 'id_recurso')
+                    ->where(fn ($query) => $query
+                        ->where('urlpattern', 'not like', 'reportes/%')
+                        ->where('urlpattern', 'not like', 'estudiantes/%')
+                        ->where('urlpattern', 'not like', '%dashboard%')),
+            ],
             'id_gestionacademica' => ['required', 'exists:gestionacademica,id_gestionacademica'],
             'audiencia' => ['required', 'in:general,carrera,usuario'],
             'carreras' => ['required_if:audiencia,carrera', 'array'],
@@ -207,6 +221,9 @@ class ActividadController extends Controller
 
         return Recurso::whereNotIn('urlpattern', ['planes/calendario', 'planes/gestiones'])
             ->where('urlpattern', 'not like', 'admin/%')
+            ->where('urlpattern', 'not like', 'reportes/%')
+            ->where('urlpattern', 'not like', 'estudiantes/%')
+            ->where('urlpattern', 'not like', '%dashboard%')
             ->orderBy('id_recurso')
             ->get();
     }

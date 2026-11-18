@@ -74,14 +74,20 @@
                                 {{ $carrera->activo ? 'Habilitada' : 'Deshabilitada' }}
                             </span>
                         </td>
-                        <td>{{ $carrera->creditajeadmision ?? '-' }}</td>
+                        <td>
+                            {{ $carrera->creditajeadmision ?? '-' }}
+                            <small class="text-muted d-block">{{ $carrera->creditajeadmision_manual !== null ? 'Manual' : 'Automático' }}</small>
+                        </td>
                         <td>{{ match ((int) $carrera->regimen) { \App\Models\Carrera::REGIMEN_ANUAL => 'Anual', \App\Models\Carrera::REGIMEN_SEMESTRAL => 'Semestral', default => '-' } }}</td>
                         <td>{{ match ((int) $carrera->nivelacademico) { \App\Models\Carrera::NIVEL_TECNICO_SUPERIOR => 'Técnico Superior', \App\Models\Carrera::NIVEL_TECNICO_MEDIO => 'Técnico Medio', default => '-' } }}</td>
                         <td class="text-center">{{ $carrera->version ?? '-' }}</td>
                         <td class="text-center">{{ $carrera->resolucionministerial1 ?? '-' }}</td>
                         <td class="text-center">{{ $carrera->resolucionministerial2 ?? '-' }}</td>
                         <td class="text-center">{{ $carrera->resolucionministerial3 ?? '-' }}</td>
-                        <td class="text-center">{{ $carrera->creditajematricula ?? '-' }}</td>
+                        <td class="text-center">
+                            {{ $carrera->creditajematricula ?? '-' }}
+                            <small class="text-muted d-block">{{ $carrera->creditajematricula_manual !== null ? 'Manual' : 'Automático' }}</small>
+                        </td>
                         @php($jefeCarrera = $carrera->jefeCarrera?->persona)
                         <td>{{ $jefeCarrera ? trim($jefeCarrera->nombre . ' ' . $jefeCarrera->primerapellido . ' ' . ($jefeCarrera->segundoapellido ?? '')) : '-' }}</td>
                         <td class="text-center">

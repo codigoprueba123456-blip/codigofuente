@@ -126,6 +126,8 @@ class CarreraController extends Controller
             'resolucionministerial2' => ['nullable', 'string', 'max:255'],
             'resolucionministerial3' => ['nullable', 'string', 'max:255'],
             'version' => ['nullable', 'integer', 'min:0'],
+            'creditajeadmision_manual' => ['nullable', 'integer', 'min:0', 'max:2147483647'],
+            'creditajematricula_manual' => ['nullable', 'integer', 'min:0', 'max:2147483647'],
             'id_jefecarrera' => [
                 'nullable',
                 Rule::exists('empleados', 'id_persona')

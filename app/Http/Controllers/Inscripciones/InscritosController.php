@@ -670,6 +670,13 @@ class InscritosController extends Controller
                 'e.path_bth',
             )
             ->selectSub(
+                DB::table('users as u')
+                    ->select('u.id_persona')
+                    ->whereColumn('u.id_persona', 'i.id_persona')
+                    ->limit(1),
+                'usuario_id'
+            )
+            ->selectSub(
                 DB::table('cursa as cu')
                     ->select('cu.nivelinicio')
                     ->whereColumn('cu.id_persona', 'i.id_persona')
