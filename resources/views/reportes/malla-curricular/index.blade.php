@@ -11,6 +11,7 @@
 @stop
 
 @section('content')
+{{-- La carrera seleccionada determina la malla, los totales y los archivos descargables. --}}
 <div class="card mt-3">
     <div class="card-body">
         <form method="GET" action="{{ route('reportes.academicos.malla-curricular') }}">
@@ -43,6 +44,7 @@
     </div>
 </div>
 
+{{-- El resultado agrupa materias por nivel y presenta prerrequisitos y acumulados. --}}
 @if ($generado && $carrera)
     <div class="card">
         <div class="card-header bg-light">

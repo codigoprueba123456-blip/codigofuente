@@ -7,6 +7,7 @@ use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
 {
+    // Documentos obligatorios al postular, pero que pueden faltar en registros históricos o en flujos posteriores.
     private const DOCUMENT_COLUMNS = [
         'path_ci_frontal',
         'path_ci_reverso',
@@ -14,6 +15,9 @@ return new class extends Migration
         'path_diploma',
     ];
 
+    /**
+     * Permite que las rutas de documentos de una postulación queden vacías.
+     */
     public function up(): void
     {
         Schema::table('postulante', function (Blueprint $table): void {
@@ -23,8 +27,12 @@ return new class extends Migration
         });
     }
 
+    /**
+     * Repone una cadena vacía antes de volver a exigir un valor en cada documento.
+     */
     public function down(): void
     {
+        // Prepara los registros sin documento para que cumplan la restricción al revertir el cambio.
         foreach (self::DOCUMENT_COLUMNS as $column) {
             DB::table('postulante')->whereNull($column)->update([$column => '']);
         }

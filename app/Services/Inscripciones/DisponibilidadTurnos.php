@@ -8,6 +8,10 @@ use Illuminate\Validation\ValidationException;
 
 class DisponibilidadTurnos
 {
+    /**
+     * Agrupa los grupos abiertos por turno y paralelo y calcula sus cupos disponibles.
+     * Puede excluir la postulación o inscripción que se está validando para no contarla dos veces.
+     */
     public function opciones(
         int $carreraId,
         int $gestionId,
@@ -46,6 +50,9 @@ class DisponibilidadTurnos
             ->all();
     }
 
+    /**
+     * Devuelve los grupos activos y abiertos de una carrera, gestión y nivel determinados.
+     */
     public function gruposAbiertos(int $carreraId, int $gestionId, ?int $nivel = null): array
     {
         return $this->normalizarGrupos(
@@ -53,6 +60,9 @@ class DisponibilidadTurnos
         )->all();
     }
 
+    /**
+     * Confirma que el turno y paralelo elegidos sigan abiertos para la carrera y el nivel.
+     */
     public function validarGrupoAbierto(
         int $carreraId,
         int $gestionId,
@@ -75,6 +85,10 @@ class DisponibilidadTurnos
         }
     }
 
+    /**
+     * Confirma que el turno y paralelo tengan grupos habilitados y cupos libres.
+     * Vuelve a consultar los grupos con bloqueo para reducir conflictos entre inscripciones simultáneas.
+     */
     public function validarDisponible(
         int $carreraId,
         int $gestionId,
@@ -105,6 +119,9 @@ class DisponibilidadTurnos
         }
     }
 
+    /**
+     * Consulta los grupos activos de una carrera y gestión, con opción de limitar por nivel o bloquear filas.
+     */
     private function gruposDeCarrera(
         int $carreraId,
         int $gestionId,
@@ -134,6 +151,9 @@ class DisponibilidadTurnos
         return $consulta->get();
     }
 
+    /**
+     * Convierte los códigos de grupo reconocidos en pares de turno y letra de paralelo.
+     */
     private function normalizarGrupos(Collection $grupos): Collection
     {
         return $grupos
@@ -152,6 +172,10 @@ class DisponibilidadTurnos
             ->values();
     }
 
+    /**
+     * Cuenta postulaciones pendientes e inscripciones activas para una combinación de grupo.
+     * Las postulaciones ya convertidas se excluyen y se puede omitir el registro que se está actualizando.
+     */
     private function ocupacion(
         int $carreraId,
         int $gestionId,

@@ -2,6 +2,7 @@
     $nombreInstituto = $instituto->nombreinstituto ?? 'Instituto Tecnológico Sacaba';
     $sigla = $instituto->abreviatura ?? 'ITSA';
     $logoSrc = null;
+    // Prioriza el logotipo configurado y usa la imagen pública como alternativa.
     $rutas = [];
     if (!empty($instituto?->logo)) { $rutas[] = storage_path('app/public/' . $instituto->logo); }
     $rutas[] = public_path('images/logo.png');
@@ -44,6 +45,7 @@
     </style>
 </head>
 <body>
+    {{-- La portada identifica al instituto y la carrera; la tabla reproduce el detalle y totales de la malla. --}}
     <table class="header">
         <tr>
             @if ($logoSrc)

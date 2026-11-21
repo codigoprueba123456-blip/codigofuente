@@ -7,5 +7,6 @@
 @stop
 
 @section('content')
+    {{-- Este libro restringe el listado a una gestión académica y una carrera. --}}
     @include('reportes.inscripciones.formulario')
 @stop

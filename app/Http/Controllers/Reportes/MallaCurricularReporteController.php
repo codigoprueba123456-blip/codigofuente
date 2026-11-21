@@ -15,11 +15,17 @@ use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
 
 class MallaCurricularReporteController extends Controller
 {
+    /**
+     * Muestra la malla de una carrera seleccionada y, cuando se solicita,
+     * genera su versión PDF o Excel con materias agrupadas por nivel.
+     */
     public function index(Request $request)
     {
         $formato = $request->input('formato');
+        // Los enlaces de descarga también activan la generación y validación del reporte.
         $generado = $request->boolean('generar') || in_array($formato, ['pdf', 'excel'], true);
 
+        // Se ofrecen todas las carreras para consulta; la selección se valida al generar.
         $carreras = Carrera::query()->orderBy('nombre')->orderBy('version')->get();
         $carrera = null;
         $niveles = collect();
@@ -34,6 +40,8 @@ class MallaCurricularReporteController extends Controller
             ]);
 
             $carrera = Carrera::with('instituto')->findOrFail($validated['id_carrera']);
+            // Carga prerrequisitos junto con las materias y mantiene un orden estable
+            // para que la pantalla y los archivos descargados presenten el mismo plan.
             $materias = Materia::query()
                 ->with('prerequisitos:id_materia,codigo,nombre')
                 ->where('id_carrera', $carrera->id_carrera)
@@ -42,6 +50,7 @@ class MallaCurricularReporteController extends Controller
                 ->orderBy('nombre')
                 ->get();
 
+            // El nivel nulo se agrupa como cero, que la vista etiqueta como no asignado.
             $niveles = $materias->groupBy(fn (Materia $m) => $m->nivel ?? 0)->sortKeys();
             $totales = [
                 'materias' => $materias->count(),
@@ -50,6 +59,7 @@ class MallaCurricularReporteController extends Controller
             ];
         }
 
+        // El PDF incorpora la identidad institucional y presenta la malla en vertical.
         if ($generado && $formato === 'pdf') {
             return Pdf::loadView('reportes.malla-curricular.pdf', [
                 'carrera' => $carrera,
@@ -60,6 +70,7 @@ class MallaCurricularReporteController extends Controller
                 ->download($this->nombreArchivo($carrera, 'pdf'));
         }
 
+        // Excel recibe las mismas materias agrupadas y los totales calculados arriba.
         if ($generado && $formato === 'excel') {
             return $this->exportarMallaExcel($carrera, $niveles, $totales);
         }
@@ -69,12 +80,20 @@ class MallaCurricularReporteController extends Controller
         ));
     }
 
+    /**
+     * Construye un nombre reconocible a partir del código de carrera y la fecha,
+     * sustituyendo caracteres no apropiados para nombres de archivo.
+     */
     private function nombreArchivo(Carrera $carrera, string $extension): string
     {
         return 'Malla_Curricular_'.preg_replace('/[^A-Za-z0-9_-]+/', '_', (string) $carrera->codigo)
             .'_'.now()->format('Y-m-d_H-i').'.'.$extension;
     }
 
+    /**
+     * Prepara y transmite el libro Excel con materias, datos de plan,
+     * prerrequisitos y sumatorias de horas y créditos.
+     */
     private function exportarMallaExcel(Carrera $carrera, $niveles, array $totales)
     {
         $hoja = new Spreadsheet();
@@ -86,6 +105,8 @@ class MallaCurricularReporteController extends Controller
         $sheet->getStyle('A4:G4')->getFont()->setBold(true);
         $sheet->getStyle('A4:G4')->getFill()->setFillType('solid')->getStartColor()->setRGB('DCFCE7');
 
+        // Cada materia ocupa una fila; los prerrequisitos se presentan como una
+        // lista de códigos y al final se escriben los acumulados de la malla.
         $fila = 5;
         foreach ($niveles as $nivel => $materias) {
             foreach ($materias as $materia) {

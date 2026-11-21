@@ -11,6 +11,9 @@ use Illuminate\Validation\ValidationException;
 
 class CambioCarreraController extends Controller
 {
+    /**
+     * Prepara el formulario con las carreras habilitadas para recibir un cambio.
+     */
     public function index()
     {
         $carreras = Carrera::activas()
@@ -20,6 +23,10 @@ class CambioCarreraController extends Controller
         return view('Inscripciones.cambio_carrera.index', compact('carreras'));
     }
 
+    /**
+     * Busca estudiantes por CI o nombre y devuelve sus inscripciones activas para elegir cuál cambiar.
+     * La respuesta incluye el comprobante y si la inscripción ya tiene materias asignadas.
+     */
     public function buscarEstudiantes(Request $request)
     {
         $termino = trim((string) $request->query('q', ''));
@@ -128,6 +135,11 @@ class CambioCarreraController extends Controller
         return response()->json($estudiantes);
     }
 
+    /**
+     * Reemplaza una inscripción reciente por otra carrera sin crear un pago nuevo.
+     * Valida que el estudiante, la inscripción de origen y la carrera destino sean compatibles,
+     * y guarda el cambio dentro de una transacción para conservar juntos sus registros relacionados.
+     */
     public function store(Request $request)
     {
         $request->merge([
@@ -146,6 +158,7 @@ class CambioCarreraController extends Controller
             ],
         ]);
 
+        // Bloquea al estudiante y la inscripción durante la operación para evitar reemplazos simultáneos.
         DB::transaction(function () use ($validated): void {
             $estudiante = DB::table('estudiante')
                 ->where('id_persona', (int) $validated['id_persona'])
@@ -177,6 +190,7 @@ class CambioCarreraController extends Controller
             $personaId = (int) $estudiante->id_persona;
             $gestionMasReciente = $this->gestionMasReciente($personaId);
 
+            // Solo se permite cambiar la inscripción de la gestión más reciente y que aún no tenga materias.
             if (! $gestionMasReciente
                 || $gestionId !== (int) $gestionMasReciente->id_gestionacademica) {
                 throw ValidationException::withMessages([
@@ -209,6 +223,7 @@ class CambioCarreraController extends Controller
                 ]);
             }
 
+            // Se conserva el comprobante de origen; el cambio de carrera no genera un pago nuevo.
             $deposito = trim((string) ($inscripcionOrigen->deposito ?? ''));
             if ($deposito === '') {
                 $deposito = trim((string) (DB::table('comprobante')
@@ -276,6 +291,9 @@ class CambioCarreraController extends Controller
             ->with('success', 'El cambio de carrera se registró correctamente.');
     }
 
+    /**
+     * Obtiene la gestión más reciente con una inscripción activa que no haya sido reemplazada.
+     */
     private function gestionMasReciente(int $personaId): ?object
     {
         return DB::table('inscrito as i')
@@ -288,6 +306,9 @@ class CambioCarreraController extends Controller
             ->first(['ga.id_gestionacademica', 'ga.gestion', 'ga.periodo']);
     }
 
+    /**
+     * Convierte las respuestas habituales del formulario a valores booleanos aceptados por Laravel.
+     */
     private function normalizarBooleano(mixed $valor): mixed
     {
         if (! is_scalar($valor)) {

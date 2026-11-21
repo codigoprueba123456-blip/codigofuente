@@ -15,6 +15,7 @@
     </style>
 </head>
 <body onload="window.print()">
+    {{-- El reporte se imprime desde el navegador; estos controles no alteran los pagos consultados. --}}
     <div class="no-print">
         <button onclick="window.print()">Imprimir / Guardar como PDF</button>
         <button onclick="window.close()">Cerrar</button>
@@ -37,6 +38,7 @@
             </tr>
         </thead>
         <tbody>
+            {{-- Presenta el conjunto filtrado que entrega el controlador, con los datos relacionados disponibles. --}}
             @forelse ($pagosData as $indice => $pago)
                 @php
                     $nombre = trim(implode(' ', array_filter([

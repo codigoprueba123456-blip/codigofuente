@@ -6,14 +6,19 @@ use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
 {
+    /**
+     * Agrega estados a inscripciones y comprobantes, y ajusta índices para conservar el historial.
+     */
     public function up(): void
     {
+        // Las inscripciones y comprobantes pueden deshabilitarse sin borrar sus datos.
         if (! Schema::hasColumn('inscrito', 'activo')) {
             Schema::table('inscrito', function (Blueprint $table): void {
                 $table->boolean('activo')->default(true)->after('becado');
             });
         }
 
+        // El índice acelera búsquedas por persona, carrera, gestión y estado.
         if (! Schema::hasIndex('inscrito', 'inscrito_persona_carrera_gestion_index')) {
             Schema::table('inscrito', function (Blueprint $table): void {
                 $table->index(
@@ -23,6 +28,7 @@ return new class extends Migration
             });
         }
 
+        // Los índices únicos anteriores se cambian por índices normales para permitir conservar reemplazos históricos.
         foreach ([
             'inscrito_voucher_gestion_unique',
             'inscrito_persona_carrera_gestion_unique',
@@ -54,8 +60,12 @@ return new class extends Migration
         }
     }
 
+    /**
+     * Restaura los índices únicos y elimina las columnas de estado agregadas por esta migración.
+     */
     public function down(): void
     {
+        // Antes de retirar los índices normales, vuelve a crear las restricciones únicas originales.
         if (! Schema::hasIndex('inscrito', 'inscrito_voucher_gestion_unique')) {
             Schema::table('inscrito', function (Blueprint $table): void {
                 $table->unique(['deposito', 'id_gestionacademica'], 'inscrito_voucher_gestion_unique');

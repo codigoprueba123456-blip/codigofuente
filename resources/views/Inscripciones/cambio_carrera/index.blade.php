@@ -9,12 +9,15 @@
 @section('content')
 <div class="card card-default">
     <div class="card-body">
+        {{-- Muestra mensajes de confirmación o error devueltos por el controlador. --}}
         @include('partials.sweetalert-messages')
 
+        {{-- Envía la inscripción de origen y la nueva carrera para solicitar el cambio. --}}
         <form action="{{ route('cambio_carrera.store') }}" method="POST" id="formCambioCarrera">
             @csrf
             
             <div class="row">
+                {{-- La búsqueda obtiene estudiantes desde el servidor; el campo oculto guarda el identificador elegido. --}}
                 <div class="col-md-6 form-group position-relative">
                     <label for="buscar_estudiante">Estudiante: <span class="text-danger">*</span></label>
                     <input type="search" id="buscar_estudiante" name="estudiante_nombre" class="form-control" value="{{ old('estudiante_nombre') }}" placeholder="Buscar por nombre, apellido o CI" autocomplete="off" required>
@@ -42,6 +45,7 @@
                     @enderror
                 </div>
                 <div class="col-md-6 form-group">
+                    {{-- Se habilita después de elegir estudiante y muestra solo carreras que todavía no tiene inscritas. --}}
                     <label for="id_carrera">Nueva carrera: <span class="text-danger">*</span></label>
                     <select name="id_carrera" id="id_carrera" class="form-control" required>
                         <option value="">Seleccione una carrera</option>
@@ -85,7 +89,7 @@
 
             </div>
 
-            <!-- Botones de Acción -->
+            <!-- Envía el cambio cuando la selección está completa o regresa al listado sin guardar. -->
             <div class="row mt-3">
                 <div class="col-md-12">
                     <button type="submit" id="guardar_cambio" class="btn btn-default bg-light border" disabled>
@@ -106,6 +110,7 @@
 
 @push('js')
 <script>
+    // Espera a que la vista esté cargada antes de conectar los campos con sus eventos.
     document.addEventListener('DOMContentLoaded', () => {
         const formulario = document.getElementById('formCambioCarrera');
         const entrada = document.getElementById('buscar_estudiante');
@@ -121,6 +126,7 @@
         let carrerasInscritas = new Set();
         let confirmacionReenviada = false;
 
+        // Deshabilita carreras que el estudiante ya tiene y limpia una opción anterior si dejó de ser válida.
         function actualizarCarreraDestino() {
             carreraDestino.querySelectorAll('option').forEach((opcion) => {
                 opcion.disabled = carrerasInscritas.has(opcion.value);
@@ -131,6 +137,8 @@
             actualizarEstadoInscripcion();
         }
 
+        // Actualiza el estado de la inscripción elegida, el voucher visible y la disponibilidad del botón Guardar.
+        // No permite continuar si la inscripción tiene materias asignadas; primero deben retirarse.
         function actualizarEstadoInscripcion() {
             const seleccion = inscripcionOrigen.selectedOptions[0];
             const hayInscripcion = Boolean(inscripcionOrigen.value);
@@ -167,6 +175,7 @@
         carreraDestino.addEventListener('change', actualizarEstadoInscripcion);
 
         entrada.addEventListener('input', () => {
+            // Una nueva búsqueda invalida las selecciones anteriores para evitar enviar datos de otra persona.
             window.clearTimeout(espera);
             estudianteId.value = '';
             carrerasInscritas.clear();
@@ -180,6 +189,7 @@
             const termino = entrada.value.trim();
             if (termino.length < 2) return;
 
+            // Retrasa la consulta para no llamar al servidor por cada tecla escrita.
             espera = window.setTimeout(async () => {
                 try {
                     const respuesta = await fetch(@json(route('cambio_carrera.buscar')) + '?q=' + encodeURIComponent(termino), {
@@ -204,6 +214,7 @@
                         opcion.className = 'list-group-item list-group-item-action';
                         opcion.textContent = `${estudiante.nombre} · CI ${estudiante.ci}`;
                         opcion.addEventListener('click', () => {
+                            // Guarda la persona elegida y carga sus inscripciones vigentes para seleccionar cuál cambiar.
                             estudianteId.value = estudiante.id;
                             entrada.value = `${estudiante.nombre} · CI ${estudiante.ci}`;
                             resumen.replaceChildren();
@@ -236,6 +247,7 @@
                             inscripcionOrigen.disabled = estudiante.inscripciones.length === 0;
                             actualizarCarreraDestino();
                             if (estudiante.inscripciones.length === 0) {
+                                // Informa cuando la persona no tiene una inscripción vigente que pueda cambiar.
                                 inscripcionOrigen.replaceChildren(new Option('No tiene inscripciones vigentes para cambiar', ''));
                                 const aviso = document.createElement('span');
                                 aviso.className = 'd-block text-warning mt-2';
@@ -248,6 +260,7 @@
                         sugerencias.append(opcion);
                     });
                 } catch (error) {
+                    // Presenta el error de búsqueda dentro de la lista, sin dejar datos anteriores visibles.
                     const fallo = document.createElement('div');
                     fallo.className = 'list-group-item text-danger';
                     fallo.textContent = error.message || 'No se pudo buscar al estudiante.';
@@ -256,6 +269,7 @@
             }, 250);
         });
 
+        // Valida las selecciones y pide confirmación antes de enviar el cambio al servidor.
         formulario.addEventListener('submit', async (evento) => {
             if (confirmacionReenviada) {
                 confirmacionReenviada = false;
@@ -290,6 +304,7 @@
             const carreraNueva = carreraDestino.selectedOptions[0]?.textContent.trim();
             evento.preventDefault();
 
+            // Si la biblioteca de confirmación no cargó, no envía el cambio sin aprobación de la persona.
             if (!window.Swal?.fire) {
                 estadoInscripcion.className = 'alert alert-danger mb-0';
                 estadoInscripcion.textContent = 'No se pudo abrir la ventana de confirmación. Recarga la página e inténtalo nuevamente.';
@@ -315,6 +330,7 @@
             }
         });
 
+        // Cierra la lista de sugerencias al hacer clic fuera del campo de búsqueda.
         document.addEventListener('click', (evento) => {
             if (!entrada.parentElement.contains(evento.target)) {
                 sugerencias.replaceChildren();

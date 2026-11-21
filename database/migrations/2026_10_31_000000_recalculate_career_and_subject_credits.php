@@ -5,8 +5,13 @@ use Illuminate\Support\Facades\DB;
 
 return new class extends Migration
 {
+    /**
+     * Usa el precio del crédito del instituto para calcular admisión y matrícula de cada carrera,
+     * y distribuye ese total entre sus materias curriculares.
+     */
     public function up(): void
     {
+        // La transacción mantiene consistentes los valores de la carrera y de sus materias.
         DB::transaction(function (): void {
             $careers = DB::table('carreras as c')
                 ->join('instituto as i', 'i.id_instituto', '=', 'c.id_instituto')
@@ -52,8 +57,11 @@ return new class extends Migration
         });
     }
 
+    /**
+     * No restablece los créditos anteriores porque esta migración no guarda una copia de esos valores.
+     */
     public function down(): void
     {
-        // The previous manually entered credit values cannot be recovered.
+        // Los valores manuales previos no pueden recuperarse.
     }
 };

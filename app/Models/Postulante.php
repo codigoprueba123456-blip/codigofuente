@@ -6,14 +6,18 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 
+/**
+ * Representa una postulación y los datos entregados para una carrera y gestión.
+ * Sus documentos y datos académicos pueden convertirse en parte de una ficha de estudiante.
+ */
 class Postulante extends Model
 {
     use HasFactory;
 
-    // Nombre exacto de la tabla en tu base de datos
+    // Esta entidad usa una tabla cuyo nombre no sigue la convención singular de Eloquent.
     protected $table = 'postulante';
 
-    // Llave primaria personalizada
+    // Identificador propio de cada postulación.
     protected $primaryKey = 'id_postulante';
 
     protected $casts = [
@@ -49,32 +53,41 @@ class Postulante extends Model
         'deposito',
         'path_ci_frontal',
         'path_ci_reverso',
-        'path_nacimiento',  // <-- Añadido
-        'path_diploma',     // <-- Añadido
+        'path_nacimiento',
+        'path_diploma',
         'id_carrera',
         'id_gestionacademica',
         'turno',
         'paralelo',
     ];
 
-    // Relación con la tabla Carrera
+    /**
+     * Obtiene la carrera a la que corresponde la postulación.
+     */
     public function carrera()
     {
         return $this->belongsTo(Carrera::class, 'id_carrera', 'id_carrera');
     }
 
-    // Relación con la tabla GestionAcademica
+    /**
+     * Obtiene la gestión académica para la que se postuló.
+     */
     public function gestionAcademica()
     {
         return $this->belongsTo(GestionAcademica::class, 'id_gestionacademica', 'id_gestionacademica');
     }
 
-    // Alias para evitar errores cuando se consulta 'gestion'
+    /**
+     * Mantiene el nombre de relación gestion usado por consultas existentes.
+     */
     public function gestion()
     {
         return $this->belongsTo(GestionAcademica::class, 'id_gestionacademica', 'id_gestionacademica');
     }
 
+    /**
+     * Obtiene la inscripción creada a partir de esta postulación, si ya fue procesada.
+     */
     public function inscripcionOrigen(): HasOne
     {
         return $this->hasOne(Inscrito::class, 'id_postulante_origen', 'id_postulante');

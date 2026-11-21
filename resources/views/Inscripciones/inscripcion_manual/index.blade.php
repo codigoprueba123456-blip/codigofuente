@@ -9,19 +9,25 @@
 @section('content')
 <div class="card card-default">
     <div class="card-body">
+        {{-- Muestra avisos de la operación anterior y errores de validación. --}}
         @include('partials.sweetalert-messages')
 
+        {{-- La consulta y edición de materias requiere una gestión académica vigente. --}}
         @if (!$gestionActual)
             <div class="alert alert-warning">No hay una gestión académica configurada.</div>
         @else
             <p class="text-muted mb-3">Gestión {{ $gestionActual->gestion }} · Periodo {{ $gestionActual->periodo }}</p>
+            {{-- Busca a la persona y, si tiene varias inscripciones, permite elegir cuál administrar. --}}
             <form method="GET" action="{{ route('inscripcion_manual.index') }}" id="busquedaEstudiante" class="row align-items-end mb-3">
                 <div class="col-md-6 form-group position-relative">
                     <label for="q">Estudiante: <span class="text-danger">*</span></label>
                     <input type="search" name="q" id="q" class="form-control" value="{{ $termino }}" autocomplete="off" placeholder="Nombre, apellido o CI">
+                    {{-- Las coincidencias se insertan aquí desde JavaScript mientras se escribe. --}}
                     <div id="sugerenciasEstudiante" class="list-group position-absolute w-100 shadow-sm" style="z-index: 20; left: 0; top: 100%;"></div>
                 </div>
+                {{-- Este identificador evita enviar la búsqueda hasta seleccionar un estudiante. --}}
                 <input type="hidden" name="id_inscrito" id="id_inscrito" value="{{ $inscripcionSeleccionada->id_inscrito ?? '' }}">
+                {{-- Solo se muestra cuando existe una inscripción que se puede seleccionar. --}}
                 <div class="col-md-6 form-group" id="selectorCarreraContenedor" @unless ($inscripcionSeleccionada) hidden @endunless>
                     <label for="selectorCarrera">Carrera: <span class="text-danger">*</span></label>
                     <select id="selectorCarrera" class="form-control" @disabled(!$inscripcionSeleccionada)>
@@ -41,6 +47,7 @@
             <div id="mensajeBusqueda" class="small text-muted mb-3"></div>
 
             @if ($inscripcionSeleccionada)
+                {{-- Resume la persona, carrera y grupo que se están administrando para evitar confundir inscripciones. --}}
                 <p class="text-muted mb-2">
                     {{ trim($inscripcionSeleccionada->nombre.' '.$inscripcionSeleccionada->primerapellido.' '.$inscripcionSeleccionada->segundoapellido) }}
                     · CI {{ $inscripcionSeleccionada->ci }}
@@ -57,6 +64,7 @@
 
             <div class="btn-toolbar mb-3" role="toolbar" aria-label="Acciones de materias">
                 @if ($inscripcionSeleccionada)
+                    {{-- Estas opciones abren la oferta disponible o el listado completo para esta inscripción. --}}
                     <a href="{{ route('inscripcion_manual.oferta', ['inscrito' => $inscripcionSeleccionada->id_inscrito]) }}" class="btn btn-default bg-light border">
                         <i class="far fa-list-alt"></i> Oferta de Materias
                     </a>
@@ -70,6 +78,7 @@
             </div>
 
             <div class="table-responsive">
+                {{-- Lista las materias asignadas a la inscripción elegida y permite retirar cada una. --}}
                 <table class="table table-bordered table-striped">
                     <thead>
                         <tr>
@@ -101,6 +110,7 @@
                                         @endif
                                     </td>
                                     <td>
+                                        {{-- La acción DELETE retira la materia de esta inscripción y conserva la búsqueda al volver. --}}
                                         <form method="POST" action="{{ route('inscripcion_manual.retirar', ['inscrito' => $inscripcionSeleccionada->id_inscrito, 'materia' => $materia->id_materia]) }}">
                                             @csrf
                                             @method('DELETE')
@@ -122,6 +132,7 @@
 @push('js')
 <script>
     document.addEventListener('DOMContentLoaded', () => {
+        // Controles de búsqueda y selección de la inscripción que se mostrará en la página.
         const formulario = document.getElementById('busquedaEstudiante');
         const entrada = document.getElementById('q');
         const sugerencias = document.getElementById('sugerenciasEstudiante');
@@ -133,6 +144,7 @@
         const etiquetasNivelesPorRegimen = @json(\App\Models\Carrera::etiquetasNivelesPorRegimen());
         let espera;
 
+        // Carga las carreras encontradas para la persona y deja la página lista para elegir una.
         const mostrarCarreras = (estudiante) => {
             selector.replaceChildren();
             const opcionInicial = document.createElement('option');
@@ -162,6 +174,7 @@
             if (mensaje) mensaje.textContent = 'Seleccione una carrera para cargar sus materias.';
         };
 
+        // Al cambiar el texto, invalida la selección anterior y busca después de una breve pausa al escribir.
         entrada.addEventListener('input', () => {
             window.clearTimeout(espera);
             idInscrito.value = '';
@@ -174,6 +187,7 @@
             if (termino.length < 2) return;
 
             espera = window.setTimeout(async () => {
+                // La búsqueda devuelve coincidencias en formato JSON para crear las opciones sin recargar la página.
                 const respuesta = await fetch(@json(route('inscripcion_manual.buscar')) + '?q=' + encodeURIComponent(termino), {
                     headers: { 'Accept': 'application/json' },
                 });
@@ -191,6 +205,7 @@
             }, 250);
         });
 
+        // Al elegir la carrera, envía su inscripción para que el servidor cargue las materias correspondientes.
         selector.addEventListener('change', () => {
             idInscrito.value = selector.value;
             formulario.submit();
@@ -199,6 +214,7 @@
             if (!idInscrito.value) evento.preventDefault();
         });
         document.addEventListener('click', (evento) => {
+            // Cierra la lista de coincidencias si el usuario hace clic fuera del formulario.
             if (!formulario.contains(evento.target)) sugerencias.replaceChildren();
         });
     });

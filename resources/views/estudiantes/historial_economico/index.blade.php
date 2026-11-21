@@ -9,12 +9,14 @@
 @section('content')
 <div style="background: #f3f4f6; min-height: 100%; padding: 0; border-top: 1px solid #dfe3e8; overflow-x: hidden;">
     <div style="padding: 0; margin: 0;">
+        {{-- Esta pantalla consulta movimientos existentes; no permite crear ni registrar pagos. --}}
         @if (! $persona || ! $persona->estudiante)
             <div class="alert alert-warning mb-0" style="margin: 0; border-radius: 0;">
                 Esta cuenta todavía no está vinculada a una ficha de estudiante.
             </div>
         @else
             <div style="padding: 0 0.75rem;">
+                {{-- La selección limita la consulta a una carrera inscrita y vigente del estudiante. --}}
                 <div style="margin: 1.2rem 0 0.8rem 0;">
                     <label for="id_carrera" style="display: block; margin-bottom: 0.45rem; font-size: 1.05rem; color: #2b2b2b; font-weight: 600;">Carreras: *</label>
                     <form method="GET" action="{{ route('estudiantes.historial_economico') }}" style="margin: 0;">
@@ -33,6 +35,7 @@
                     </form>
                 </div>
 
+                {{-- Cada fila resume datos de comprobantes y pagos asociados a inscripciones. --}}
                 <div style="border: 1px solid #dfe3e8; background: white; width: 100%; max-width: 920px; overflow-x: hidden; margin-top: 0.4rem;">
                     <table class="table table-bordered" style="margin: 0; border-collapse: collapse; width: 100%; table-layout: fixed;">
                         <thead>

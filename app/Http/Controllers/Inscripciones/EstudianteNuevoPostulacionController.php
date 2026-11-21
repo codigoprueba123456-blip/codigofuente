@@ -20,6 +20,10 @@ use Illuminate\Validation\ValidationException;
 
 class EstudianteNuevoPostulacionController extends Controller
 {
+    /**
+     * Abre la pantalla para convertir postulaciones pendientes en inscripciones.
+     * La búsqueda se limita a la gestión vigente cuando existe una.
+     */
     public function index()
     {
         $gestionActual = GestionAcademica::where('vigente', true)
@@ -34,6 +38,10 @@ class EstudianteNuevoPostulacionController extends Controller
         ));
     }
 
+    /**
+     * Busca postulaciones pendientes por CI o nombre y devuelve los datos necesarios para revisarlas.
+     * La respuesta evita guardar resultados en caché porque el estado de una postulación puede cambiar.
+     */
     public function buscar(Request $request)
     {
         $validated = $request->validate([
@@ -66,6 +74,10 @@ class EstudianteNuevoPostulacionController extends Controller
             ->header('Cache-Control', 'no-store, private');
     }
 
+    /**
+     * Arma la consulta base: solo incluye carreras activas y postulaciones que aún no se inscribieron.
+     * También excluye carreras que la persona ya cursa o tiene inscritas.
+     */
     private function consultaPostulantes(?int $gestionId): Builder
     {
         return Postulante::with(['carrera', 'gestionAcademica'])
@@ -98,6 +110,9 @@ class EstudianteNuevoPostulacionController extends Controller
                 ->whereNotNull('id_postulante_origen'));
     }
 
+    /**
+     * Convierte las postulaciones en datos para la vista e indica si ya existen ficha o cuenta de acceso.
+     */
     private function formatearPostulantes(Collection $postulantes): array
     {
         $usuariosPorCi = DB::table('personas as p')
@@ -151,6 +166,9 @@ class EstudianteNuevoPostulacionController extends Controller
         ])->all();
     }
 
+    /**
+     * Unifica las formas habituales de registrar sexo para ajustarlas a las opciones del formulario.
+     */
     private function normalizarSexo(?string $sexo): string
     {
         return match (mb_strtoupper(trim((string) $sexo))) {
@@ -160,6 +178,9 @@ class EstudianteNuevoPostulacionController extends Controller
         };
     }
 
+    /**
+     * Ajusta el tipo de colegio a los valores que acepta el formulario de inscripción.
+     */
     private function normalizarCaracterColegio(?string $caracter): string
     {
         return match (mb_strtoupper(trim((string) $caracter))) {
@@ -170,6 +191,9 @@ class EstudianteNuevoPostulacionController extends Controller
         };
     }
 
+    /**
+     * Convierte nombres o abreviaturas de departamentos a las abreviaturas usadas por la ficha.
+     */
     private function normalizarLugarExpedicion(?string $lugar): string
     {
         $normalizado = mb_strtoupper(Str::ascii(trim((string) $lugar)));
@@ -189,6 +213,11 @@ class EstudianteNuevoPostulacionController extends Controller
         };
     }
 
+    /**
+     * Convierte las postulaciones seleccionadas en inscripciones para la persona correspondiente.
+     * Verifica nuevamente gestión, lista de postulaciones y comprobantes dentro de la transacción;
+     * reutiliza los registros de pago existentes cuando los hay y crea los que todavía faltan.
+     */
     public function store(Request $request)
     {
         $validated = $request->validate([
@@ -223,6 +252,7 @@ class EstudianteNuevoPostulacionController extends Controller
             'accion_credenciales' => 'nullable|in:mantener,regenerar',
         ]);
 
+        // La gestión puede cambiar entre la carga del formulario y su envío; se confirma antes de procesar.
         $gestionActualId = GestionAcademica::where('vigente', true)
             ->orderByDesc('id_gestionacademica')
             ->value('id_gestionacademica');
@@ -234,6 +264,7 @@ class EstudianteNuevoPostulacionController extends Controller
         }
 
         try {
+            // Todas las inscripciones de la selección se guardan juntas: cualquier error revierte el lote completo.
             $resultado = DB::transaction(function () use ($validated): array {
                 $gestionId = (int) $validated['id_gestionacademica'];
                 $enviadas = collect($validated['postulaciones'])
@@ -247,6 +278,7 @@ class EstudianteNuevoPostulacionController extends Controller
                 $idsPendientes = $postulaciones->keys()->map(fn ($id): int => (int) $id)->sort()->values();
                 $idsEnviados = collect($ids)->map(fn ($id): int => (int) $id)->sort()->values();
 
+                // Exige que el formulario incluya exactamente las postulaciones pendientes que devolvió la búsqueda.
                 if ($idsPendientes->all() !== $idsEnviados->all()) {
                     throw ValidationException::withMessages([
                         'postulaciones' => 'La lista de carreras pendientes cambió. Vuelve a buscar a la persona antes de guardar.',
@@ -332,6 +364,7 @@ class EstudianteNuevoPostulacionController extends Controller
                     }
                 }
 
+                // Reutiliza la persona encontrada por CI y evita duplicar una carrera que ya tenga inscripción activa.
                 $idPersona = DB::table('personas')
                     ->where('ci', $validated['ci'])
                     ->lockForUpdate()
@@ -405,6 +438,7 @@ class EstudianteNuevoPostulacionController extends Controller
                     ]);
                 }
 
+                // Conserva una cuenta existente, o crea una cuenta nueva; el restablecimiento requiere confirmación.
                 $credenciales = null;
                 $usuario = User::where('id_persona', $idPersona)->lockForUpdate()->first();
                 $usuarioExistente = $usuario !== null;
@@ -478,6 +512,7 @@ class EstudianteNuevoPostulacionController extends Controller
                     ];
                 }
 
+                // Cada inscripción queda vinculada a su postulación, comprobante y, si corresponde, pago existente.
                 foreach ($postulaciones as $postulante) {
                     $idPostulante = (int) $postulante->id_postulante;
                     $inscripcionesPrevias = DB::table('inscrito')

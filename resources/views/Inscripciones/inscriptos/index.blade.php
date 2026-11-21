@@ -7,6 +7,7 @@
 @stop
 
 @section('content')
+    {{-- Informa el resultado de la última acción y muestra errores enviados por el controlador. --}}
     @if (session('success'))
         <div class="alert alert-success">{{ session('success') }}</div>
     @endif
@@ -18,6 +19,7 @@
         </div>
     @endif
 
+    {{-- Indicadores generales del listado actual: inscripciones, estudiantes, becas y estudiantes multicarrera. --}}
     <div class="row">
         <div class="col-lg-3 col-6">
             <div class="small-box bg-info shadow-sm">
@@ -57,6 +59,7 @@
         </div>
     </div>
 
+    {{-- Estos filtros limitan la lista y los reportes por periodo, carrera, nivel, documentos y estado. --}}
     <div class="card card-outline card-primary shadow-sm">
         <div class="card-header">
             <h3 class="card-title font-weight-bold text-primary">
@@ -152,6 +155,7 @@
                 </div>
             </form>
 
+            {{-- La búsqueda rápida conserva los filtros; los botones exportan el mismo conjunto de resultados. --}}
             <div class="row align-items-center mt-2">
                 <form method="GET" action="{{ route('inscriptos.index') }}" class="col-12 col-xl-6 mb-2 mb-xl-0">
                     @foreach (request()->only(['id_gestionacademica', 'id_carrera', 'nivel', 'bth', 'traspaso_convalidacion', 'turno', 'paralelo', 'estado']) as $nombre => $valor)
@@ -184,6 +188,7 @@
         </div>
     </div>
 
+    {{-- Tabla paginada de inscripciones que cumplen los filtros seleccionados. --}}
     <div class="card card-outline card-secondary shadow-sm">
         <div class="card-body p-0">
             <div class="table-responsive">
@@ -257,6 +262,7 @@
                                     @endforelse
                                 </td>
                                 <td>
+                                    {{-- El estado diferencia una inscripción reemplazada de una activa o deshabilitada. --}}
                                     @if ($inscrito->id_inscrito_reemplazo)
                                         <span class="badge badge-secondary">Reemplazada</span>
                                     @elseif ($inscrito->activo)
@@ -265,6 +271,7 @@
                                         <span class="badge badge-danger">Deshabilitada</span>
                                     @endif
                                 </td>
+                                {{-- Las acciones dependen del estado; editar y deshabilitar solo se ofrecen para registros activos. --}}
                                 <td class="text-center">
                                     <button type="button" class="btn btn-xs btn-info" data-toggle="modal" data-target="#modalExpediente{{ $inscrito->id_inscrito }}" title="Ver expediente">
                                         <i class="fas fa-eye"></i> Expediente
@@ -318,8 +325,10 @@
         </div>
     </div>
 
+    {{-- Expedientes y carreras adicionales se muestran en ventanas para no salir del listado. --}}
     @foreach ($inscritos as $inscrito)
         @php
+            // Reúne los documentos disponibles del estudiante para presentarlos en pestañas.
             $documentos = [
                 'CI anverso' => $inscrito->path_ci,
                 'CI reverso' => $inscrito->path_ci_reverso,
@@ -330,6 +339,7 @@
                 $documentos['Certificado BTH'] = $inscrito->path_bth;
             }
         @endphp
+        {{-- Expediente con datos de identificación y vista de cada documento adjunto. --}}
         <div class="modal fade" id="modalExpediente{{ $inscrito->id_inscrito }}" tabindex="-1" role="dialog" aria-hidden="true">
             <div class="modal-dialog modal-xl" role="document">
                 <div class="modal-content">
@@ -395,6 +405,7 @@
             </div>
         </div>
 
+        {{-- Solo aparece cuando el estudiante tiene más de una carrera en la gestión mostrada. --}}
         @if ($inscrito->carreras_inscritas->count() > 1)
             <div class="modal fade" id="modalCarreras{{ $inscrito->id_inscrito }}" tabindex="-1" role="dialog" aria-hidden="true">
                 <div class="modal-dialog" role="document">
@@ -418,6 +429,7 @@
         @endif
     @endforeach
 
+    {{-- Confirma la regeneración de credenciales antes de enviar la acción administrativa. --}}
     <div class="modal fade" id="resetInscritoCredentialsModal" tabindex="-1" role="dialog" aria-labelledby="resetInscritoCredentialsModalLabel" aria-hidden="true">
         <div class="modal-dialog modal-dialog-centered" role="document">
             <div class="modal-content">
@@ -452,12 +464,14 @@
 
 @push('js')
 <script>
+    // Completa el formulario del modal con la ruta y el nombre del usuario que se seleccionó en la tabla.
     $('#resetInscritoCredentialsModal').on('show.bs.modal', function (event) {
         var button = $(event.relatedTarget);
         $('#resetInscritoCredentialsForm').attr('action', button.data('action'));
         $('#resetInscritoCredentialsUser').text(button.data('user'));
     });
 
+    // Ajusta las opciones de nivel al régimen de la carrera elegida y conserva el filtro si sigue siendo válido.
     document.addEventListener('DOMContentLoaded', function () {
         const carrera = document.getElementById('id_carrera');
         const nivel = document.querySelector('[data-nivel-filtro]');

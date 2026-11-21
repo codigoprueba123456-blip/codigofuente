@@ -10,12 +10,14 @@
 <div class="row">
     <div class="col-12">
 
+        {{-- Muestra el resultado de la operación y advierte si no hay una gestión vigente. --}}
         @include('partials.sweetalert-messages')
 
         @if(!$gestionActual)
             <div class="alert alert-warning">No hay una gestión académica configurada para inscribir.</div>
         @endif
 
+        {{-- Registra una o más carreras para una persona que ya tiene ficha de estudiante. --}}
         <form action="{{ route('estudiante_regular.store') }}" method="POST" id="formEstudianteRegular">
             @csrf
 
@@ -28,6 +30,7 @@
                 <div class="card-body">
                     <div class="row">
                         <div class="col-md-12 mb-3">
+                            {{-- El texto sirve para buscar; el identificador oculto indica al servidor cuál estudiante se eligió. --}}
                             <label for="estudiante_search" class="font-weight-bold">Buscar estudiante (C.I. o nombre): <span class="text-danger">*</span></label>
                             <input
                                 type="text"
@@ -89,6 +92,7 @@
                         </div>
 
                         <div class="col-12 mb-3">
+                        {{-- JavaScript completa esta sección con las carreras del historial, los niveles y los grupos disponibles. --}}
                         <label class="font-weight-bold">Carreras, nivel que cursará y vouchers <span class="text-danger">*</span></label>
                             <div id="carrerasEstudiante" class="border rounded p-3 text-muted">Busca y selecciona un estudiante para cargar las carreras asociadas a su historial.</div>
                             @error('inscripciones')
@@ -155,6 +159,7 @@
 
 @push('js')
 <script>
+    // Datos compartidos con el servidor: selección previa, etiquetas de nivel y dirección para consultar turnos.
     const estudianteInput = document.getElementById('estudiante_search');
     const estudianteId = document.getElementById('id_persona');
     const resultados = document.getElementById('estudianteResultados');
@@ -168,6 +173,7 @@
     let solicitudBusqueda = 0;
     let indiceInscripcion = 0;
 
+    // Limpia la persona y las carreras mostradas para que no se envíen datos de una selección anterior.
     function limpiarSeleccion(mensaje = 'Busca y selecciona un estudiante para cargar las carreras asociadas a su historial.') {
         estudianteId.value = '';
         document.getElementById('estudianteSeleccionado').classList.add('d-none');
@@ -176,6 +182,8 @@
         botonGuardar.disabled = true;
     }
 
+    // Muestra el historial del estudiante, marca las carreras ya inscritas y prepara las que se pueden registrar.
+    // También restaura las selecciones previas si el servidor devolvió el formulario por un error.
     function mostrarCarreras(estudiante) {
         estudianteId.value = estudiante.id;
         document.getElementById('nombreEstudianteSeleccionado').textContent = estudiante.nombre;
@@ -196,6 +204,7 @@
 
         estudiante.carreras.forEach(carrera => {
             if (carrera.ya_inscrito) {
+                // Informa las carreras que ya tienen inscripción para la gestión y evita agregarlas de nuevo.
                 const filaActual = document.createElement('div');
                 filaActual.className = 'border-bottom py-2 text-muted';
                 filaActual.textContent = `${nombreConResolucion(carrera)}: ya inscrito en esta gestión.`;
@@ -227,6 +236,7 @@
 
         const carrerasParaAgregar = carrerasDisponibles.filter(carrera => !idsCarreraAgregadas.has(Number(carrera.id)));
         if (carrerasDisponibles.length) {
+            // Permite agregar otra carrera disponible sin repetir una ya cargada en este formulario.
             const controles = document.createElement('div');
             controles.className = 'pt-3';
 
@@ -301,6 +311,8 @@
         actualizarBotonGuardar();
     }
 
+    // Crea los campos de inscripción para una carrera. Las anuales necesitan turno y paralelo;
+    // las semestrales usan el nivel correspondiente a su régimen y no muestran esos selectores.
     function agregarFilaCarrera(carrera, nueva, alQuitar = null, preferenciaTurno = null) {
         const indice = indiceInscripcion++;
         const fila = document.createElement('div');
@@ -449,6 +461,7 @@
             filaVoucher.appendChild(columnaAccion);
         }
 
+        // Al elegir "No", desactiva los campos de esa carrera; al elegir "Sí", exige los datos necesarios.
         const actualizarEstado = () => {
             const registrarCarrera = seleccionRegistrar.value === '1';
             seleccionRegistrar.classList.toggle('registrar-si', registrarCarrera);
@@ -481,6 +494,7 @@
 
         let solicitudGrupos = 0;
         let opcionesGrupos = [];
+        // Filtra los paralelos que corresponden al turno elegido y conserva una preferencia si sigue disponible.
         function actualizarParalelos(paraleloPreferido = '') {
             if (!seleccionParalelo || !seleccionTurno) return;
             const paralelos = opcionesGrupos.filter(opcion =>
@@ -502,6 +516,8 @@
             }
         }
 
+        // Consulta grupos abiertos según carrera y nivel. El número de solicitud evita aplicar una respuesta antigua
+        // si la persona cambia de nivel antes de que termine la consulta.
         async function cargarOpcionesTurnos(turnoPreferido = '', paraleloPreferido = '') {
             if (!esAnual || !seleccionTurno || !seleccionParalelo) return;
             const solicitud = ++solicitudGrupos;
@@ -571,6 +587,7 @@
         return etiquetasNivelesPorRegimen[regimen]?.[nivel] || `Nivel ${nivel}`;
     }
 
+    // Solo habilita Guardar si hay al menos una carrera marcada para registrar y sus datos de grupo están completos.
     function actualizarBotonGuardar() {
         botonGuardar.disabled = ![...carrerasContenedor.querySelectorAll('.registrar-carrera')]
             .some(select => {
@@ -591,6 +608,7 @@
             : carrera.nombre;
     }
 
+    // Busca estudiantes por el criterio indicado y descarta respuestas que ya quedaron desactualizadas.
     async function buscarEstudiantes(parametros) {
         const solicitud = ++solicitudBusqueda;
         const url = new URL(@json(route('estudiante_regular.buscar')), window.location.origin);
@@ -606,6 +624,7 @@
         mostrarCarreras(estudiante);
     }
 
+    // Reinicia la selección al cambiar el texto y consulta cuando hay al menos dos caracteres.
     estudianteInput.addEventListener('input', () => {
         clearTimeout(temporizadorBusqueda);
         solicitudBusqueda++;
@@ -644,6 +663,7 @@
         }, 250);
     });
 
+    // Verifica que exista al menos una carrera y que cada carrera anual tenga turno y paralelo antes de guardar.
     document.getElementById('formEstudianteRegular').addEventListener('submit', function (event) {
         const filasParaRegistrar = [...carrerasContenedor.querySelectorAll('.registrar-carrera')]
             .filter(select => select.value === '1');
@@ -672,6 +692,7 @@
         botonGuardar.innerHTML = '<i class="fas fa-spinner fa-spin mr-1"></i> Guardando...';
     });
 
+    // Recupera la selección si el formulario volvió con errores y ya tenía el identificador del estudiante.
     if (estudianteId.value) {
         buscarEstudiantes({ id_persona: estudianteId.value }).then(estudiantes => {
             if (estudiantes.length) seleccionarEstudiante(estudiantes[0]);

@@ -6,6 +6,11 @@ use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
 {
+    /**
+     * Crea la tabla que vincula pagos con postulaciones o inscripciones.
+     * El módulo de pagos funciona como consulta de registros existentes; esta migración no define
+     * una acción para agregar pagos desde ese módulo.
+     */
     public function up(): void
     {
         Schema::create('pago', function (Blueprint $table) {
@@ -23,6 +28,9 @@ return new class extends Migration
         });
     }
 
+    /**
+     * Elimina la tabla de pagos al revertir esta migración.
+     */
     public function down(): void
     {
         Schema::dropIfExists('pago');

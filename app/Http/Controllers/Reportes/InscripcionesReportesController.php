@@ -13,6 +13,10 @@ use Illuminate\Validation\Rule;
 
 class InscripcionesReportesController extends Controller
 {
+    /**
+     * Valida los filtros, obtiene los registros del tipo de reporte solicitado y
+     * entrega la vista, el PDF o el archivo Excel correspondiente.
+     */
     public function index(Request $request, string $reporte)
     {
         $reportes = $this->reportes();
@@ -20,12 +24,15 @@ class InscripcionesReportesController extends Controller
 
         $configuracion = $reportes[$reporte];
         $formato = $request->input('formato');
+        // Los filtros pasan a ser obligatorios tanto al mostrar resultados como al exportarlos.
         $generado = $request->boolean('generar') || in_array($formato, ['excel', 'pdf'], true);
         $filtros = $this->validarFiltros($request, $configuracion, $generado);
         $opciones = $this->opciones($request);
         $filas = collect();
 
         if ($generado) {
+            // Los postulantes se ordenan con las columnas de su tabla; los demás reportes,
+            // con las columnas de persona compartidas por las inscripciones.
             $aliasPersona = $reporte === 'lista-postulantes' ? 'po' : 'p';
             $filas = $this->consulta($reporte, $filtros)
                 ->orderBy($aliasPersona.'.primerapellido')
@@ -33,6 +40,7 @@ class InscripcionesReportesController extends Controller
                 ->orderBy($aliasPersona.'.nombre')
                 ->get()
                 ->values()
+                // Asigna numeración consecutiva y presenta campos internos con etiquetas legibles.
                 ->map(function (object $fila, int $indice) use ($reporte): object {
                     $fila->nro = $indice + 1;
 
@@ -56,6 +64,7 @@ class InscripcionesReportesController extends Controller
                 });
         }
 
+        // El PDF representa las mismas columnas y filas que la vista de resultados.
         if ($formato === 'pdf') {
             return Pdf::loadView('reportes.inscripciones.pdf', compact(
                 'configuracion',
@@ -65,6 +74,8 @@ class InscripcionesReportesController extends Controller
                 ->download('Reporte_'.$reporte.'_'.now()->format('Y-m-d_H-i').'.pdf');
         }
 
+        // Excel se construye a partir del orden definido en "columnas", respetando
+        // los valores normalizados previamente para fechas, turnos y becas.
         if ($formato === 'excel') {
             $columnas = $configuracion['columnas'];
             $encabezados = array_values($columnas);
@@ -85,8 +96,18 @@ class InscripcionesReportesController extends Controller
         return view($vista, compact('configuracion', 'opciones', 'filas', 'filtros', 'generado', 'reporte'));
     }
 
+    /**
+     * Define los siete reportes disponibles, sus filtros y las columnas compartidas
+     * por la tabla web y por ambas exportaciones.
+     *
+     * Las listas de inscritos se distinguen por su alcance: carrera (una carrera),
+     * paralelo (nivel, turno y letra), grupo (grupo concreto), multicarrera
+     * (personas inscritas en más de una carrera) y libros (gestión/periodo o carrera).
+     * La lista de postulantes, en cambio, muestra postulaciones y su estado de inscripción.
+     */
     private function reportes(): array
     {
+        // Datos comunes a las distintas presentaciones de inscripciones.
         $datosInscripcion = [
             'nro' => 'N°',
             'codigo' => 'Código',
@@ -100,6 +121,7 @@ class InscripcionesReportesController extends Controller
             'periodo' => 'Periodo',
         ];
 
+        // Filtros compartidos por los informes limitados a una gestión y una carrera.
         $filtrosGestionCarrera = [
             ['name' => 'id_gestionacademica', 'label' => 'Gestión académica', 'options' => 'gestiones'],
             ['name' => 'id_carrera', 'label' => 'Carrera', 'options' => 'carreras'],
@@ -166,6 +188,11 @@ class InscripcionesReportesController extends Controller
         ];
     }
 
+    /**
+     * Valida únicamente los filtros del informe seleccionado.
+     * En la pantalla inicial son opcionales; al generar una tabla o exportación,
+     * los campos declarados para ese tipo de reporte son obligatorios.
+     */
     private function validarFiltros(Request $request, array $configuracion, bool $generado): array
     {
         $rules = [
@@ -173,6 +200,8 @@ class InscripcionesReportesController extends Controller
             'formato' => ['nullable', Rule::in(['excel', 'pdf'])],
         ];
 
+        // Además de validar el formato, las reglas relacionales evitan combinar
+        // valores que no corresponden a los grupos, materias o periodo elegidos.
         foreach ($configuracion['filtros'] as $filtro) {
             $required = $generado ? 'required' : 'nullable';
             $rules[$filtro['name']] = match ($filtro['name']) {
@@ -231,6 +260,11 @@ class InscripcionesReportesController extends Controller
         return $request->validate($rules);
     }
 
+    /**
+     * Prepara los valores de los selectores y conserva las dependencias entre ellos:
+     * grupos y paralelos se acotan por gestión, carrera, nivel y turno cuando aplica;
+     * los periodos se acotan por la gestión numérica seleccionada.
+     */
     private function opciones(Request $request): array
     {
         $gestiones = DB::table('gestionacademica')
@@ -317,9 +351,18 @@ class InscripcionesReportesController extends Controller
         return compact('gestiones', 'carreras', 'niveles', 'turnos', 'paralelos', 'grupos', 'gestionesNumericas', 'periodos');
     }
 
+    /**
+     * Construye la consulta específica del reporte.
+     *
+     * La lista de postulantes incluye postulaciones de una carrera y gestión e indica
+     * si cada registro ya originó una inscripción. Los informes de paralelo y grupo
+     * relacionan las inscripciones con sus materias asignadas; los demás parten de
+     * inscripciones activas y aplican el alcance definido por sus filtros.
+     */
     private function consulta(string $reporte, array $filtros): Builder
     {
         if ($reporte === 'lista-postulantes') {
+            // El left join permite conservar también postulantes aún no inscritos.
             return DB::table('postulante as po')
                 ->join('carreras as c', 'c.id_carrera', '=', 'po.id_carrera')
                 ->join('gestionacademica as ga', 'ga.id_gestionacademica', '=', 'po.id_gestionacademica')
@@ -344,6 +387,8 @@ class InscripcionesReportesController extends Controller
         }
 
         if (in_array($reporte, ['lista-inscritos-paralelo', 'lista-inscritos-grupo'], true)) {
+            // Estos reportes muestran una fila por asignación de materia a un grupo;
+            // por ello una persona puede aparecer más de una vez si tiene varias materias.
             $query = $this->consultaInscritos()
                 ->join('inscrito_materia as im', 'im.id_inscrito', '=', 'i.id_inscrito')
                 ->join('grupo as gr', 'gr.id_grupo', '=', 'im.id_grupo')
@@ -357,6 +402,8 @@ class InscripcionesReportesController extends Controller
                 ->addSelect('m.nivel', 'gr.turno', 'gr.codigo as paralelo', 'm.nombre as materia');
 
             if ($reporte === 'lista-inscritos-paralelo') {
+                // El código de grupo puede ser solo la letra o incluirla al final
+                // tras un guion; ambas formas representan el mismo paralelo.
                 $paralelo = strtoupper($filtros['paralelo']);
 
                 return $query->where('gr.turno', $filtros['turno'])
@@ -372,6 +419,7 @@ class InscripcionesReportesController extends Controller
         $query = $this->consultaInscritos();
 
         if ($reporte === 'libro-inscripciones') {
+            // El libro general usa la gestión y el periodo numéricos, no el identificador interno.
             return $query->where('ga.gestion', $filtros['gestion'])
                 ->where('ga.periodo', $filtros['periodo']);
         }
@@ -386,6 +434,8 @@ class InscripcionesReportesController extends Controller
         }
 
         if ($reporte === 'lista-inscritos-multicarrera') {
+            // Se seleccionan inscripciones de personas con más de una carrera activa
+            // en la misma gestión; el subquery evita multiplicar las filas del informe.
             $query->whereExists(function (Builder $subquery): void {
                 $subquery->selectRaw('1')
                     ->from('inscrito as otra')
@@ -401,6 +451,10 @@ class InscripcionesReportesController extends Controller
         return $query;
     }
 
+    /**
+     * Consulta base de estudiantes inscritos vigentes. Se excluyen registros
+     * inactivos y reemplazados para que los reportes reflejen solo inscripciones válidas.
+     */
     private function consultaInscritos(): Builder
     {
         return DB::table('inscrito as i')
@@ -423,6 +477,10 @@ class InscripcionesReportesController extends Controller
             );
     }
 
+    /**
+     * Obtiene la letra final de paralelo en códigos como "A" o "MAT-101-A".
+     * Devuelve null si el código no termina en una letra A-D reconocida.
+     */
     private function nombreParalelo(string $codigo): ?string
     {
         return preg_match('/(?:^|-)([A-D])$/i', trim($codigo), $coincidencias)

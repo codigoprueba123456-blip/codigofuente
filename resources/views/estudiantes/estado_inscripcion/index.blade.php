@@ -9,6 +9,7 @@
 @section('content')
 <div class="card card-default">
     <div class="card-body">
+        {{-- La vista distingue entre cuentas sin ficha, estudiantes sin historial y estudiantes con inscripciones. --}}
         @if (!$persona || !$persona->estudiante)
             <div class="alert alert-warning mb-0">
                 Esta cuenta todavía no está vinculada a una ficha de estudiante.
@@ -19,6 +20,7 @@
             </div>
         @else
             <div class="mb-4">
+                {{-- Este listado conserva las inscripciones reemplazadas para mostrar el recorrido académico. --}}
                 <h4>Historial de carreras</h4>
                 <p class="text-muted">Aquí aparecen las carreras y niveles registrados en cada gestión. El historial no indica por sí solo si una carrera fue concluida o interrumpida.</p>
                 <div class="table-responsive">
@@ -51,6 +53,7 @@
                 </div>
             </div>
 
+            {{-- Los filtros recargan la consulta con una carrera y gestión pertenecientes al historial vigente. --}}
             <form method="GET" action="{{ route('estudiantes.estado_inscripcion') }}" class="row align-items-end">
                 <div class="col-md-6 form-group">
                     <label for="id_carrera">Carrera:</label>
@@ -78,6 +81,7 @@
             </form>
 
             @if ($inscripcionSeleccionada)
+                {{-- Se muestran las materias asignadas a la inscripción elegida y sus datos de grupo disponibles. --}}
                 <p class="text-muted">
                     @php
                         $nombreNivel = \App\Models\Carrera::etiquetaNivel($inscripcionSeleccionada->regimen, $nivel);

@@ -3,16 +3,21 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
+    {{-- Usa el código de la ficha como título; si aún no existe, identifica el documento con el CI. --}}
     <title>Ficha de postulación - {{ $postulante->codigo ?? $postulante->ci }}</title>
+    {{-- Aplica el diseño preparado para la impresión de la ficha. --}}
     <link rel="stylesheet" href="{{ asset('css/postulantes/ficha.css') }}">
 </head>
+{{-- Al cargar la vista, abre el cuadro de impresión del navegador para imprimir o guardar el documento como PDF. --}}
 <body onload="window.print()">
+    {{-- Estos controles permiten regresar a las postulaciones o volver a abrir la impresión si se cierra el cuadro. --}}
     <div class="toolbar">
         <a href="{{ route('postulantes.bienvenida', ['ci_consulta' => $postulante->ci]) }}">Volver a postulaciones</a>
         <button type="button" onclick="window.print()">Imprimir o guardar como PDF</button>
     </div>
 
     <main class="sheet">
+        {{-- Identidad institucional que encabeza la ficha impresa. --}}
         <header class="header">
             <img class="logo" src="{{ asset('images/logo.png') }}" alt="Logo ITSA">
             <div class="institution">
@@ -26,7 +31,9 @@
             <p>Comprobante individual de registro por carrera</p>
         </section>
 
+        {{-- Identificación de la persona y resumen de su carrera y grupo de postulación. --}}
         <section class="identity">
+            {{-- La fotografía se agrega solo si existe; su ausencia no impide emitir la ficha. --}}
             @if ($postulante->foto)
                 <img class="photo" src="{{ asset('storage/'.$postulante->foto) }}" alt="Fotografía del postulante">
             @endif
@@ -36,12 +43,15 @@
                 <p><strong>Carrera:</strong> {{ $postulante->carrera?->nombreConResolucionMinisterial() ?? 'No registrada' }}</p>
                 <p><strong>Gestión:</strong> {{ $postulante->gestionAcademica?->gestion ?? 'No registrada' }} · Periodo {{ $postulante->gestionAcademica?->periodo ?? '-' }}</p>
                 <p><strong>Turno:</strong>
+                    {{-- Convierte el número interno del turno en un nombre legible para la ficha.
+                         Si el valor no coincide con los turnos conocidos, muestra que no está registrado. --}}
                     {{ match ((int) $postulante->turno) { 1 => 'Mañana', 2 => 'Tarde', 3 => 'Noche', default => 'No registrado' } }}
                     · <strong>Paralelo:</strong> {{ $postulante->paralelo ?? 'No registrado' }}
                 </p>
             </div>
         </section>
 
+        {{-- Datos de identidad y domicilio que forman parte del expediente del postulante. --}}
         <section class="section">
             <h3>Datos personales</h3>
             <table class="details">
@@ -60,6 +70,7 @@
             </table>
         </section>
 
+        {{-- Medios de contacto del postulante y de la persona indicada como referencia. --}}
         <section class="section">
             <h3>Contacto</h3>
             <table class="details">
@@ -78,6 +89,7 @@
             </table>
         </section>
 
+        {{-- Información de estudios previos y datos asociados a esta postulación. --}}
         <section class="section">
             <h3>Datos académicos y de postulación</h3>
             <table class="details">
@@ -96,6 +108,7 @@
             </table>
         </section>
 
+        {{-- Fecha y hora de generación de la ficha; se imprime como constancia del registro. --}}
         <footer class="footer">
             Ficha emitida el {{ now()->format('d/m/Y H:i') }} · Conserve este documento como constancia de su postulación.
         </footer>

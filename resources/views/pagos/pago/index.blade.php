@@ -9,6 +9,7 @@
 @section('content')
 <div class="card card-default">
     <div class="card-body">
+        {{-- Esta pantalla consulta pagos existentes; no incluye acciones para crear o editar pagos. --}}
         <form method="GET" action="{{ route('pagos.index') }}">
             <div class="row">
                 <div class="col-md-4 form-group">
@@ -29,6 +30,7 @@
 
             <div class="row mb-3 align-items-center">
                 <div class="col-md-12 d-flex flex-wrap align-items-center">
+                    {{-- Las exportaciones conservan los filtros activos y muestran el resultado completo, no solo la página actual. --}}
                     <button type="submit" class="btn btn-default bg-light border">
                         <i class="fas fa-search"></i> Buscar
                     </button>
@@ -42,6 +44,7 @@
             </div>
         </form>
 
+        {{-- La búsqueda general mantiene los demás filtros mediante campos ocultos. --}}
         <form method="GET" action="{{ route('pagos.index') }}" class="input-group mb-3">
             @foreach (request()->only(['desde', 'hasta', 'usuario', 'por_pagina']) as $nombre => $valor)
                 @if (is_scalar($valor) && $valor !== '')
@@ -57,12 +60,14 @@
         </form>
 
         @php
+            // El resumen y la navegación reflejan el tramo actual del paginador.
             $desdeRegistro = $pagos->firstItem() ?? 0;
             $hastaRegistro = $pagos->lastItem() ?? 0;
             $parametrosPaginacion = request()->except('page');
         @endphp
 
         @foreach (['superior', 'inferior'] as $posicion)
+            {{-- Se repite la navegación arriba y abajo para facilitar el recorrido de la tabla. --}}
             <div class="d-flex justify-content-between align-items-center bg-light p-2 border {{ $posicion === 'superior' ? 'mb-0' : 'mt-0' }}">
                 <span class="text-muted small">{{ $desdeRegistro }}-{{ $hastaRegistro }} de {{ $pagos->total() }} registros</span>
                 <div class="d-flex align-items-center">

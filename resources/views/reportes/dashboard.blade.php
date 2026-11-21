@@ -8,6 +8,7 @@
 @stop
 
 @section('content')
+    {{-- La gestión mostrada acompaña el filtro elegido; si no se envió uno, se usa la gestión vigente del controlador. --}}
     @php
         $gestionSeleccionada = $gestiones->firstWhere(
             'id_gestionacademica',
@@ -15,6 +16,7 @@
         );
     @endphp
 
+    {{-- Indicadores del conjunto filtrado: inscripciones activas, carreras y combinaciones carrera/curso/paralelo/turno. --}}
     <div class="row">
         <div class="col-md-4 col-sm-6">
             <div class="info-box">
@@ -45,6 +47,7 @@
         </div>
     </div>
 
+    {{-- Los filtros actualizan el resumen; la carrera es opcional y permite consultar todas las carreras. --}}
     <div class="card card-outline card-success">
         <div class="card-header">
             <h3 class="card-title">
@@ -89,6 +92,7 @@
         </div>
     </div>
 
+    {{-- La exportación conserva los filtros vigentes y replica la estructura de la tabla. --}}
     <div class="card card-outline card-primary">
         <div class="card-header">
             <h3 class="card-title">
@@ -107,6 +111,7 @@
                 El Excel respeta la gestión y la carrera seleccionadas y conserva la estructura de esta tabla.
             </div>
 
+            {{-- Solo se calculan los conteos de inscritos por sexo; las otras categorías se dejan vacías porque no hay resultados académicos almacenados. --}}
             <div class="table-responsive">
                 <table class="table table-bordered table-striped table-hover table-sm text-center">
                     <thead class="thead-light">

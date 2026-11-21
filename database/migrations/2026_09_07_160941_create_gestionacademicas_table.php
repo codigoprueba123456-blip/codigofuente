@@ -6,6 +6,9 @@ use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
 {
+    /**
+     * Crea los periodos académicos y sus fechas, régimen y estado de vigencia.
+     */
     public function up(): void
     {
         Schema::create('gestionacademica', function (Blueprint $table) {
@@ -21,6 +24,9 @@ return new class extends Migration
         });
     }
 
+    /**
+     * Elimina la tabla de gestiones académicas al revertir esta migración.
+     */
     public function down(): void
     {
         Schema::dropIfExists('gestionacademica');

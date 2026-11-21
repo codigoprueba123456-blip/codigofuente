@@ -6,6 +6,9 @@ use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
 {
+    /**
+     * Crea los comprobantes y sus vínculos opcionales con postulante, inscripción y persona.
+     */
     public function up(): void
     {
         Schema::create('comprobante', function (Blueprint $table) {
@@ -22,6 +25,7 @@ return new class extends Migration
             $table->unsignedBigInteger('id_gestionacademica')->nullable();
             $table->timestamps();
 
+            // El comprobante puede pasar de una postulación a una inscripción sin perder su registro.
             $table->foreign('id_inscrito')->references('id_inscrito')->on('inscrito')->onDelete('set null');
             $table->foreign('id_postulante')->references('id_postulante')->on('postulante')->onDelete('set null');
             $table->foreign('id_usuario')->references('id_persona')->on('users')->onDelete('set null');
@@ -31,6 +35,9 @@ return new class extends Migration
         });
     }
 
+    /**
+     * Elimina la tabla de comprobantes al revertir esta migración.
+     */
     public function down(): void
     {
         Schema::dropIfExists('comprobante');

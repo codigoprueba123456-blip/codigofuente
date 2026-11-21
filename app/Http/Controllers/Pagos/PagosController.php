@@ -9,8 +9,14 @@ use Illuminate\Support\Facades\DB;
 
 class PagosController extends Controller
 {
+    /**
+     * Lista los pagos existentes, aplica los filtros solicitados y prepara
+     * la vista o el archivo de exportación. Este controlador es de consulta:
+     * no crea ni modifica pagos.
+     */
     public function index(Request $request)
     {
+        // Validar filtros y opciones de presentación antes de construir la consulta.
         $filters = $request->validate([
             'desde' => ['nullable', 'date'],
             'hasta' => ['nullable', 'date', 'after_or_equal:desde'],
@@ -22,6 +28,8 @@ class PagosController extends Controller
 
         $query = $this->pagosQuery();
 
+        // El período usa la primera fecha disponible del comprobante,
+        // la inscripción, la postulación o, como último recurso, la creación del pago.
         if (! empty($filters['desde'])) {
             $query->whereDate(
                 DB::raw('COALESCE(cb.fecha, i.fecha, po.fecha, pago.created_at)'),
@@ -38,6 +46,8 @@ class PagosController extends Controller
             );
         }
 
+        // Cada término debe coincidir con algún dato de identidad o acceso
+        // del estudiante/postulante o de quien registró el comprobante.
         if (! empty($filters['usuario'])) {
             $terminosUsuario = preg_split('/\s+/', trim($filters['usuario']), -1, PREG_SPLIT_NO_EMPTY) ?: [];
             foreach ($terminosUsuario as $termino) {
@@ -58,6 +68,8 @@ class PagosController extends Controller
             }
         }
 
+        // La búsqueda general cubre personas, usuarios, depósitos, comprobantes,
+        // identificadores de pago y códigos de inscripción/postulación/concepto.
         if (! empty($filters['buscar'])) {
             $terminos = preg_split('/\s+/', trim($filters['buscar']), -1, PREG_SPLIT_NO_EMPTY) ?: [];
             foreach ($terminos as $termino) {
@@ -87,6 +99,8 @@ class PagosController extends Controller
             }
         }
 
+        // Las exportaciones usan el conjunto completo filtrado; la paginación
+        // solo se aplica a la tabla de la pantalla.
         if (! empty($filters['formato'])) {
             $pagosData = (clone $query)
                 ->orderByRaw('COALESCE(cb.fecha, i.fecha, po.fecha, pago.created_at) DESC')
@@ -120,6 +134,8 @@ class PagosController extends Controller
             );
         }
 
+        // Mantener los filtros en los enlaces de páginas y limitar el tamaño
+        // de página a las opciones validadas.
         $pagos = $query
             ->orderByRaw('COALESCE(cb.fecha, i.fecha, po.fecha, pago.created_at) DESC')
             ->orderByDesc('pago.id_pago')
@@ -129,8 +145,13 @@ class PagosController extends Controller
         return view('pagos.pago.index', compact('pagos'));
     }
 
+    /**
+     * Arma la consulta de lectura de pagos y reúne la información relacionada
+     * con sus detalles, inscripción o postulación, comprobante y personas.
+     */
     private function pagosQuery(): Builder
     {
+        // Consolidar los conceptos por pago para evitar repetir una fila por detalle.
         $detalles = DB::table('detalle')
             ->select('id_pago')
             ->selectRaw('MAX(codigo) as codigo')
@@ -138,6 +159,11 @@ class PagosController extends Controller
             ->selectRaw('SUM(monto) as monto')
             ->groupBy('id_pago');
 
+        // Los LEFT JOIN conservan pagos aunque falte algún dato relacionado.
+        // El comprobante se enlaza por inscripción cuando existe; de lo contrario,
+        // por postulación. Los campos COALESCE priorizan el dato disponible.
+        // El estado combina el estado del pago, la inscripción y el comprobante;
+        // el monto consolidado de detalles prevalece sobre el monto del pago.
         return DB::table('pago')
             ->leftJoinSub($detalles, 'detalle', 'detalle.id_pago', '=', 'pago.id_pago')
             ->leftJoin('inscrito as i', 'i.id_inscrito', '=', 'pago.id_inscrito')

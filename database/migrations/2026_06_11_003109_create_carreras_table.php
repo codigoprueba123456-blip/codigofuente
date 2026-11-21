@@ -7,13 +7,14 @@ use Illuminate\Support\Facades\Schema;
 return new class extends Migration
 {
     /**
-     * Run the migrations.
+     * Crea el catálogo de carreras y sus datos académicos principales.
      */
     public function up(): void
     {
         Schema::create('carreras', function (Blueprint $table) {
             $table->id('id_carrera');
             $table->string('codigo')->unique(); 
+            // Créditos y nivel académico usados al configurar los costos de inscripción y matrícula.
             $table->integer('creditajeadmision')->nullable();
             $table->integer('creditajematricula')->nullable();
             $table->integer('nivelacademico')->nullable();
@@ -23,6 +24,7 @@ return new class extends Migration
             $table->string('resolucionministerial2')->nullable();
             $table->string('resolucionministerial3')->nullable();
             $table->integer('version')->nullable();
+            // Cada carrera pertenece a un instituto y puede tener una persona responsable.
             $table->unsignedBigInteger('id_instituto');
             $table->unsignedBigInteger('id_jefecarrera')->nullable();
             $table->timestamps();
@@ -33,7 +35,7 @@ return new class extends Migration
     }
 
     /**
-     * Reverse the migrations.
+     * Elimina el catálogo de carreras al revertir esta migración.
      */
     public function down(): void
     {

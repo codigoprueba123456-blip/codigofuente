@@ -10,12 +10,14 @@
 <div class="row">
     <div class="col-12">
         
+        {{-- Muestra mensajes de resultado y mantiene en old() los campos si la validación devuelve el formulario. --}}
         @include('partials.sweetalert-messages')
 
+        {{-- Formulario para una inscripción inicial; la consulta por CI ayuda a detectar si la persona ya tiene ficha. --}}
         <form action="{{ route('estudiante_nuevo.store') }}" method="POST" enctype="multipart/form-data" id="formEstudianteNuevo" data-student-lookup-url="{{ route('estudiante_nuevo.buscar') }}" data-turnos-config='@json($opcionesTurnosCarrera)' novalidate>
             @csrf
             
-            {{-- SECCIÓN I: DATOS PERSONALES --}}
+            {{-- I. Identificación y datos personales que se guardarán en la ficha del nuevo estudiante. --}}
             <div class="card card-outline card-primary shadow-sm mb-4">
                 <div class="card-header">
                     <h3 class="card-title font-weight-bold text-primary">
@@ -141,7 +143,7 @@
                 </div>
             </div>
 
-            {{-- SECCIÓN II: DATOS DE CONTACTO Y COLEGIO --}}
+            {{-- II. Datos de contacto y procedencia escolar para completar el expediente. --}}
             <div class="card card-outline card-info shadow-sm mb-4">
                 <div class="card-header">
                     <h3 class="card-title font-weight-bold text-info">
@@ -206,7 +208,7 @@
                 </div>
             </div>
 
-            {{-- SECCIÓN III: DATOS DE INSCRIPCIÓN --}}
+            {{-- III. Gestión, carrera, nivel, turno y paralelo de esta inscripción. --}}
             <div class="card card-outline card-success shadow-sm mb-4">
                 <div class="card-header">
                     <h3 class="card-title font-weight-bold text-success">
@@ -256,6 +258,7 @@
                         <div class="col-md-4 mb-3">
                             <label for="id_gestionacademica" class="font-weight-bold">Gestión académica: <span class="text-danger">*</span></label>
                             <select name="id_gestionacademica" id="id_gestionacademica" class="form-control custom-select @error('id_gestionacademica') is-invalid @enderror" required>
+                                {{-- La selección usa la gestión vigente; si no existe, muestra el motivo y no ofrece una opción. --}}
                                 @forelse($gestiones as $g)
                                     <option value="{{ $g->id_gestionacademica }}" @selected(old('id_gestionacademica', $gestionVigente->id_gestionacademica) == $g->id_gestionacademica)>
                                         {{ $g->etiqueta }} · Vigente
@@ -287,6 +290,7 @@
                             <label for="id_carrera" class="font-weight-bold">Carrera: <span class="text-danger">*</span></label>
                             <select name="id_carrera" id="id_carrera" class="form-control custom-select @error('id_carrera') is-invalid @enderror" required>
                                 <option value="">-- Seleccionar Carrera --</option>
+                                {{-- Cada carrera incluye su régimen para que el formulario cargue los niveles correctos. --}}
                                 @foreach($carreras as $c)
                                     @php
                                         $resoluciones = $c->resolucionesMinisteriales();
@@ -308,6 +312,8 @@
                         </div>
 
                         <div class="col-md-4 mb-3">
+                            {{-- El nivel depende del régimen de la carrera; los turnos y paralelos se cargan después
+                                 según los grupos abiertos y los cupos de la gestión. --}}
                             <label for="nivelinicio" class="font-weight-bold">Nivel que cursará: <span class="text-danger">*</span></label>
                             <select name="nivelinicio" id="nivelinicio" class="form-control custom-select @error('nivelinicio') is-invalid @enderror" data-nivel-carrera="id_carrera" data-require-carrera="true" data-initial-value="{{ old('nivelinicio') }}" data-placeholder="Seleccione un nivel" required disabled>
                                 <option value="">Seleccione un nivel</option>
@@ -342,6 +348,7 @@
                     <hr>
                     <h4 class="font-weight-bold mb-3">IV. Documentación digital requerida</h4>
                     <div class="row">
+                        {{-- La lista define una sola vez el campo, su etiqueta, la ayuda y si el archivo es opcional. --}}
                         @php
                             $documentos = [
                                 'path_ci_frontal' => ['Carnet de identidad, anverso', 'CI frontal nítido', false],
@@ -409,6 +416,7 @@
 
 @push('js')
 <script>
+    // Comparte con el JavaScript del formulario los grupos disponibles y los valores que deben recuperarse tras un error.
     window.opcionesTurnosEstudianteNuevo = @json($opcionesTurnosCarrera);
     window.turnoEstudianteNuevoInicial = @json(old('turno'));
     window.paraleloEstudianteNuevoInicial = @json(old('paralelo'));

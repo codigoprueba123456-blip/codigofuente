@@ -8,7 +8,8 @@
 
 @section('content')
 
-    {{-- TARJETAS DE ESTADÍSTICAS (4 KPI CARDS) --}}
+    {{-- Resumen rápido de la lista: cantidad de postulantes, personas con celular,
+         expedientes con documentos y personas que postularon a más de una carrera. --}}
     <div class="row">
         <div class="col-lg-3 col-6">
             <div class="small-box bg-info shadow-sm">
@@ -51,7 +52,8 @@
     <div class="card card-outline card-primary shadow-sm">
         <div class="card-body">
 
-            {{-- FILTROS DE GESTIÓN, CARRERA, CATEGORÍA, TURNO Y PARALELO --}}
+            {{-- Cada filtro envía una consulta GET al cambiar. Así se puede compartir o recargar
+                 la lista filtrada sin modificar los registros de postulantes. --}}
             <form method="GET" action="{{ route('admisiones.postulantes.index') }}" id="formFiltros">
                 <div class="row mb-3">
                     <div class="col-md-4">
@@ -69,6 +71,7 @@
                         <label for="id_carrera" class="font-weight-bold">Carrera:</label>
                         <select name="id_carrera" id="id_carrera" class="form-control" onchange="this.form.submit()">
                             <option value="">-- Todas las Carreras --</option>
+                            {{-- Incluye la resolución ministerial en el nombre cuando la carrera cuenta con una. --}}
                             @foreach ($carreras as $c)
                                 @php
                                     $resoluciones = $c->resolucionesMinisteriales();
@@ -120,7 +123,8 @@
                 </div>
             </form>
 
-            {{-- BÚSQUEDA Y EXPORTACIÓN --}}
+            {{-- La búsqueda rápida conserva los filtros activos mediante campos ocultos.
+                 Las opciones de exportación agregan el formato solicitado a los mismos criterios de búsqueda. --}}
             <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap">
                 <form method="GET" action="{{ route('admisiones.postulantes.index') }}" class="input-group col-md-6 p-0 mb-2 mb-md-0">
                     @if (request('id_gestionacademica'))
@@ -160,7 +164,7 @@
                 </div>
             </div>
 
-            {{-- TABLA DE POSTULANTES --}}
+            {{-- Tabla con los resultados filtrados y las acciones disponibles para cada expediente. --}}
             <div class="table-responsive">
                 <table class="table table-bordered table-striped table-hover text-nowrap">
                     <thead class="thead-light">
@@ -180,6 +184,8 @@
                         </tr>
                     </thead>
                     <tbody>
+                        {{-- firstItem() mantiene la numeración consecutiva entre páginas; si no hay resultados,
+                             @empty muestra un mensaje en lugar de dejar la tabla sin explicación. --}}
                         @forelse($postulantes as $index => $p)
                             <tr>
                                 <td class="text-center">{{ $postulantes->firstItem() + $index }}</td>
@@ -191,6 +197,7 @@
                                 </td>
                                 <td>{{ $p->ci }}</td>
                                 <td>
+                                    {{-- Si hay celular, permite abrir una conversación de WhatsApp; si falta, lo indica. --}}
                                     @if (!empty($p->celular))
                                         <a href="https://wa.me/{{ $p->celular }}" target="_blank" class="text-success">
                                             <i class="fab fa-whatsapp mr-1"></i> {{ $p->celular }}
@@ -203,6 +210,7 @@
                                 <td>{{ $turnos[(int) $p->turno] ?? 'Sin turno' }}</td>
                                 <td>{{ $p->paralelo ?: 'Sin paralelo' }}</td>
                                 <td>
+                                    {{-- El estado indica si el expediente ya está vinculado a una inscripción de estudiante. --}}
                                     @if ($p->inscripcion_origen_exists)
                                         <span class="badge badge-success">Inscrito como estudiante</span>
                                     @else
@@ -210,6 +218,7 @@
                                     @endif
                                 </td>
                                 <td class="text-center">
+                                    {{-- Abre el expediente en un modal para revisar los datos y documentos sin salir de la lista. --}}
                                     <button type="button" class="btn btn-xs btn-info" data-toggle="modal" data-target="#modalExpediente{{ $p->id_postulante ?? $loop->index }}" title="Ver Documentos">
                                         <i class="fas fa-eye"></i> Ver Documentos
                                     </button>
@@ -226,7 +235,7 @@
                 </table>
             </div>
 
-            {{-- PAGINACIÓN --}}
+            {{-- Informa el rango visible y agrega los filtros actuales a los enlaces de paginación. --}}
             <div class="d-flex justify-content-between align-items-center mt-3 flex-wrap">
                 <small class="text-muted mb-2 mb-md-0">
                     Mostrando del {{ $postulantes->firstItem() ?? 0 }} al {{ $postulantes->lastItem() ?? 0 }} de {{ $postulantes->total() }} registros
@@ -239,7 +248,8 @@
         </div>
     </div>
 
-    {{-- MODALES PARA PREVISUALIZAR LOS DOCUMENTOS --}}
+    {{-- Se crea un modal por cada resultado. El identificador del postulante, o el índice como respaldo,
+         mantiene único el enlace entre el botón de la tabla y su ventana de documentos. --}}
     @foreach ($postulantes as $index => $p)
         <div class="modal fade" id="modalExpediente{{ $p->id_postulante ?? $loop->index }}" tabindex="-1" role="dialog" aria-hidden="true">
             <div class="modal-dialog modal-xl" role="document">
@@ -256,6 +266,7 @@
                         <div class="row">
                             <div class="col-md-4 border-right">
                                 <div class="text-center mb-3">
+                                    {{-- Presenta la fotografía guardada o un ícono cuando el expediente no tiene imagen. --}}
                                     @if (!empty($p->foto))
                                         <img src="{{ asset('storage/' . $p->foto) }}" class="img-circle elevation-2" alt="Foto Postulante" style="width: 100px; height: 100px; object-fit: cover;">
                                     @else
@@ -269,6 +280,7 @@
                                 <p><strong>Colegio:</strong> {{ $p->nombrecolegio ?? 'N/A' }} ({{ $p->egresocolegio ?? '' }})</p>
                                 <p><strong>Carrera:</strong> {{ $p->carrera?->nombreConResolucionMinisterial() ?? 'N/A' }}</p>
                                 <hr>
+                                {{-- El acceso a WhatsApp solo aparece cuando hay un número de celular disponible. --}}
                                 @if (!empty($p->celular))
                                     <a href="https://wa.me/{{ $p->celular }}" target="_blank" class="btn btn-success btn-block btn-sm mb-2">
                                         <i class="fab fa-whatsapp mr-1"></i> Contactar por WhatsApp
@@ -276,6 +288,7 @@
                                 @endif
                             </div>
                             <div class="col-md-8">
+                                {{-- Las pestañas organizan los cuatro documentos para revisarlos uno por uno. --}}
                                 <ul class="nav nav-tabs" id="docTabs{{ $index }}" role="tablist">
                                     <li class="nav-item">
                                         <a class="nav-link active" id="ci-tab-{{ $index }}" data-toggle="tab" href="#ci-content-{{ $index }}" role="tab">CI anverso</a>
@@ -292,6 +305,7 @@
                                 </ul>
 
                                 <div class="tab-content p-3 border border-top-0 bg-light" id="docContent{{ $index }}">
+                                    {{-- Cada pestaña muestra la imagen guardada o avisa que el documento no fue adjuntado. --}}
                                     <div class="tab-pane fade show active text-center" id="ci-content-{{ $index }}" role="tabpanel">
                                         <p class="text-muted">Carnet de identidad, anverso:</p>
                                         <div class="border bg-white p-2" style="min-height: 250px; display: flex; align-items: center; justify-content: center;">

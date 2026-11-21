@@ -6,10 +6,14 @@ use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
 {
+    /**
+     * Crea la ficha de identidad que comparten estudiantes, postulantes y usuarios.
+     */
     public function up(): void
     {
         Schema::create('personas', function (Blueprint $table) {
             $table->id('id_persona');
+            // Datos personales y de contacto; el CI identifica de forma única a cada persona.
             $table->string('tipo',31)->nullable();
             $table->integer('celular')->nullable();
             $table->string('direccion')->nullable();
@@ -29,6 +33,9 @@ return new class extends Migration
         });
     }
 
+    /**
+     * Elimina la tabla de personas al revertir esta migración.
+     */
     public function down(): void
     {
         Schema::dropIfExists('personas');

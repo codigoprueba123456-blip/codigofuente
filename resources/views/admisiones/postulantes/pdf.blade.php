@@ -3,6 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <title>Nómina Oficial de Postulantes</title>
+    {{-- Estilos propios para que la nómina se lea correctamente en pantalla y en papel. --}}
     <style>
         body { font-family: Arial, sans-serif; font-size: 12px; color: #333; margin: 20px; }
         .header { text-align: center; margin-bottom: 20px; border-bottom: 2px solid #1F4E79; padding-bottom: 10px; }
@@ -17,29 +18,35 @@
         .footer { margin-top: 50px; text-align: center; }
         .firma-box { display: inline-block; width: 250px; border-top: 1px solid #333; padding-top: 5px; margin-top: 40px; }
         @media print {
+            /* Los controles de pantalla no se incluyen en la copia impresa. */
             .no-print { display: none; }
         }
     </style>
 </head>
+{{-- Al abrir el reporte, muestra el cuadro de impresión del navegador para imprimirlo o guardarlo como PDF. --}}
 <body onload="window.print()">
 
+    {{-- Acciones disponibles en pantalla; se ocultan al imprimir por la regla .no-print. --}}
     <div class="no-print" style="margin-bottom: 20px; text-align: right;">
         <button onclick="window.print()" style="padding: 8px 15px; background: #1F4E79; color: #fff; border: none; cursor: pointer; border-radius: 4px;">🖨 Imprimir Documento</button>
         <button onclick="window.close()" style="padding: 8px 15px; background: #6c757d; color: #fff; border: none; cursor: pointer; border-radius: 4px;">✖ Cerrar</button>
     </div>
 
+    {{-- Encabezado institucional que identifica el reporte como nómina oficial de postulantes. --}}
     <div class="header">
         <h2>INSTITUTO TECNOLÓGICO SACABA</h2>
         <h3>SISTEMA DE ADMISIONES E INSCRIPCIONES</h3>
         <p style="margin: 2px 0; font-weight: bold;">NÓMINA OFICIAL DE POSTULANTES</p>
     </div>
 
+    {{-- Resume los criterios aplicados. Si no se eligió carrera o gestión, el reporte abarca todas. --}}
     <div class="info-reporte">
         <p><strong>Carrera:</strong> {{ $carreraSeleccionada?->nombreConResolucionMinisterial() ?? 'TODAS LAS CARRERAS' }}</p>
         <p><strong>Gestión Académica:</strong> {{ $gestionSeleccionada ? 'Gestión ' . $gestionSeleccionada->gestion . ' - Periodo ' . $gestionSeleccionada->periodo : 'TODAS LAS GESTIONES' }}</p>
         <p><strong>Fecha de Emisión:</strong> {{ date('d/m/Y H:i') }}</p>
     </div>
 
+    {{-- Lista los postulantes que cumplen los filtros recibidos, con sus datos de contacto y admisión. --}}
     <table>
         <thead>
             <tr>
@@ -56,6 +63,7 @@
             </tr>
         </thead>
         <tbody>
+            {{-- Recorre los resultados y numera las filas; si no hay registros, informa que la búsqueda no tuvo coincidencias. --}}
             @forelse($postulantesData as $index => $p)
                 <tr>
                     <td class="text-center">{{ $index + 1 }}</td>
@@ -65,8 +73,10 @@
                     <td class="text-center">{{ $p->ci }}</td>
                     <td class="text-center">{{ $p->celular ?? '-' }}</td>
                     <td class="text-center">{{ $p->gestionAcademica?->gestion ?? '—' }} / {{ $p->gestionAcademica?->periodo ?? '—' }}</td>
+                    {{-- Convierte el valor del turno a su nombre y muestra un texto alternativo si no está definido. --}}
                     <td class="text-center">{{ $turnos[(int) $p->turno] ?? 'Sin turno' }}</td>
                     <td class="text-center">{{ $p->paralelo ?: '—' }}</td>
+                    {{-- Muestra si el postulante ya tiene una inscripción de estudiante asociada. --}}
                     <td class="text-center">{{ $p->inscripcion_origen_exists ? 'Inscrito como estudiante' : 'Pendiente de inscripción' }}</td>
                 </tr>
             @empty
@@ -77,6 +87,7 @@
         </tbody>
     </table>
 
+    {{-- Cuenta todos los registros del reporte y deja un espacio para validar el documento. --}}
     <div style="margin-top: 15px; font-size: 11px;">
         <strong>Total de registros en reporte:</strong> {{ count($postulantesData) }} postulantes.
     </div>

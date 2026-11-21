@@ -18,11 +18,19 @@ use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
 
 class InscripcionesDashboardController extends Controller
 {
+    /**
+     * Requiere una sesión autenticada para consultar el resumen estadístico.
+     */
     public function __construct()
     {
         $this->middleware('auth');
     }
 
+    /**
+     * Presenta el resumen de inscritos por carrera, nivel, paralelo y turno.
+     * Los permisos determinan el acceso; los filtros admitidos son la gestión
+     * académica y la carrera, con la gestión vigente como selección inicial.
+     */
     public function index(Request $request)
     {
         abort_unless(
@@ -31,6 +39,8 @@ class InscripcionesDashboardController extends Controller
             403
         );
         $user = $request->user();
+        // El endpoint puede estar habilitado por permisos de reportes, mientras que
+        // la vista estadística requiere además permisos de consulta de inscriptos.
         $canViewDashboard = $user->isAdministrator()
             || $user->canAccess('inscripciones/inscriptos');
 
@@ -43,6 +53,8 @@ class InscripcionesDashboardController extends Controller
             'id_carrera' => ['nullable', 'integer', 'exists:carreras,id_carrera'],
         ]);
 
+        // Prioriza una gestión activa y vigente; si no existe, usa primero una activa
+        // y finalmente la más reciente registrada para mantener un filtro inicial útil.
         $gestionActual = GestionAcademica::query()
             ->where('activo', true)
             ->where('vigente', true)
@@ -68,6 +80,7 @@ class InscripcionesDashboardController extends Controller
             $filters['id_gestionacademica'] = $gestionActual->id_gestionacademica;
         }
 
+        // El detalle alimenta tanto la tabla (con subtotales) como la hoja Excel.
         $filasDetalle = $this->filasReporte($filters);
         $filasTabla = $this->filasConTotales($filasDetalle);
         $estadisticas = [
@@ -80,6 +93,8 @@ class InscripcionesDashboardController extends Controller
             ->orderByDesc('periodo')
             ->get();
         $carreras = Carrera::query()->orderBy('nombre')->get();
+        // La descarga usa el mismo detalle filtrado que la vista, sin las filas
+        // visuales de subtotal y total que se agregan para presentación.
         if ($request->input('formato') === 'excel') {
             $gestionExportar = isset($filters['id_gestionacademica'])
                 ? GestionAcademica::find($filters['id_gestionacademica'])
@@ -98,6 +113,11 @@ class InscripcionesDashboardController extends Controller
         ));
     }
 
+    /**
+     * Consulta base de inscripciones vigentes. Los filtros son opcionales para
+     * permitir el resumen general; las inscripciones inactivas o reemplazadas
+     * no se consideran en el dashboard.
+     */
     private function inscripcionesQuery(array $filters): Builder
     {
         return DB::table('inscrito as i')
@@ -113,8 +133,17 @@ class InscripcionesDashboardController extends Controller
             ->whereNull('i.id_inscrito_reemplazo');
     }
 
+    /**
+     * Agrupa a las personas inscritas por gestión, carrera, nivel, paralelo y turno.
+     * Las asignaciones a materias/grupos aportan el curso y grupo; cuando no hay
+     * asignaciones disponibles, se recurre a los datos guardados en la inscripción.
+     * Una persona se cuenta una sola vez dentro de cada combinación, aunque tenga
+     * varias materias asignadas en el mismo nivel y grupo.
+     */
     private function filasReporte(array $filters): Collection
     {
+        // Las relaciones con cursa, inscrito_materia, materia y grupo se dejan como
+        // left joins para no perder estudiantes que aún carezcan de esos detalles.
         $registros = $this->inscripcionesQuery($filters)
             ->join('personas as p', 'p.id_persona', '=', 'i.id_persona')
             ->join('carreras as c', 'c.id_carrera', '=', 'i.id_carrera')
@@ -179,6 +208,8 @@ class InscripcionesDashboardController extends Controller
                 return $registro;
             });
 
+        // Se reúnen primero los registros por estudiante y nivel para evitar que
+        // las múltiples materias de una inscripción inflen los conteos.
         $conteos = [];
 
         if ($registros->isNotEmpty()) {
@@ -191,6 +222,8 @@ class InscripcionesDashboardController extends Controller
 
             foreach ($gruposPorEstudianteNivel as $registrosNivel) {
                 $asignaciones = $registrosNivel->filter(fn (object $registro): bool => $registro->id_grupo !== null);
+                // Si hay grupos asignados, se contabiliza cada combinación encontrada;
+                // si no, se conserva un solo registro para la información de inscripción.
                 $registrosParaContar = $asignaciones->isNotEmpty()
                     ? $asignaciones
                     : $registrosNivel->take(1);
@@ -235,6 +268,8 @@ class InscripcionesDashboardController extends Controller
             }
         }
 
+        // También se incluyen grupos activos sin estudiantes para que el reporte
+        // muestre la oferta existente con valores de inscritos iguales a cero.
         $this->agregarCombinacionesSinInscritos($conteos, $filters);
 
         return collect($conteos)
@@ -262,8 +297,14 @@ class InscripcionesDashboardController extends Controller
             ->values();
     }
 
+    /**
+     * Añade las combinaciones de carrera, nivel, paralelo y turno disponibles
+     * en grupos y materias activos que todavía no tienen inscritos.
+     */
     private function agregarCombinacionesSinInscritos(array &$conteos, array $filters): void
     {
+        // Se aplican los mismos filtros del tablero para no introducir grupos de
+        // otras gestiones o carreras en el conjunto reportado.
         $grupos = DB::table('grupo as gr')
             ->join('materia as m', 'm.id_materia', '=', 'gr.id_materia')
             ->join('carreras as c', 'c.id_carrera', '=', 'm.id_carrera')
@@ -335,6 +376,10 @@ class InscripcionesDashboardController extends Controller
         }
     }
 
+    /**
+     * Intercala filas de detalle con subtotales por carrera y el total general.
+     * Los conteos de estudiantes se deduplican por persona al sumar filas.
+     */
     private function filasConTotales(Collection $filasDetalle): Collection
     {
         $filas = collect();
@@ -379,6 +424,10 @@ class InscripcionesDashboardController extends Controller
         return $filas;
     }
 
+    /**
+     * Suma personas únicas por sexo dentro del conjunto recibido, evitando
+     * contar dos veces a quien figure en más de una combinación del mismo nivel.
+     */
     private function sumarInscritos(Collection $filas): array
     {
         $estudiantes = [];
@@ -397,6 +446,10 @@ class InscripcionesDashboardController extends Controller
         ];
     }
 
+    /**
+     * Extrae el identificador final del paralelo desde el código del grupo;
+     * los códigos que no terminan en letras se presentan como "Sin paralelo".
+     */
     private function extraerParalelo(string $codigo): string
     {
         if (preg_match('/(?:^|-)([A-Z]{1,2})$/i', trim($codigo), $matches)) {
@@ -406,6 +459,9 @@ class InscripcionesDashboardController extends Controller
         return 'Sin paralelo';
     }
 
+    /**
+     * Convierte el código numérico almacenado a su etiqueta visible.
+     */
     private function turnoEtiqueta(int|string|null $turno): string
     {
         return match ((int) $turno) {
@@ -416,6 +472,10 @@ class InscripcionesDashboardController extends Controller
         };
     }
 
+    /**
+     * Transmite la versión Excel del detalle del dashboard y conserva el filtro
+     * de gestión en el encabezado del archivo cuando se seleccionó una.
+     */
     private function exportarExcelFiltrado(Collection $filas, ?GestionAcademica $gestion)
     {
         $libro = new Spreadsheet;
@@ -433,6 +493,12 @@ class InscripcionesDashboardController extends Controller
         );
     }
 
+    /**
+     * Da formato a la tabla de exportación, agrupa visualmente las filas por
+     * carrera y agrega los subtotales y el total general. Los grupos de columnas
+     * académicas adicionales permanecen vacíos porque el sistema no registra
+     * los resultados de aprobación, reprobación, abandono ni efectividad.
+     */
     private function prepararHojaExcel($hoja, string $nombre, ?object $gestion, Collection $filas): void
     {
         $hoja->setTitle($nombre);
@@ -557,6 +623,9 @@ class InscripcionesDashboardController extends Controller
         }
     }
 
+    /**
+     * Escribe los valores de una fila consecutivamente desde la columna A.
+     */
     private function escribirFilaExcel($hoja, int $fila, array $valores): void
     {
         foreach ($valores as $indice => $valor) {
@@ -564,6 +633,9 @@ class InscripcionesDashboardController extends Controller
         }
     }
 
+    /**
+     * Genera un título de hoja legible dentro del límite admitido por Excel.
+     */
     private function nombreHoja(int|string $gestion, int|string $periodo): string
     {
         return substr('G'.$gestion.'-P'.$periodo, 0, 31);

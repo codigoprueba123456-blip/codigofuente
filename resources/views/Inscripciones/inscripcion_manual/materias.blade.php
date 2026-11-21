@@ -9,9 +9,11 @@
 @section('content')
 <div class="card card-default">
     <div class="card-body">
+        {{-- Identifica la persona, carrera y gestión a la que pertenecen las materias que se consultan. --}}
         <p class="mb-1"><strong>Estudiante:</strong> {{ trim($inscripcion->nombre.' '.$inscripcion->primerapellido.' '.$inscripcion->segundoapellido) }} · CI {{ $inscripcion->ci }}</p>
         <p class="mb-3"><strong>Carrera:</strong> {{ $inscripcion->carrera }} · Gestión {{ $gestionActual->gestion }} / Periodo {{ $gestionActual->periodo }}</p>
 
+        {{-- Permite pasar a la oferta de materias o regresar al listado de materias asignadas. --}}
         <div class="mb-3">
             <a href="{{ route('inscripcion_manual.oferta', ['inscrito' => $inscripcion->id_inscrito]) }}" class="btn btn-default border">
                 <i class="far fa-list-alt"></i> Oferta de Materias
@@ -22,6 +24,7 @@
         </div>
 
         <div class="table-responsive">
+            {{-- Divide las materias por nivel y muestra el grupo y docente asignados en esta gestión. --}}
             @forelse ($materiasPorNivel as $nivel => $materias)
                 <h4>{{ $nivel }}° Año</h4>
                 <table class="table table-bordered table-striped mb-4">
@@ -40,6 +43,7 @@
                             <td>{{ $materia->codigo }}</td>
                             <td>{{ $materia->nombre }}</td>
                             <td>
+                                {{-- Una materia puede tener más de un grupo; si no hay ninguno, se indica que no fue ofertada. --}}
                                 @forelse ($materia->grupos as $grupo)
                                     <div>{{ $grupo->paralelo }} [{{ $grupo->turno ?: 'turno pendiente' }}{{ $grupo->docente_nombre ? ', '.trim($grupo->docente_nombre.' '.$grupo->docente_apellido.' '.$grupo->docente_segundo_apellido) : ', docente pendiente' }}]</div>
                                 @empty

@@ -6,12 +6,15 @@ use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
 {
+    /**
+     * Crea las postulaciones con datos personales, escolares, documentos y carrera solicitada.
+     */
     public function up(): void
     {
         Schema::create('postulante', function (Blueprint $table) {
-            $table->id('id_postulante'); // PK
+            $table->id('id_postulante');
             
-            // Datos del postulante con ÍNDICES (.index()) para velocidad de búsqueda
+            // Los índices ayudan a localizar postulaciones por CI y nombres.
             $table->string('codigo')->unique()->nullable();
             $table->string('ci', 30)->index();
             $table->string('primerapellido', 100)->index();
@@ -30,7 +33,7 @@ return new class extends Migration
             $table->string('foto')->nullable();
             $table->timestamp('fecha')->useCurrent();
 
-            // Datos de contacto y colegio
+            // Información escolar y contacto de emergencia declarados en la postulación.
             $table->string('nombrecolegio');
             $table->string('caractercolegio');
             $table->integer('egresocolegio');
@@ -40,15 +43,13 @@ return new class extends Migration
             $table->string('celularcontacto');
             $table->string('deposito');
 
-            // -------------------------------------------------------------
-            // DOCUMENTOS DIGITALES (Rutas de archivos en el servidor)
-            // -------------------------------------------------------------
-            $table->string('path_ci_frontal'); // Anverso del carnet de identidad
-            $table->string('path_ci_reverso'); // Reverso del carnet de identidad
-            $table->string('path_nacimiento'); // Certificado de Nacimiento
-            $table->string('path_diploma');    // Title/Diploma de Bachiller
+            // Rutas de los documentos guardados en el almacenamiento del sistema.
+            $table->string('path_ci_frontal'); // Anverso del carnet de identidad.
+            $table->string('path_ci_reverso'); // Reverso del carnet de identidad.
+            $table->string('path_nacimiento'); // Certificado de nacimiento.
+            $table->string('path_diploma');    // Diploma de bachiller.
 
-            // Llaves foráneas con relaciones exactas
+            // Cada postulación corresponde a una carrera y gestión académica.
             $table->unsignedBigInteger('id_carrera');
             $table->foreign('id_carrera')->references('id_carrera')->on('carreras')->onDelete('cascade');
 
@@ -62,6 +63,9 @@ return new class extends Migration
         });
     }
 
+    /**
+     * Elimina la tabla de postulaciones al revertir esta migración.
+     */
     public function down(): void
     {
         Schema::dropIfExists('postulante');

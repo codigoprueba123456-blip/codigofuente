@@ -41,6 +41,7 @@ Route::get('/', function () {
 Auth::routes();
 
 Route::get('/home', [HomeController::class, 'index'])->name('home');
+// Panel general de reportes de inscripción; requiere autenticación.
 Route::get('/reportes/dashboard', [InscripcionesDashboardController::class, 'index'])
     ->middleware('auth')
     ->name('reportes.dashboard');
@@ -140,15 +141,30 @@ Route::middleware('auth')->group(function () {
         ->name('account.password.update');
 });
 
+// Rutas del proceso público de postulación. El prefijo forma parte de las direcciones
+// y el nombre base permite generar enlaces como postulantes.bienvenida o postulantes.edit.
 Route::prefix('postulantes')->name('postulantes.')->group(function () {
+    // Abre la bienvenida y permite consultar registros con el CI enviado en la búsqueda.
     Route::get('/', [PostulanteController::class, 'bienvenida'])->name('bienvenida');
+
+    // Muestra la ficha de una postulación en formato imprimible.
     Route::get('/{id}/pdf', [PostulanteController::class, 'imprimir'])->whereNumber('id')->name('pdf');
 
+    // El registro, la edición y la eliminación solo están disponibles durante el periodo público de postulación.
     Route::middleware(EnsurePublicPostulacionAbierta::class)->group(function () {
+        // Muestra el formulario para una postulación nueva; también puede recibir un CI para precargar datos.
         Route::get('/registrar', [PostulanteController::class, 'create'])->name('registrar');
+
+        // Recibe y valida el formulario nuevo, guarda la postulación y continúa a su ficha imprimible.
         Route::post('/store', [PostulanteController::class, 'store'])->name('store');
+
+        // Carga el formulario con los datos actuales de la postulación indicada.
         Route::get('/{id}/edit', [PostulanteController::class, 'edit'])->name('edit');
+
+        // Guarda los cambios enviados para la postulación indicada.
         Route::put('/{id}', [PostulanteController::class, 'update'])->name('update');
+
+        // Solicita eliminar la ficha; el controlador impide hacerlo si está vinculada a un estudiante inscrito.
         Route::delete('/{id}', [PostulanteController::class, 'destroy'])->whereNumber('id')->name('destroy');
     });
 });
@@ -160,68 +176,96 @@ Route::middleware(['auth', 'resource.access'])->prefix('admisiones/postulantes')
     Route::get('/pdf', [AdmisionesController::class, 'pdf'])->name('pdf');
 });
 
-// Rutas para el Módulo de Estudiante Nuevo
+// Presenta el formulario de inscripción inicial de estudiante.
 Route::get('/inscripciones/estudiante_nuevo', [EstudianteNuevoController::class, 'index'])->name('estudiante_nuevo.index')->middleware(['auth', 'resource.access']);
+// Busca una ficha existente por CI para precargar los datos.
 Route::get('/inscripciones/estudiante_nuevo/buscar', [EstudianteNuevoController::class, 'buscar'])->name('estudiante_nuevo.buscar')->middleware(['auth', 'resource.access']);
+// Valida y guarda la ficha y su inscripción.
 Route::post('/inscripciones/estudiante_nuevo', [EstudianteNuevoController::class, 'store'])->name('estudiante_nuevo.store')->middleware(['auth', 'resource.access']);
 
-// Rutas para la inscripción desde postulante
+// Presenta las postulaciones pendientes de la gestión vigente.
 Route::get('/inscripciones/estudiante_nuevo_postulacion', [EstudianteNuevoPostulacionController::class, 'index'])->name('estudiante_nuevo_postulacion.index')->middleware(['auth', 'resource.access']);
+// Busca postulaciones por nombre o CI para seleccionar cuáles inscribir.
 Route::get('/inscripciones/estudiante_nuevo_postulacion/buscar', [EstudianteNuevoPostulacionController::class, 'buscar'])->name('estudiante_nuevo_postulacion.buscar')->middleware(['auth', 'resource.access']);
+// Convierte las postulaciones seleccionadas en inscripciones.
 Route::post('/inscripciones/estudiante_nuevo_postulacion', [EstudianteNuevoPostulacionController::class, 'store'])->name('estudiante_nuevo_postulacion.store')->middleware(['auth', 'resource.access']);
 
-// Ruta para estudiante regular
+// Presenta el formulario para inscribir a un estudiante existente.
 Route::get('/inscripciones/estudiante_regular', [EstudianteRegularController::class, 'index'])->name('estudiante_regular.index')->middleware(['auth', 'resource.access']);
+// Busca la ficha y el historial de carreras del estudiante.
 Route::get('/inscripciones/estudiante_regular/buscar', [EstudianteRegularController::class, 'buscar'])->name('estudiante_regular.buscar')->middleware(['auth', 'resource.access']);
+// Devuelve turnos y paralelos abiertos para la carrera y nivel elegidos.
 Route::get('/inscripciones/estudiante_regular/turnos', [EstudianteRegularController::class, 'opcionesTurnos'])->name('estudiante_regular.turnos')->middleware(['auth', 'resource.access']);
+// Guarda las nuevas inscripciones seleccionadas.
 Route::post('/inscripciones/estudiante_regular', [EstudianteRegularController::class, 'store'])->name('estudiante_regular.store')->middleware(['auth', 'resource.access']);
 
-// Ruta para inscritos
+// Lista las inscripciones y genera exportaciones con los filtros seleccionados.
 Route::get('/inscripciones/inscriptos', [InscritosController::class, 'index'])->name('inscriptos.index')->middleware(['auth', 'resource.access']);
+// Carga los datos de una inscripción activa para editarlos.
 Route::get('/inscripciones/inscriptos/{inscrito}/editar', [InscritosController::class, 'edit'])->name('inscriptos.edit')->middleware(['auth', 'resource.access']);
+// Guarda los cambios de la ficha y de la inscripción.
 Route::put('/inscripciones/inscriptos/{inscrito}', [InscritosController::class, 'update'])->name('inscriptos.update')->middleware(['auth', 'resource.access']);
+// Deshabilita la inscripción y sus registros asociados sin eliminarlos del historial.
 Route::post('/inscripciones/inscriptos/{inscrito}/deshabilitar', [InscritosController::class, 'deshabilitar'])->name('inscriptos.deshabilitar')->middleware(['auth', 'resource.access']);
 
+// Direcciones anteriores que mantienen acceso al mismo formulario y guardado de estudiante nuevo.
 Route::get('/inscripcion/nuevo', [EstudianteNuevoController::class, 'index'])->name('inscripcion.create')->middleware(['auth', 'resource.access']);
 Route::post('/inscripcion/nuevo', [EstudianteNuevoController::class, 'store'])->name('inscripcion.store')->middleware(['auth', 'resource.access']);
 
-// Cambio de carrera
+// Presenta el formulario con las carreras habilitadas para el cambio.
 Route::get('/inscripciones/cambio_carrera', [CambioCarreraController::class, 'index'])
     ->name('cambio_carrera.index')
     ->middleware(['auth', 'resource.access']);
+// Busca estudiantes y sus inscripciones activas para elegir cuál cambiar.
 Route::get('/inscripciones/cambio_carrera/buscar', [CambioCarreraController::class, 'buscarEstudiantes'])
     ->name('cambio_carrera.buscar')
     ->middleware(['auth', 'resource.access']);
+// Registra el cambio y marca la inscripción de origen como reemplazada.
 Route::post('/inscripciones/cambio_carrera', [CambioCarreraController::class, 'store'])
     ->name('cambio_carrera.store')
     ->middleware(['auth', 'resource.access']);
+
+// Inscripción manual de materias: todas las acciones se protegen con autenticación y permiso del recurso.
 Route::middleware(['auth', 'resource.access'])->prefix('inscripciones/inscripcion_manual')->name('inscripcion_manual.')->group(function () {
+    // Muestra materias asignadas y permite seleccionar un estudiante inscrito.
     Route::get('/', [InscripcionManualController::class, 'index'])->name('index');
+    // Busca estudiantes con inscripción activa en la gestión vigente.
     Route::get('/buscar', [InscripcionManualController::class, 'buscar'])->name('buscar');
+    // Muestra grupos disponibles para agregar materias a la inscripción seleccionada.
     Route::get('/{inscrito}/oferta', [InscripcionManualController::class, 'oferta'])->name('oferta');
+    // Consulta todas las materias de la carrera, agrupadas por nivel.
     Route::get('/{inscrito}/materias', [InscripcionManualController::class, 'materias'])->name('materias');
+    // Guarda la selección de materias y grupos para la inscripción.
     Route::put('/{inscrito}/grupos', [InscripcionManualController::class, 'guardar'])->name('guardar');
+    // Cambia el turno y paralelo de la inscripción vigente.
     Route::put('/{inscrito}/turno', [InscripcionManualController::class, 'cambiarTurno'])->name('cambiar-turno');
+    // Retira una materia de la inscripción sin borrar el registro de la persona.
     Route::delete('/{inscrito}/materias/{materia}', [InscripcionManualController::class, 'retirarMateria'])->name('retirar');
 });
+// Consulta y presenta comprobantes y pagos ya vinculados a inscripciones; no crea pagos nuevos.
 Route::get('/pagos/pago', [PagosController::class, 'index'])
     ->name('pagos.index')
     ->middleware(['auth', 'resource.access']);
+// Reporte de malla curricular por carrera, con opción de descargar sus resultados.
 Route::get('/reportes/malla-curricular', [MallaCurricularReporteController::class, 'index'])
     ->name('reportes.academicos.malla-curricular')
     ->middleware(['auth', 'resource.access']);
+// Reportes de inscripciones: postulantes, inscritos por carrera/paralelo/grupo,
+// libros de inscripción y estudiantes con varias carreras.
 Route::get('/reportes/inscripciones/{reporte}', [InscripcionesReportesController::class, 'index'])
     ->where('reporte', 'lista-postulantes|lista-inscritos-carrera|lista-inscritos-paralelo|lista-inscritos-grupo|libro-inscripciones|libro-inscripciones-carrera|lista-inscritos-multicarrera')
     ->name('reportes.inscripciones.index')
     ->middleware(['auth', 'resource.access']);
-Route::get('/estudiantes/historial_academico', function () {
-    return view('estudiantes.historial_academico.index');
-})->middleware(['auth', 'role:estudiante']);
+// Historial económico del estudiante; consulta pagos asociados a sus inscripciones.
 Route::get('/estudiantes/historial_economico', [EstudiantePortalController::class, 'historialEconomico'])
     ->name('estudiantes.historial_economico')
     ->middleware(['auth', 'role:estudiante']);
+// Vistas privadas del portal de estudiante: estado de inscripción y ficha personal.
 Route::middleware(['auth', 'role:estudiante'])->prefix('estudiantes')->name('estudiantes.')->group(function () {
+    // Muestra el estado y las materias asociadas a las inscripciones del estudiante.
     Route::get('/estado_inscripcion', [EstudiantePortalController::class, 'estadoInscripcion'])->name('estado_inscripcion');
+    // Consulta la ficha de postulación que el estudiante puede actualizar.
     Route::get('/file_estudiante', [EstudiantePortalController::class, 'fileEstudiante'])->name('file_estudiante');
+    // Guarda los cambios permitidos en los datos personales del estudiante.
     Route::put('/file_estudiante', [EstudiantePortalController::class, 'actualizarFile'])->name('file_estudiante.update');
 });

@@ -1,13 +1,15 @@
+{{-- Carga los estilos y el código general de la aplicación mediante Vite. --}}
 @vite(['resources/sass/app.scss', 'resources/js/app.js'])
 
 @php
+    // Usa null como valor inicial si el servidor no proporciona la dirección del video de guía.
     $tutorialVideoUrl = $tutorialVideoUrl ?? null;
 @endphp
 
 <div class="itsa-postulante-public">
 
     {{-- =========================================================
-         HEADER INSTITUCIONAL
+         Encabezado institucional: identidad del instituto y accesos de navegación.
     ========================================================== --}}
     <header class="public-hero py-3">
         <div class="container">
@@ -30,6 +32,7 @@
                     </div>
                 </div>
 
+                {{-- Acciones para abrir la guía del formulario o regresar al inicio. --}}
                 <div class="d-flex align-items-center gap-2">
 
                     <button type="button" class="btn btn-sm btn-outline-light fw-bold px-3 rounded-3"
@@ -51,18 +54,14 @@
 
 
     {{-- =========================================================
-         CONTENEDOR PRINCIPAL
+         Contenido principal del formulario de postulación.
     ========================================================== --}}
     <main class="container py-4 py-lg-5">
 
-        {{-- =====================================================
-             ALERTAS
-        ====================================================== --}}
+        {{-- Muestra mensajes de éxito o error preparados por la aplicación. --}}
         @include('partials.sweetalert-messages')
 
-        {{-- =====================================================
-             AVISO DATOS ANTERIORES
-        ====================================================== --}}
+        {{-- Si se encontró una persona registrada, informa que sus datos se cargaron para una nueva postulación. --}}
         @if (isset($postulanteBase) && $postulanteBase)
             <div class="alert alert-info shadow-sm border-left-info mb-4" role="alert">
 
@@ -89,9 +88,7 @@
         @endif
 
 
-        {{-- =====================================================
-             ENCABEZADO + STEPPER
-        ====================================================== --}}
+        {{-- Presenta la gestión vigente y el avance visual de los cuatro pasos del formulario. --}}
         <div class="card-custom p-4 mb-4">
 
             <div class="row align-items-center">
@@ -119,7 +116,7 @@
                 </div>
 
 
-                {{-- STEPPER --}}
+                {{-- Indicador de pasos: muestra en qué parte del formulario se encuentra la persona. --}}
                 <div class="col-lg-7">
 
                     <div class="stepper-wrapper">
@@ -183,7 +180,8 @@
 
 
         {{-- =====================================================
-             FORMULARIO REAL
+                 Formulario para enviar los datos personales, académicos y documentos seleccionados.
+                 Sus atributos de datos comparten con JavaScript los errores y las carreras registradas.
         ====================================================== --}}
         <form action="{{ route('postulantes.store') }}" method="POST" enctype="multipart/form-data"
             id="formRegistrarPostulante"
@@ -191,7 +189,10 @@
             data-validation-errors="{{ json_encode($errors->messages(), JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP | JSON_HEX_TAG) }}"
             data-carreras-inscritas="{{ json_encode($carrerasInscritas ?? ($postulanteBase->carrerasInscritasIds ?? [])) }}">
 
+            {{-- Protege el envío del formulario contra solicitudes no autorizadas. --}}
             @csrf
+
+            {{-- Estas marcas indican al servidor qué archivos existentes pidió eliminar la persona. --}}
             <input type="hidden" name="eliminar_foto" id="eliminar_foto" value="{{ old('eliminar_foto', 0) }}">
             <input type="hidden" name="eliminar_path_ci_frontal" id="eliminar_path_ci_frontal" value="{{ old('eliminar_path_ci_frontal', 0) }}">
             <input type="hidden" name="eliminar_path_ci_reverso" id="eliminar_path_ci_reverso" value="{{ old('eliminar_path_ci_reverso', 0) }}">
@@ -199,16 +200,13 @@
             <input type="hidden" name="eliminar_path_diploma" id="eliminar_path_diploma" value="{{ old('eliminar_path_diploma', 0) }}">
 
 
-            {{-- =================================================
-                 PASO 1
-                 FOTO + DATOS PERSONALES
-            ================================================== --}}
+            {{-- Paso 1: fotografía y datos personales de la persona postulante. --}}
             <div class="step-pane" id="paneStep1">
 
                 <div class="row g-4">
 
 
-                    {{-- FOTO --}}
+                    {{-- Fotografía del postulante; puede conservarse o reemplazarse si ya existe. --}}
                     <div class="col-lg-4">
 
                         <div class="card-custom h-100" id="step-fotografia">
@@ -228,6 +226,7 @@
                                 <div class="photo-preview-box mb-3" id="photoPreview"
                                     data-existing-url="{{ $postulanteBase?->foto ? asset('storage/' . $postulanteBase->foto) : '' }}">
 
+                                    {{-- Presenta la fotografía guardada o, si no existe, el espacio para una nueva vista previa. --}}
                                     @if (isset($postulanteBase) && $postulanteBase->foto)
                                         <img id="imgPreviewPhoto"
                                             src="{{ asset('storage/' . $postulanteBase->foto) }}"
@@ -262,6 +261,7 @@
                                     </label>
 
 
+                                    {{-- La fotografía es obligatoria solo cuando todavía no hay una guardada. --}}
                                     <input type="file" name="fotografia" id="foto" class="d-none"
                                         accept="image/jpeg,image/png" data-name="Fotografía del postulante"
                                         @if (empty($postulanteBase?->foto)) required @endif>
@@ -297,7 +297,7 @@
                     </div>
 
 
-                    {{-- DATOS PERSONALES --}}
+                    {{-- Datos de identidad y nacimiento requeridos para registrar la postulación. --}}
                     <div class="col-lg-8">
 
                         <div class="card-custom h-100" id="step-datos-personales">
@@ -375,6 +375,7 @@
                                     </div>
 
 
+                                    {{-- El CI queda bloqueado cuando la persona llegó desde una búsqueda o ya tiene datos registrados. --}}
                                     {{-- CI --}}
                                     <div class="col-md-4">
 
@@ -406,6 +407,7 @@
                                                 -- Seleccionar --
                                             </option>
 
+                                            {{-- Relaciona cada código de expedición con el departamento que se muestra en el formulario. --}}
                                             @foreach ([
         'CB' => 'Cochabamba (CB)',
         'LP' => 'La Paz (LP)',
@@ -526,13 +528,10 @@
             </div>
 
 
-            {{-- =================================================
-                 PASO 2
-                 CONTACTO + EGRESO
-            ================================================== --}}
+            {{-- Paso 2: datos para contactar a la persona y datos de su egreso escolar. --}}
             <div class="step-pane d-none" id="paneStep2">
 
-                {{-- CONTACTO --}}
+                {{-- Dirección, teléfono, correo y contacto de emergencia. --}}
                 <div class="card-custom mb-4" id="step-contacto">
 
                     <div class="card-custom-header">
@@ -666,7 +665,7 @@
                 </div>
 
 
-                {{-- EGRESO --}}
+                {{-- Información del colegio y año en que la persona postulante egresó. --}}
                 <div class="card-custom mb-4" id="step-egreso">
 
                     <div class="card-custom-header">
@@ -717,6 +716,7 @@
                                         -- Seleccionar --
                                     </option>
 
+                                    {{-- Ofrece los tipos de unidad educativa admitidos por el formulario. --}}
                                     @foreach (['Fiscal', 'Particular', 'Convenio'] as $caracter)
                                         <option value="{{ $caracter }}" @selected(old('caractercolegio', $postulanteBase->caractercolegio ?? '') === $caracter)>
                                             {{ $caracter }}
@@ -766,10 +766,7 @@
             </div>
 
 
-            {{-- =================================================
-                 PASO 3
-                 ADMISIÓN
-            ================================================== --}}
+            {{-- Paso 3: selección de gestión, carrera, grupo y datos requeridos para la admisión. --}}
             <div class="step-pane d-none" id="paneStep3">
 
                 <div class="card-custom mb-4" id="step-admision">
@@ -796,7 +793,7 @@
                         <div class="row g-3">
 
 
-                            {{-- GESTIÓN --}}
+                            {{-- Muestra la gestión vigente y envía su identificador junto con el formulario. --}}
                             <div class="col-md-4">
 
                                 <label for="gestion_display" class="form-label">
@@ -814,7 +811,7 @@
                             </div>
 
 
-                            {{-- CARRERA --}}
+                            {{-- Las carreras disponibles se reciben del servidor y pueden incluir su resolución ministerial. --}}
                             <div class="col-md-4">
 
                                 <label for="id_carrera" class="form-label">
@@ -835,6 +832,7 @@
                                         @endphp
                                         <option value="{{ $carrera->id_carrera }}" @selected(old('id_carrera') == $carrera->id_carrera)>
                                             {{ $carrera->nombre }}
+                                            {{-- Agrega la resolución ministerial solo cuando la carrera tiene una registrada. --}}
                                             @if($resoluciones)
                                                 · R.M. {{ implode(' / ', $resoluciones) }}
                                             @endif
@@ -842,11 +840,13 @@
                                     @endforeach
 
                                 </select>
+                                {{-- Avisa cuando las carreras incluidas en el historial se excluyeron de la lista. --}}
                                 @if ($carrerasExcluidasPorHistorial ?? false)
                                     <div class="alert alert-info mt-2 mb-0">
                                         Las carreras que ya forman parte de tu historial de estudiante no aparecen en esta lista.
                                     </div>
                                 @endif
+                                {{-- Distingue si no hay opciones por el historial o porque no existen grupos con cupos. --}}
                                 @if (($carrerasExcluidasPorHistorial ?? false) && ($carreras ?? collect())->isEmpty())
                                     <div class="alert alert-warning mt-2 mb-0">
                                         No hay carreras activas adicionales disponibles para postular.
@@ -859,6 +859,7 @@
 
                             </div>
 
+                            {{-- El turno y el paralelo se habilitan y cargan según las opciones disponibles de la carrera elegida. --}}
                             <div class="col-md-4">
                                 <label for="turno" class="form-label">
                                     Turno:
@@ -881,7 +882,7 @@
                             </div>
 
 
-                            {{-- DIPLOMA --}}
+                            {{-- Registra si la persona cuenta con el diploma de bachiller o si está en trámite. --}}
                             <div class="col-md-4">
 
                                 <label for="diplomabachiller" class="form-label">
@@ -904,7 +905,7 @@
                             </div>
 
 
-                            {{-- VOUCHER --}}
+                            {{-- Registra el comprobante bancario correspondiente a esta postulación y carrera. --}}
                             <div class="col-12 mt-4">
 
                                 <div class="p-3 bg-light rounded-3 border border-warning">
@@ -959,10 +960,7 @@
             </div>
 
 
-            {{-- =================================================
-                 PASO 4
-                 DOCUMENTACIÓN
-            ================================================== --}}
+            {{-- Paso 4: carga de los documentos requeridos para completar la postulación. --}}
             <div class="step-pane d-none" id="paneStep4">
 
                 <div class="card-custom mb-4" id="step-documentos">
@@ -1004,8 +1002,9 @@
 
                         <div class="row g-4">
 
+                            {{-- Cada documento se muestra como existente y opcional de reemplazar, o como obligatorio si aún no fue cargado. --}}
 
-                            {{-- CI FRONTAL --}}
+                            {{-- Imagen del anverso de la cédula de identidad. --}}
                             <div class="col-md-6">
 
                                 <div class="doc-upload-box">
@@ -1039,6 +1038,7 @@
                                         </label>
 
                                     </div>
+                                    {{-- Indica si ya hay una imagen guardada o muestra los formatos y el tamaño permitidos. --}}
                                     <small class="text-muted d-block mt-2">
 
                                         @if ($postulanteBase?->path_ci_frontal)
@@ -1054,6 +1054,7 @@
                                     </small>
 
 
+                                    {{-- Vista previa del documento guardado o de la imagen que se seleccione. El enlace abre el archivo aparte. --}}
                                     <div id="preview_ci_frontal" class="document-preview mt-3 {{ empty($postulanteBase?->path_ci_frontal) ? 'd-none' : '' }}"
                                         data-existing-url="{{ $postulanteBase?->path_ci_frontal ? asset('storage/' . $postulanteBase->path_ci_frontal) : '' }}"
                                         data-existing-name="{{ $postulanteBase?->path_ci_frontal ? basename($postulanteBase->path_ci_frontal) : '' }}">
@@ -1086,7 +1087,7 @@
                             </div>
 
 
-                            {{-- CI REVERSO --}}
+                            {{-- Imagen del reverso de la cédula de identidad. --}}
                             <div class="col-md-6">
 
                                 <div class="doc-upload-box">
@@ -1120,6 +1121,7 @@
                                         </label>
 
                                     </div>
+                                    {{-- Indica si ya hay una imagen guardada o muestra los formatos y el tamaño permitidos. --}}
                                     <small class="text-muted d-block mt-2">
 
                                         @if ($postulanteBase?->path_ci_reverso)
@@ -1167,7 +1169,7 @@
                             </div>
 
 
-                            {{-- NACIMIENTO --}}
+                            {{-- Imagen del certificado de nacimiento. --}}
                             <div class="col-md-6">
 
                                 <div class="doc-upload-box">
@@ -1201,6 +1203,7 @@
                                         </label>
 
                                     </div>
+                                    {{-- Indica si ya hay una imagen guardada o muestra los formatos y el tamaño permitidos. --}}
                                     <small class="text-muted d-block mt-2">
 
                                         @if ($postulanteBase?->path_nacimiento)
@@ -1248,7 +1251,7 @@
                             </div>
 
 
-                            {{-- DIPLOMA --}}
+                            {{-- Imagen del diploma de bachiller. --}}
                             <div class="col-md-6">
 
                                 <div class="doc-upload-box">
@@ -1282,6 +1285,7 @@
                                         </label>
 
                                     </div>
+                                    {{-- Indica si ya hay una imagen guardada o muestra los formatos y el tamaño permitidos. --}}
                                     <small class="text-muted d-block mt-2">
 
                                         @if ($postulanteBase?->path_diploma)
@@ -1335,7 +1339,7 @@
                     </div>
 
 
-                    {{-- ACCIONES --}}
+                    {{-- Permite volver, cancelar el registro o enviar la postulación completa. --}}
                     <div class="bg-light p-3 px-4 border-top d-flex justify-content-between align-items-center flex-wrap gap-2"
                         id="step-acciones">
 
@@ -1374,15 +1378,11 @@
 </div>
 
 
-{{-- =========================================================
-     OVERLAY DEL TUTORIAL
-========================================================== --}}
+{{-- Capa que acompaña visualmente la guía interactiva del formulario. --}}
 <div id="tutorial-overlay"></div>
 
 
-{{-- =========================================================
-     CAJA DEL TUTORIAL
-========================================================== --}}
+{{-- Ventana de la guía; su contenido y sus controles se administran desde JavaScript. --}}
 <div id="tutorialBox" class="card shadow-lg border-primary tutorial-box">
 
     <div class="card-header bg-primary text-white py-2 d-flex justify-content-between align-items-center">
@@ -1425,17 +1425,20 @@
 </div>
 
 
+{{-- Carga los estilos compartidos de postulantes y los específicos del formulario de registro. --}}
 <link rel="stylesheet" href="{{ asset('css/postulantes/formularios.css') }}">
 <link rel="stylesheet" href="{{ asset('css/postulantes/registro.css') }}">
 
-
+{{-- Controla el cambio entre los cuatro pasos del formulario. --}}
 <script src="{{ asset('js/postulantes/registro-pasos.js') }}"></script>
 <script>
+    // Comparte con los scripts del formulario los errores, turnos y paralelos disponibles.
     window.postulanteValidationErrors = @json($errors->messages());
     window.opcionesTurnosCarrera = @json($opcionesTurnos ?? []);
     window.turnoPostulacionInicial = @json(old('turno'));
     window.paraleloPostulacionInicial = @json(old('paralelo'));
 </script>
+{{-- Carga las alertas compartidas y los scripts que gestionan grupos y datos del postulante. --}}
 @include('partials.sweetalert-assets')
 <script src="{{ asset('js/postulantes/turnos-postulacion.js') }}"></script>
 <script src="{{ asset('js/postulantes/postulante-form.js') }}"></script>

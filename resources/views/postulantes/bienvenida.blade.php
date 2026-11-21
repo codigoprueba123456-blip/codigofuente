@@ -6,9 +6,9 @@
     <meta charset="utf-8" />
     <meta content="width=device-width, initial-scale=1.0" name="viewport" />
     <title>ITSA - Sistema de Admisiones e Inscripciones</title>
-    <!-- Tailwind CSS v3 with Plugins -->
+    <!-- Carga Tailwind CSS desde su CDN y habilita los complementos de formularios y contenedores. -->
     <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
-    <!-- Tailwind Configuration for Custom Theme Colors -->
+    <!-- Amplía la configuración de Tailwind con los colores y las fuentes usados por la identidad visual del ITSA. -->
     <script>
         tailwind.config = {
             theme: {
@@ -34,30 +34,31 @@
             }
         };
     </script>
-    <!-- Google Fonts: Inter & Caveat for Script Watermark -->
+    <!-- Conexiones y descarga de las fuentes Inter y Caveat desde Google Fonts. -->
     <link href="https://fonts.googleapis.com" rel="preconnect" />
     <link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect" />
     <link
         href="https://fonts.googleapis.com/css2?family=Caveat:wght@600;700&amp;family=Inter:wght@400;500;600;700;800&amp;display=swap"
         rel="stylesheet" />
-    <!-- Font Awesome Icons -->
+    <!-- Carga Font Awesome desde CDN para mostrar los íconos de la página. -->
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" rel="stylesheet" />
+    <!-- Estilos propios del formulario de postulantes y de esta página de bienvenida. -->
     <link rel="stylesheet" href="{{ asset('css/postulantes/formularios.css') }}">
     <link rel="stylesheet" href="{{ asset('css/postulantes/bienvenida.css') }}">
 </head>
 
 <body class="bg-[#f0f5f1] font-sans antialiased text-gray-800 min-h-screen flex flex-col justify-between">
-    <!-- BEGIN: SiteHeaderAndHero -->
+    <!-- Encabezado principal: imagen de fondo, navegación institucional y mensaje de bienvenida. -->
     <header class="relative text-white hero-bg-overlay overflow-hidden pb-32">
-        <!-- Campus Building Background Decorative Silhouette/Image Simulation -->
+        <!-- Imagen decorativa del campus; no recibe interacciones del usuario. -->
         <div class="absolute inset-0 z-0 opacity-25 pointer-events-none mix-blend-luminosity overflow-hidden">
             <img alt="Campus ITSA Background" class="w-full h-full object-cover object-top scale-110 filter blur-[1px]"
                 src="{{ asset('images/image.png') }}">
         </div>
-        <!-- Top Navigation Bar -->
+        <!-- Barra superior con el logo del instituto y el acceso al sitio principal. -->
         <nav class="relative z-10 border-b border-white/10 px-4 sm:px-8 py-3.5" data-purpose="primary-navbar">
             <div class="max-w-6xl mx-auto flex items-center justify-between">
-                <!-- Logo and Brand -->
+                <!-- Logo y nombre institucional. -->
                 <div class="flex items-center gap-3.5">
                     <a href="{{ url('/') }}" aria-label="Ir al inicio" class="shrink-0">
                         <img src="{{ asset('images/logo.png') }}" alt="Logo ITSA" class="postulantes-logo postulantes-logo-inicio">
@@ -69,7 +70,7 @@
                             Tecnológico Sacaba</span>
                     </div>
                 </div>
-                <!-- External Link Button -->
+                <!-- Enlace para volver a la página principal del sitio. -->
                 <div>
                     <a class="inline-flex items-center gap-2 px-4 py-1.5 rounded-full text-xs font-semibold text-white bg-white/10 hover:bg-white/20 border border-white/30 transition backdrop-blur-sm shadow-sm"
                         href="{{ url('/') }}">
@@ -79,10 +80,10 @@
                 </div>
             </div>
         </nav>
-        <!-- Hero Content Banner -->
+        <!-- Mensaje de bienvenida y lema institucional, adaptados a distintos tamaños de pantalla. -->
         <div class="relative z-10 max-w-6xl mx-auto px-4 sm:px-8 pt-8 pb-10">
             <div class="flex flex-col md:flex-row md:items-center justify-between gap-6">
-                <!-- Left Banner Headline -->
+                <!-- Título e introducción al proceso de admisiones e inscripciones. -->
                 <div class="max-w-2xl">
                     <span class="inline-block text-[11px] font-extrabold tracking-wider text-itsa-mint uppercase mb-2">
                         TU FUTURO COMIENZA AQUÍ
@@ -96,7 +97,7 @@
                         postulación de manera fácil, rápida y segura.
                     </p>
                 </div>
-                <!-- Right Script Watermark (Formando profesionales del futuro) -->
+                <!-- Lema decorativo, visible únicamente en pantallas medianas y grandes. -->
                 <div class="hidden md:flex items-center justify-end pr-4 select-none">
                     <div
                         class="custom-script-text text-itsa-softMint/90 text-2xl lg:text-3xl text-right transform -rotate-3 leading-snug drop-shadow-sm font-semibold">
@@ -108,15 +109,15 @@
             </div>
         </div>
     </header>
-    <!-- END: SiteHeaderAndHero -->
-    <!-- BEGIN: MainContentSection -->
+    <!-- Contenido principal: requisitos, acceso al registro y consulta de postulaciones por CI. -->
     <main class="relative z-20 max-w-6xl mx-auto px-4 sm:px-8 -mt-24 mb-12 w-full flex flex-col gap-6"
         data-purpose="registration-cards-container">
+        <!-- Muestra los mensajes de confirmación o error preparados por la aplicación. -->
         @include('partials.sweetalert-messages')
-        <!-- Card 1: Proceso de Postulación Académica -->
+        <!-- Primera tarjeta: documentos requeridos e información para iniciar una postulación. -->
         <section class="bg-white rounded-3xl shadow-xl shadow-green-950/5 border border-itsa-cardBorder p-6 sm:p-8"
             data-purpose="admission-steps-card">
-            <!-- Card Section Header -->
+            <!-- Encabezado de la sección de requisitos. -->
             <div class="flex items-center gap-3.5 mb-6 sm:mb-8">
                 <div
                     class="w-10 h-10 rounded-2xl bg-itsa-badgeBg border border-emerald-200/60 flex items-center justify-center text-itsa-primary shadow-xs">
@@ -129,9 +130,9 @@
                         inscripción</p>
                 </div>
             </div>
-            <!-- Inner Two-Column Grid -->
+            <!-- Distribuye los requisitos y el acceso al registro junto a la tarjeta de orientación. -->
             <div class="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
-                <!-- Left Column: Steps List and Primary Action Button -->
+                <!-- Lista de documentos solicitados y botón para iniciar el registro. -->
                 <div class="lg:col-span-7 flex flex-col justify-between h-full space-y-6">
                     <div class="space-y-3.5 text-xs sm:text-sm" data-purpose="requirements-checklist">
                         <!-- Requirement 1 -->
@@ -190,7 +191,7 @@
                             </div>
                         </div>
                     </div>
-                    <!-- Primary CTA Button -->
+                    <!-- Solo permite iniciar una postulación nueva mientras el período está abierto. -->
                     @if($postulacionAbierta)
                     <div class="pt-3">
                         <a class="inline-flex items-center justify-center gap-2.5 px-6 py-3 rounded-full bg-itsa-dark hover:bg-itsa-deep text-white font-semibold text-xs sm:text-sm tracking-wide shadow-md transition-all duration-200 hover:shadow-lg active:scale-[0.99] border border-emerald-900"
@@ -201,11 +202,11 @@
                     </div>
                     @endif
                 </div>
-                <!-- Right Column: Video Preview Card -->
+                <!-- Vista previa gráfica y descripción del material de orientación. -->
                 <div class="lg:col-span-5 flex flex-col justify-start">
                     <div
                         class="bg-white rounded-2xl border border-gray-200/90 p-3 sm:p-4 shadow-sm hover:shadow-md transition">
-                        <!-- Video Thumbnail with Play Button -->
+                        <!-- Miniatura remota decorativa con un ícono de reproducción. -->
                         <div
                             class="relative w-full aspect-video rounded-xl overflow-hidden bg-slate-900 group cursor-pointer">
                             <img alt="Campus ITSA Video Preview"
@@ -213,14 +214,14 @@
                                 src="https://lh3.googleusercontent.com/aida-public/AB6AXuCYtEpMC_-lNn7q_bUImr8qA-4XxyvyyasqX53g5WgHNkMnsjKb4PkBu7WNgHjfONWiLUgUqx6HmglFmPfdXVi6yxnLR6ax0bvnVgqdyyj1aTGi0XGNTGoUqaMI8QGD9zA9jVo617ILec_kfVMYTXLRAWipwRUT1FSB0XRT5jp79aOG6UicJ4hf9d-tsljeIp5AMmX31_1XwrkWkbD3wKLXYJfWB9TS4-WIN_EmIguh1Shk4Zonc2NMtgZoBU6FrDMY" />
                             <div
                                 class="absolute inset-0 bg-black/35 group-hover:bg-black/25 transition flex items-center justify-center">
-                                <!-- Play Circle Button -->
+                                <!-- Ícono visual de reproducción; aquí no se define un reproductor de video. -->
                                 <div
                                     class="w-12 h-12 sm:w-14 sm:h-14 rounded-full bg-white/95 text-itsa-dark flex items-center justify-center shadow-lg transform group-hover:scale-110 transition duration-200 pl-0.5">
                                     <i class="fa-solid fa-play text-lg sm:text-xl text-itsa-primary"></i>
                                 </div>
                             </div>
                         </div>
-                        <!-- Video Captions -->
+                        <!-- Explica para qué sirve el material de orientación. -->
                         <div class="mt-3.5">
                             <h3 class="font-bold text-gray-900 text-sm sm:text-base">Video de Orientación y Guía de
                                 Inscripción</h3>
@@ -233,10 +234,10 @@
                 </div>
             </div>
         </section>
-        <!-- Card 2: Consulta de Postulación o Registro Previo -->
+        <!-- Segunda tarjeta: consulta de postulaciones existentes mediante el número de CI. -->
         <section class="bg-white rounded-3xl shadow-xl shadow-green-950/5 border border-itsa-cardBorder p-6 sm:p-8"
             data-purpose="search-applicant-card">
-            <!-- Card Section Header -->
+            <!-- Explica qué información puede consultar una persona ya registrada. -->
             <div class="flex items-start sm:items-center gap-3.5 mb-4">
                 <div
                     class="w-9 h-9 rounded-2xl bg-itsa-badgeBg border border-emerald-200/60 flex items-center justify-center text-itsa-primary flex-shrink-0 mt-0.5 sm:mt-0">
@@ -250,7 +251,7 @@
                         nueva carrera.</p>
                 </div>
             </div>
-            <!-- Search Input & Button Bar -->
+            <!-- El formulario de consulta solo aparece durante el período de postulación. -->
             @if($postulacionAbierta)
             <form class="mt-5" data-purpose="ci-lookup-form" action="{{ route('postulantes.bienvenida') }}" method="GET">
                 <div class="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5 max-w-3xl">
@@ -269,7 +270,7 @@
                         <i class="fa-solid fa-arrow-right-to-bracket text-xs"></i>
                     </button>
                 </div>
-                <!-- Footnote Warning -->
+                <!-- Recuerda que cada carrera requiere un comprobante bancario independiente. -->
                 <p class="text-[11px] sm:text-xs text-rose-600 font-medium mt-3.5 flex items-center gap-1.5">
                     <i class="fa-solid fa-circle-exclamation text-[10px]"></i>
                     <span>Recuerda: Cada postulación tiene un único número de comprobante bancario independiente.</span>
@@ -279,11 +280,13 @@
                 Período abierto hasta {{ $actividadPostulacion->fin->format('d/m/Y H:i') }}.
             </p>
             @else
+            <!-- Si el período está cerrado, informa que la consulta y el registro no están disponibles. -->
             <div class="mt-5 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900" role="status">
                 El período de postulación está cerrado. La búsqueda por CI y el formulario se habilitarán durante las fechas publicadas en el calendario académico.
             </div>
             @endif
 
+            <!-- Los resultados se muestran en un modal después de enviar una consulta de CI válida. -->
             @if($postulacionAbierta && request()->filled('ci_consulta'))
                 <div id="modalResultadosCI" class="fixed inset-0 z-50 hidden items-center justify-center bg-black/40 p-4" aria-hidden="true">
                     <div class="w-full max-w-3xl rounded-3xl bg-white shadow-2xl border border-gray-200 overflow-hidden" role="dialog" aria-modal="true" aria-labelledby="modalResultadosCILabel">
@@ -293,6 +296,7 @@
                         </div>
 
                         <div class="p-5 sm:p-6">
+                            <!-- Presenta las postulaciones cuando existe una persona y tiene registros. -->
                             @if($postulanteBase && $postulaciones->isNotEmpty())
                                 <div class="mb-5">
                                     <p class="text-[11px] font-bold uppercase tracking-[0.18em] text-emerald-700">Postulante encontrado</p>
@@ -308,6 +312,7 @@
                                         <span class="text-center font-bold" role="columnheader">Acciones</span>
                                     </div>
                                     <div class="divide-y divide-emerald-100 bg-white">
+                                        <!-- Cada fila muestra una carrera, su gestión, el estado del comprobante y las acciones disponibles. -->
                                         @foreach($postulaciones as $postulacion)
                                             <div class="grid grid-cols-2 gap-x-3 gap-y-3 p-3 transition hover:bg-emerald-50/40 md:grid-cols-[minmax(0,1.4fr)_minmax(5rem,.7fr)_minmax(6rem,.8fr)_minmax(15rem,2fr)] md:items-center md:gap-3" role="row">
                                                 <div class="col-span-2 min-w-0 md:col-span-1" role="cell">
@@ -350,6 +355,7 @@
                                     </div>
                                 </div>
 
+                                <!-- Modal de confirmación antes de enviar la solicitud para eliminar una ficha. -->
                                 <div id="modalEliminarFicha" class="fixed inset-0 z-50 hidden items-center justify-center bg-black/50 p-4" aria-hidden="true">
                                     <div class="w-full max-w-md rounded-2xl border border-gray-200 bg-white p-6 shadow-2xl" role="dialog" aria-modal="true" aria-labelledby="modalEliminarFichaTitulo" aria-describedby="modalEliminarFichaDescripcion">
                                         <div class="flex h-12 w-12 items-center justify-center rounded-full bg-rose-100 text-rose-700">
@@ -371,6 +377,7 @@
                                     </div>
                                 </div>
 
+                                <!-- Permite iniciar otra postulación usando el CI del registro encontrado. -->
                                 <div class="mt-6 flex flex-col items-center gap-3 text-center">
                                     <p class="text-sm font-semibold text-gray-700">¿Quieres postular a otra carrera?</p>
                                     <a href="{{ route('postulantes.registrar', ['ci_consulta' => $postulanteBase->ci]) }}" class="inline-flex items-center justify-center gap-2 rounded-xl border border-emerald-300 bg-white px-5 py-3 text-sm font-semibold text-emerald-800 transition hover:bg-emerald-50">
@@ -379,11 +386,13 @@
                                     </a>
                                 </div>
                             @else
+                                <!-- Si no hay postulaciones vigentes, distingue entre historial previo y CI sin historial. -->
                                 <div class="flex items-start gap-3 rounded-xl border border-amber-200 bg-amber-50 p-4">
                                     <div class="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl border border-amber-200 bg-amber-100 text-amber-700">
                                         <i class="fa-solid fa-circle-info"></i>
                                     </div>
                                     <div>
+                                        <!-- El historial anterior permite precargar datos; si no existe, se ofrece el registro inicial. -->
                                         @if ($hayHistorialAnterior)
                                             <p class="text-[11px] font-bold uppercase tracking-[0.18em] text-amber-700">Historial anterior encontrado</p>
                                             <h3 class="mt-1 text-lg font-bold text-gray-900">No tiene postulaciones en la gestión vigente.</h3>
@@ -401,6 +410,7 @@
                                 </div>
                             @endif
 
+                            <!-- Cierra el cuadro de resultados y limpia la consulta de la dirección actual. -->
                             <div class="mt-5 flex justify-center">
                                 <button type="button" data-close-ci-modal data-bs-dismiss="modal" class="inline-flex items-center justify-center gap-2 rounded-xl border border-gray-200 bg-white px-5 py-2.5 text-xs font-semibold text-gray-700 transition hover:bg-gray-50">
                                     <i class="fa-solid fa-xmark text-[10px]"></i>
@@ -414,12 +424,13 @@
 
         </section>
     </main>
-    <!-- END: MainContentSection -->
+    <!-- Este código solo se agrega cuando hay una consulta de CI que puede mostrar resultados. -->
     @if($postulacionAbierta && request()->filled('ci_consulta'))
         <script>
             const modalResultados = document.getElementById('modalResultadosCI');
             const ciInput = document.getElementById('ci_consulta');
 
+            // Abre el modal de resultados. Si Bootstrap no está disponible, usa las clases y atributos del HTML.
             if (modalResultados) {
                 const modalBootstrap = window.bootstrap?.Modal ? new bootstrap.Modal(modalResultados) : null;
 
@@ -431,6 +442,7 @@
                     modalResultados.setAttribute('aria-hidden', 'false');
                 }
 
+                // Todos los controles de cierre ocultan el modal y eliminan el CI de la URL.
                 document.querySelectorAll('[data-close-ci-modal]').forEach((button) => {
                     button.addEventListener('click', () => {
                         if (modalBootstrap) {
@@ -452,6 +464,7 @@
                     });
                 });
 
+                // También cierra el modal cuando se hace clic en el fondo, fuera de su contenido.
                 modalResultados.addEventListener('click', (event) => {
                     if (event.target === modalResultados) {
                         document.querySelector('[data-close-ci-modal]').click();
@@ -462,13 +475,16 @@
             const modalEliminarFicha = document.getElementById('modalEliminarFicha');
             const formEliminarFicha = document.getElementById('formEliminarFicha');
 
+            // Configura la confirmación de eliminación solo si existen el modal y su formulario.
             if (modalEliminarFicha && formEliminarFicha) {
+                // Oculta el modal de eliminación y actualiza su estado de accesibilidad.
                 const cerrarModalEliminarFicha = () => {
                     modalEliminarFicha.classList.add('hidden');
                     modalEliminarFicha.classList.remove('flex');
                     modalEliminarFicha.setAttribute('aria-hidden', 'true');
                 };
 
+                // Cada botón indica qué ficha se eliminaría; su URL se asigna al formulario al abrir la confirmación.
                 document.querySelectorAll('[data-delete-postulacion]').forEach((button) => {
                     button.addEventListener('click', () => {
                         formEliminarFicha.action = button.dataset.deleteUrl;
@@ -478,6 +494,7 @@
                     });
                 });
 
+                // Permite cancelar la operación o cerrar el cuadro haciendo clic fuera de él.
                 document.querySelectorAll('[data-cancelar-eliminar-ficha]').forEach((button) => {
                     button.addEventListener('click', cerrarModalEliminarFicha);
                 });
@@ -490,11 +507,11 @@
             }
         </script>
     @endif
-    <!-- BEGIN: Footer -->
+    <!-- Pie de página institucional. -->
     <footer class="text-center text-xs text-gray-500 pb-8 pt-4 border-t border-gray-200/50">
         <p>© 2025 Instituto Tecnológico Sacaba (ITSA) - Todos los derechos reservados.</p>
     </footer>
-    <!-- END: Footer -->
+    <!-- Carga los recursos de SweetAlert requeridos por los mensajes compartidos. -->
     @include('partials.sweetalert-assets')
 </body>
 

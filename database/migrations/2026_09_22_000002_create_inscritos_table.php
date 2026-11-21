@@ -6,6 +6,9 @@ use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
 {
+    /**
+     * Crea las inscripciones y sus vínculos con persona, carrera, gestión y postulación de origen.
+     */
     public function up(): void
     {
         Schema::create('inscrito', function (Blueprint $table) {
@@ -19,12 +22,12 @@ return new class extends Migration
             $table->unsignedBigInteger('id_postulante_origen')->nullable();
             $table->unsignedBigInteger('id_inscrito_reemplazo')->nullable();
 
-            // Llaves foráneas
+            // El reemplazo conserva el historial cuando una inscripción cambia de carrera.
             $table->unsignedBigInteger('id_carrera');
             $table->unsignedBigInteger('id_persona');
             $table->unsignedBigInteger('id_gestionacademica');
 
-            // Definición de Claves Foráneas
+            // Una inscripción pertenece a una persona, carrera y gestión; puede apuntar a la que reemplaza.
             $table->foreign('id_carrera')->references('id_carrera')->on('carreras')->onDelete('cascade');
             $table->foreign('id_persona')->references('id_persona')->on('personas')->onDelete('cascade');
             $table->foreign('id_gestionacademica')->references('id_gestionacademica')->on('gestionacademica')->onDelete('cascade');
@@ -33,6 +36,7 @@ return new class extends Migration
                 ->on('inscrito')
                 ->nullOnDelete();
 
+            // Impide duplicar comprobantes, inscripciones por persona/carrera/gestión y postulaciones de origen.
             $table->unique(['deposito', 'id_gestionacademica'], 'inscrito_voucher_gestion_unique');
             $table->unique(['id_persona', 'id_carrera', 'id_gestionacademica'], 'inscrito_persona_carrera_gestion_unique');
             $table->unique('id_postulante_origen', 'inscrito_postulante_origen_unique');
@@ -40,6 +44,9 @@ return new class extends Migration
         });
     }
 
+    /**
+     * Elimina la tabla de inscripciones al revertir esta migración.
+     */
     public function down(): void
     {
         Schema::dropIfExists('inscrito');

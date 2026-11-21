@@ -16,12 +16,20 @@ use Illuminate\Validation\ValidationException;
 
 class InscritosController extends Controller
 {
+    // Normaliza el código del grupo para ordenar primero por letra de paralelo.
     private const SQL_ORDEN_PARALELO = "CASE WHEN SUBSTR(UPPER(gr.codigo), -2, 1) = '-' THEN SUBSTR(UPPER(gr.codigo), -1) ELSE UPPER(gr.codigo) END";
 
+    /**
+     * Recibe el servicio que valida la disponibilidad de turnos, paralelos y cupos.
+     */
     public function __construct(private DisponibilidadTurnos $disponibilidadTurnos)
     {
     }
 
+    /**
+     * Filtra y muestra las inscripciones, sus indicadores y las acciones administrativas disponibles.
+     * También genera la exportación solicitada usando los mismos filtros aplicados al listado.
+     */
     public function index(Request $request)
     {
         $filters = $request->validate([
@@ -36,6 +44,7 @@ class InscritosController extends Controller
             'estado' => ['nullable', 'in:activos,deshabilitados,todos'],
         ]);
 
+        // Todos los filtros se aplican a una consulta común para mantener iguales la tabla y los reportes.
         $query = $this->inscritosQuery();
         $estado = $filters['estado'] ?? 'activos';
         if ($estado === 'activos') {
@@ -108,6 +117,7 @@ class InscritosController extends Controller
             });
         }
 
+        // Cuando se solicita exportar, carga todas las coincidencias en lugar de limitarse a una página.
         if ($request->has('formato')) {
             $exportRequest = $request->validate([
                 'formato' => ['required', 'in:excel,pdf'],
@@ -162,6 +172,7 @@ class InscritosController extends Controller
             );
         }
 
+        // Los indicadores se calculan sobre el mismo conjunto filtrado que se presenta en pantalla.
         $statsQuery = clone $query;
         $totalInscripciones = (clone $statsQuery)->count('i.id_inscrito');
         $totalEstudiantes = (clone $statsQuery)->distinct()->count('i.id_persona');
@@ -180,6 +191,7 @@ class InscritosController extends Controller
             ->distinct()
             ->count('i.id_persona');
 
+        // Ordena y pagina el resultado; los grupos de la gestión se cargan luego para completar cada fila.
         $inscritos = $this->ordenarPorTurnoYParalelo($query)
             ->paginate(10)
             ->withQueryString();
@@ -241,6 +253,10 @@ class InscritosController extends Controller
         ))->with('estado', $estado);
     }
 
+    /**
+     * Carga una inscripción activa y prepara sus datos, gestiones y grupos para editarla.
+     * Mantiene disponible la combinación de turno y paralelo actual aunque ya no se ofrezca a nuevos estudiantes.
+     */
     public function edit(Inscrito $inscrito)
     {
         abort_unless($inscrito->activo && ! $inscrito->id_inscrito_reemplazo, 404);
@@ -371,6 +387,11 @@ class InscritosController extends Controller
         ));
     }
 
+    /**
+     * Actualiza datos personales, académicos y administrativos de una inscripción activa.
+     * Valida duplicados y disponibilidad; los cambios se guardan juntos y no se permiten cambios de carrera
+     * o gestión si ya hay materias asignadas.
+     */
     public function update(Request $request, Inscrito $inscrito)
     {
         $inscrito->refresh();
@@ -414,6 +435,7 @@ class InscritosController extends Controller
             ],
         ]);
 
+        // Bloquea la inscripción y vuelve a comprobar su estado antes de aplicar los cambios.
         DB::transaction(function () use ($validated, $inscrito): void {
             $actual = DB::table('inscrito')
                 ->where('id_inscrito', $inscrito->id_inscrito)
@@ -434,6 +456,7 @@ class InscritosController extends Controller
                 ]);
             }
 
+            // Un cambio de carrera o gestión alteraría las materias asociadas, por eso se detiene si ya existen.
             $cambioAcademico = (int) $actual->id_carrera !== (int) $validated['id_carrera']
                 || (int) $actual->id_gestionacademica !== (int) $validated['id_gestionacademica'];
             if ($cambioAcademico && DB::table('inscrito_materia')
@@ -491,6 +514,7 @@ class InscritosController extends Controller
                 ]);
             }
 
+            // El comprobante puede conservarse en esta inscripción, pero no duplicarse en otra activa.
             $voucher = trim($validated['deposito']);
             $voucherNormalizado = mb_strtolower($voucher);
             $comprobantesPropios = DB::table('comprobante')
@@ -515,6 +539,7 @@ class InscritosController extends Controller
             }
 
             $ahora = now();
+            // Actualiza por separado los datos compartidos de la persona, su ficha de estudiante y la inscripción.
             DB::table('personas')->where('id_persona', $actual->id_persona)->update([
                 'nombre' => $validated['nombre'],
                 'primerapellido' => $validated['primerapellido'],
@@ -597,6 +622,9 @@ class InscritosController extends Controller
         return redirect()->route('inscriptos.index')->with('success', 'La ficha y la inscripción se actualizaron correctamente.');
     }
 
+    /**
+     * Deshabilita la inscripción y los registros administrativos asociados sin borrarlos del historial.
+     */
     public function deshabilitar(Inscrito $inscrito)
     {
         DB::transaction(function () use ($inscrito): void {
@@ -630,6 +658,10 @@ class InscritosController extends Controller
         return redirect()->route('inscriptos.index')->with('success', 'La inscripción, su comprobante y sus pagos se deshabilitaron. Los registros se conservaron en el historial administrativo.');
     }
 
+    /**
+     * Construye la consulta base con datos personales, académicos, documentos y estado de cada inscripción.
+     * Incluye datos auxiliares para filtrar, ordenar, mostrar carreras y habilitar acciones administrativas.
+     */
     private function inscritosQuery(): Builder
     {
         return DB::table('inscrito as i')
@@ -722,6 +754,9 @@ class InscritosController extends Controller
             );
     }
 
+    /**
+     * Ordena las inscripciones por turno, paralelo, nivel y fecha de registro.
+     */
     private function ordenarPorTurnoYParalelo(Builder $query): Builder
     {
         return $query
@@ -733,6 +768,9 @@ class InscritosController extends Controller
             ->orderByDesc('i.id_inscrito');
     }
 
+    /**
+     * Obtiene y agrupa los turnos y paralelos de las materias asignadas a las inscripciones indicadas.
+     */
     private function gruposPorInscrito(Collection $idsInscritos): Collection
     {
         if ($idsInscritos->isEmpty()) {
@@ -769,6 +807,9 @@ class InscritosController extends Controller
                 ->values());
     }
 
+    /**
+     * Traduce el número de turno a la etiqueta que se muestra en el listado.
+     */
     private function etiquetaTurno(int|string|null $turno): string
     {
         return [
@@ -778,6 +819,9 @@ class InscritosController extends Controller
         ][(int) $turno] ?? 'Turno no definido';
     }
 
+    /**
+     * Evita que una persona tenga otra inscripción o postulación en el mismo turno y gestión.
+     */
     private function validarTurnoNoRepetido(
         int $idPersona,
         string $ci,
@@ -813,6 +857,9 @@ class InscritosController extends Controller
         }
     }
 
+    /**
+     * Reúne las carreras activas por persona y gestión para identificar estudiantes multicarrera.
+     */
     private function carrerasPorPersonaGestion($inscritos): array
     {
         $pares = $inscritos
@@ -866,6 +913,9 @@ class InscritosController extends Controller
             ->all();
     }
 
+    /**
+     * Crea una clave estable para agrupar registros por persona y gestión académica.
+     */
     private function clavePersonaGestion(int|string $idPersona, int|string $idGestion): string
     {
         return $idPersona.':'.$idGestion;

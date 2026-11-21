@@ -3,6 +3,7 @@
         <h3 class="card-title">{{ $configuracion['titulo'] }}</h3>
     </div>
     <div class="card-body">
+        {{-- Los campos se generan según el tipo de reporte; sus opciones dependen de la selección previa. --}}
         <form method="GET" action="{{ route('reportes.inscripciones.index', ['reporte' => $reporte]) }}">
             <input type="hidden" name="generar" value="1">
             <div class="row">
@@ -34,6 +35,7 @@
             </button>
         </form>
 
+        {{-- Las descargas reutilizan los filtros validados que produjeron la tabla. --}}
         @if ($generado)
             <div class="mt-3">
                 <a

@@ -7,5 +7,6 @@
 @stop
 
 @section('content')
+    {{-- El listado diferencia postulantes pendientes de quienes ya se inscribieron como estudiantes. --}}
     @include('reportes.inscripciones.formulario')
 @stop

@@ -6,6 +6,9 @@ use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
 {
+    /**
+     * Agrega valores opcionales para configurar manualmente créditos de admisión y matrícula.
+     */
     public function up(): void
     {
         Schema::table('carreras', function (Blueprint $table): void {
@@ -14,6 +17,9 @@ return new class extends Migration
         });
     }
 
+    /**
+     * Elimina los valores manuales al revertir esta migración.
+     */
     public function down(): void
     {
         Schema::table('carreras', function (Blueprint $table): void {

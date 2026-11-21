@@ -7,5 +7,6 @@
 @stop
 
 @section('content')
+    {{-- Filtra las asignaciones por nivel, turno y letra final del código del grupo. --}}
     @include('reportes.inscripciones.formulario')
 @stop

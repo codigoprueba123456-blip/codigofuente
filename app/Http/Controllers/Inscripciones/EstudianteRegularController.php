@@ -14,10 +14,16 @@ use Illuminate\Validation\ValidationException;
 
 class EstudianteRegularController extends Controller
 {
+    /**
+     * Recibe el servicio que consulta disponibilidad de turnos, paralelos y cupos.
+     */
     public function __construct(private DisponibilidadTurnos $disponibilidadTurnos)
     {
     }
 
+    /**
+     * Muestra el formulario para inscribir a una persona que ya tiene ficha de estudiante.
+     */
     public function index()
     {
         $gestionActual = $this->gestionActual();
@@ -25,6 +31,10 @@ class EstudianteRegularController extends Controller
         return view('Inscripciones.estudiante_regular.index', compact('gestionActual'));
     }
 
+    /**
+     * Busca estudiantes y construye su historial por carrera para preparar una nueva inscripción regular.
+     * Devuelve también sugerencias de nivel, turno y paralelo según los registros anteriores.
+     */
     public function buscar(Request $request)
     {
         $gestionActual = $this->gestionActual();
@@ -60,6 +70,7 @@ class EstudianteRegularController extends Controller
         }
 
         $idsPersona = $personas->pluck('id_persona');
+        // Separa las carreras ya inscritas en la gestión actual de las que todavía se pueden registrar.
         $inscripcionesActivas = DB::table('inscrito')
             ->whereIn('id_persona', $idsPersona)
             ->where('id_gestionacademica', $gestionActual->id_gestionacademica)
@@ -68,6 +79,7 @@ class EstudianteRegularController extends Controller
             ->get(['id_persona', 'id_carrera'])
             ->groupBy('id_persona')
             ->map(fn ($inscripciones) => $inscripciones->pluck('id_carrera')->map(fn ($id): int => (int) $id));
+        // Combina inscripciones y cursadas para calcular el nivel siguiente y recuperar el grupo más reciente.
         $historial = DB::table('inscrito as i')
             ->join('gestionacademica as g', 'g.id_gestionacademica', '=', 'i.id_gestionacademica')
             ->join('carreras as c', 'c.id_carrera', '=', 'i.id_carrera')
@@ -167,6 +179,7 @@ class EstudianteRegularController extends Controller
             ->orderBy('nombre')
             ->get(['id_carrera', 'nombre', 'regimen', 'resolucionministerial1', 'resolucionministerial2', 'resolucionministerial3']);
 
+        // Devuelve cada carrera con su historial, disponibilidad y sugerencias para completar el formulario.
         return response()->json($personas->map(function ($persona) use ($historial, $historialCursa, $inscripcionesActivas, $carreras, $gestionActual): array {
             $nombre = trim(implode(' ', array_filter([
                 $persona->nombre,
@@ -239,6 +252,10 @@ class EstudianteRegularController extends Controller
         })->values());
     }
 
+    /**
+     * Devuelve los turnos y paralelos abiertos para una carrera y nivel de la gestión vigente.
+     * Antes verifica que el nivel pertenezca al régimen académico de la carrera.
+     */
     public function opcionesTurnos(Request $request): JsonResponse
     {
         $validated = $request->validate([
@@ -279,6 +296,11 @@ class EstudianteRegularController extends Controller
         return response()->json(['opciones' => $opciones]);
     }
 
+    /**
+     * Registra una o varias carreras para un estudiante existente en la gestión vigente.
+     * Valida nivel, grupo, comprobante y duplicados, y guarda cada inscripción con sus registros asociados
+     * dentro de una transacción para que el conjunto no quede incompleto.
+     */
     public function store(Request $request)
     {
         $gestionActual = $this->gestionActual();
@@ -308,6 +330,7 @@ class EstudianteRegularController extends Controller
             'inscripciones.*.deposito' => 'nullable|string|max:255',
         ]);
 
+        // Descarta las carreras que el usuario dejó como "No registrar" antes de validar los datos requeridos.
         $inscripcionesSolicitadas = collect($validated['inscripciones'])
             ->filter(fn (array $inscripcion): bool => (bool) (int) $inscripcion['registrar'])
             ->values();
@@ -365,6 +388,7 @@ class EstudianteRegularController extends Controller
             $validated['inscripciones'][$indice]['deposito'] = $voucher;
         }
 
+        // La persona y su ficha se bloquean mientras se revisa el historial y se crean las nuevas inscripciones.
         DB::transaction(function () use ($validated, $gestionActual, $carrerasPorId): void {
             $persona = DB::table('personas')
                 ->where('id_persona', $validated['id_persona'])
@@ -392,6 +416,7 @@ class EstudianteRegularController extends Controller
                 ->map(fn ($id): int => (int) $id)
                 ->unique();
 
+            // Comprueba que cada carrera marcada corresponda a una ya conocida o a una carrera añadida expresamente.
             foreach ($validated['inscripciones'] as $indice => $inscripcion) {
                 $carreraAsociada = $carrerasAsociadas->contains((int) $inscripcion['id_carrera']);
                 $esNuevaCarrera = (bool) ($inscripcion['nueva'] ?? false);
@@ -533,6 +558,9 @@ class EstudianteRegularController extends Controller
         return redirect()->route('estudiante_regular.index')->with('success', 'Inscripción regular registrada correctamente.');
     }
 
+    /**
+     * Obtiene la gestión vigente o, si no hay una marcada, la última gestión registrada.
+     */
     private function gestionActual(): ?GestionAcademica
     {
         return GestionAcademica::where('vigente', true)

@@ -10,9 +10,11 @@
 <div class="card card-default">
     <div class="card-body">
         @php
+            // Si el turno y paralelo están bloqueados, resumen la combinación real de la inscripción.
             $turnoResumen = $turnoBloqueado ?? $inscripcion->turno;
             $paraleloResumen = $paraleloBloqueado ?? $inscripcion->paralelo;
         @endphp
+        {{-- Identifica la inscripción y el grupo al que se aplicará cualquier cambio de materias. --}}
         <p class="mb-1"><strong>Estudiante:</strong> {{ trim($inscripcion->nombre.' '.$inscripcion->primerapellido.' '.$inscripcion->segundoapellido) }}</p>
         <p class="mb-3">
             <strong>Carrera:</strong> {{ $inscripcion->carrera }}
@@ -25,6 +27,7 @@
         @include('partials.sweetalert-messages')
 
         @php
+            // Solo ofrece combinaciones disponibles; agrega la combinación existente cuando debe permanecer bloqueada.
             $turnosVisibles = $opcionesTurnoParalelo->pluck('turno')->unique()->values();
             if ($turnoBloqueado !== null && !$turnosVisibles->contains($turnoBloqueado)) {
                 $turnosVisibles->push($turnoBloqueado);
@@ -37,6 +40,7 @@
             }
         @endphp
 
+        {{-- Estas rutas permiten consultar todas las materias o volver a la inscripción del estudiante. --}}
         <div class="mb-3">
             <a href="{{ route('inscripcion_manual.materias', $inscripcion->id_inscrito) }}" class="btn btn-default border">
                 <i class="fas fa-asterisk"></i> Todas las Materias
@@ -46,6 +50,7 @@
             </a>
         </div>
 
+        {{-- Primero se elige turno y paralelo para consultar únicamente los grupos que corresponden a esa combinación. --}}
         <form method="GET" action="{{ route('inscripcion_manual.oferta', $inscripcion->id_inscrito) }}" class="border rounded bg-light p-2 mb-3">
             <input type="hidden" name="paralelo" value="{{ $paralelo }}">
             <fieldset class="mb-0">
@@ -71,6 +76,7 @@
                 @endif
             @endforeach
         </div>
+        {{-- Explica por qué la combinación puede estar bloqueada o por qué no hay grupos disponibles para agregar. --}}
         @if ($combinacionInconsistente)
             <div class="alert alert-warning py-2">
                 <i class="fas fa-exclamation-triangle mr-1"></i>
@@ -109,6 +115,7 @@
             @endif
         </p>
 
+        {{-- El cambio de turno puede requerir desasignar grupos de la gestión actual; por eso se confirma por separado. --}}
         @if ($puedeCambiarTurno)
             <div class="border rounded p-3 mb-3">
                 <button
@@ -148,6 +155,7 @@
             </div>
         @endif
 
+        {{-- Envía la selección de materias y grupos para esta inscripción sin reemplazar las gestiones anteriores. --}}
         <form id="formOfertaMaterias" method="POST" action="{{ route('inscripcion_manual.guardar', $inscripcion->id_inscrito) }}">
             @csrf
             @method('PUT')
@@ -157,6 +165,7 @@
             @endif
 
             @if ($materiasOferta->isNotEmpty())
+                {{-- El selector total solo está habilitado cuando la inscripción permite asignar varias materias a la vez. --}}
                 <div class="d-flex flex-wrap align-items-center border rounded bg-light p-2 mb-3">
                     <div class="custom-control custom-checkbox mr-3">
                         <input type="checkbox" id="seleccionarTodo" class="custom-control-input" aria-label="Seleccionar todas las materias disponibles" @disabled($tieneMateriasAsignadas)>
@@ -181,6 +190,7 @@
                 </div>
             @endif
 
+            {{-- Cada casilla vincula una materia con un grupo; los grupos cerrados o llenos no se pueden elegir. --}}
             <div class="table-responsive">
                 <table class="table table-bordered table-striped">
                     <thead>
@@ -246,6 +256,7 @@
 @include('partials.sweetalert-assets')
 <script>
     document.addEventListener('DOMContentLoaded', () => {
+        // Controles para confirmar y enviar el cambio de turno y paralelo.
         const iniciarCambioTurno = document.getElementById('iniciarCambioTurno');
         const selectorCambioTurno = document.getElementById('selectorCambioTurno');
         const errorCambioTurno = document.getElementById('errorCambioTurno');
@@ -256,6 +267,7 @@
 
         if (iniciarCambioTurno) {
             iniciarCambioTurno.addEventListener('click', async () => {
+                // Sin la ventana de confirmación no se inicia un cambio que pueda liberar grupos asignados.
                 if (!window.Swal?.fire) {
                     errorCambioTurno.hidden = false;
                     return;
@@ -281,6 +293,7 @@
                 }
             });
 
+            // Separa la combinación elegida y la copia a los campos que espera el servidor.
             formularioCambioTurno.addEventListener('submit', (evento) => {
                 const [turno, paralelo] = combinacionCambioTurno.value.split('|');
                 if (!turno || !paralelo) {
@@ -293,6 +306,7 @@
             });
         }
 
+        // Mantiene actualizado el conteo y el estado de selección de las materias disponibles.
         const seleccionarTodo = document.getElementById('seleccionarTodo');
         const contadorSeleccion = document.getElementById('contadorMateriasSeleccionadas');
         const casillasMateria = Array.from(document.querySelectorAll(

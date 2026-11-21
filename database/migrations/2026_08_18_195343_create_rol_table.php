@@ -6,16 +6,19 @@ use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
 {
+    /**
+     * Crea los roles, los recursos autorizados y las cuentas asociadas a personas.
+     */
     public function up(): void
     {
-        // Tabla rol
+        // Nombre único para identificar cada tipo de acceso.
         Schema::create('rol', function (Blueprint $table) {
             $table->id('id_rol');
             $table->string('nombre')->unique();
             $table->timestamps();
         });
 
-        // Tabla recurso
+        // Cada recurso representa una ruta que puede protegerse por permisos.
         Schema::create('recurso', function (Blueprint $table) {
             $table->id('id_recurso');
             $table->string('nombre');
@@ -23,21 +26,20 @@ return new class extends Migration
             $table->timestamps();
         });
 
-        // Tabla privilegio (Relación muchos a muchos entre Rol y Recurso)
+        // Une roles y recursos; la clave compuesta evita repetir el mismo permiso.
         Schema::create('privilegio', function (Blueprint $table) {
             $table->unsignedBigInteger('id_recurso');
             $table->unsignedBigInteger('id_rol');
             $table->timestamps();
 
-            // Clave primaria compuesta
             $table->primary(['id_recurso', 'id_rol']);
 
-            // Relaciones
+            // Al eliminar un rol o recurso, también se eliminan sus asociaciones de permisos.
             $table->foreign('id_recurso')->references('id_recurso')->on('recurso')->onDelete('cascade');
             $table->foreign('id_rol')->references('id_rol')->on('rol')->onDelete('cascade');
         });
 
-        // Tabla cuenta
+        // Permite que una persona tenga una cuenta distinta para cada rol.
         Schema::create('cuenta', function (Blueprint $table) {
             $table->unsignedBigInteger('id_persona');
             $table->unsignedBigInteger('id_rol');
@@ -46,15 +48,17 @@ return new class extends Migration
             $table->rememberToken();
             $table->timestamps();
 
-            // Clave primaria compuesta
             $table->primary(['id_persona', 'id_rol']);
 
-            // Relaciones
+            // Las cuentas dependen de la persona y del rol asignado.
             $table->foreign('id_persona')->references('id_persona')->on('personas')->onDelete('cascade');
             $table->foreign('id_rol')->references('id_rol')->on('rol')->onDelete('cascade');
         });
     }
 
+    /**
+     * Elimina primero las asociaciones y luego las tablas que las definen.
+     */
     public function down(): void
     {
         Schema::dropIfExists('cuenta');

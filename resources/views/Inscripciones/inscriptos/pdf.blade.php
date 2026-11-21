@@ -22,18 +22,22 @@
         }
     </style>
 </head>
+{{-- Abre la ventana de impresión al cargar; desde ahí se puede imprimir o guardar el reporte en PDF. --}}
 <body onload="window.print()">
+    {{-- Los controles de pantalla no aparecen en la impresión. --}}
     <div class="no-print" style="margin-bottom: 18px; text-align: right;">
         <button onclick="window.print()" style="padding: 8px 14px; background: #1F4E79; color: #fff; border: 0; cursor: pointer; border-radius: 4px;">Imprimir / Guardar como PDF</button>
         <button onclick="window.close()" style="padding: 8px 14px; background: #6c757d; color: #fff; border: 0; cursor: pointer; border-radius: 4px;">Cerrar</button>
     </div>
 
+    {{-- Encabezado institucional del reporte oficial de inscripciones. --}}
     <div class="header">
         <h2>INSTITUTO TECNOLÓGICO SACABA</h2>
         <h3>SISTEMA DE ADMISIONES E INSCRIPCIONES</h3>
         <p style="margin: 2px 0; font-weight: bold;">NÓMINA OFICIAL DE INSCRIPTOS</p>
     </div>
 
+    {{-- Resume los filtros aplicados y registra cuándo se generó este documento. --}}
     <div class="info-reporte">
         <p><strong>Carrera:</strong> {{ $carreraSeleccionada?->nombreConResolucionMinisterial() ?? 'TODAS LAS CARRERAS' }}</p>
         <p><strong>Gestión Académica:</strong> {{ $gestionSeleccionada ? 'Gestión '.$gestionSeleccionada->gestion.' - Periodo '.$gestionSeleccionada->periodo : 'TODAS LAS GESTIONES' }}</p>
@@ -46,6 +50,7 @@
         <p><strong>Fecha de emisión:</strong> {{ now()->format('d/m/Y H:i') }}</p>
     </div>
 
+    {{-- Presenta una fila por inscripción y conserva el estado activo, deshabilitado o reemplazado. --}}
     <table>
         <thead>
             <tr>
@@ -88,10 +93,12 @@
         </tbody>
     </table>
 
+    {{-- El total corresponde a los registros incluidos en este reporte, no a todas las inscripciones del sistema. --}}
     <div style="margin-top: 12px; font-size: 10px;">
         <strong>Total de registros en el reporte:</strong> {{ $inscritosData->count() }} inscripciones.
     </div>
 
+    {{-- Espacio para validar el reporte mediante firma y sello de Dirección Académica. --}}
     <div class="footer">
         <div class="firma-box">Firma / Sello Dirección Académica</div>
     </div>

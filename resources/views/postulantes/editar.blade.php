@@ -1,6 +1,8 @@
+{{-- Carga los estilos y el código común de la aplicación mediante Vite. --}}
 @vite(['resources/sass/app.scss', 'resources/js/app.js'])
 
 <div class="itsa-postulante-public">
+    {{-- Encabezado institucional y acceso para volver a la consulta del postulante. --}}
     <header class="public-hero">
         <div class="container py-3">
             <div class="d-flex justify-content-between align-items-center flex-wrap gap-3">
@@ -25,27 +27,34 @@
     <main class="container py-4 py-lg-5">
         <div class="row">
             <div class="col-12">
-        {{-- ALERTAS Y NOTIFICACIONES --}}
+        {{-- Muestra mensajes de éxito o error preparados por la aplicación. --}}
         @include('partials.sweetalert-messages')
-        {{-- BANNER DE INFORMACIÓN PARA EDICIÓN --}}
+        {{-- Identifica el expediente que se está editando y explica que los archivos actuales se conservan
+             mientras no se seleccione un reemplazo. --}}
         <div class="alert alert-warning shadow-sm border-left-warning mb-4" role="alert">
             <h5 class="font-weight-bold"><i class="fas id-card mr-1 text-warning"></i> Panel de Actualización de Expediente</h5>
             Estás editando la información correspondiente al postulante <strong>{{ $postulante->nombre }} {{ $postulante->primerapellido }}</strong> (C.I.: {{ $postulante->ci }}). 
             <br>Puedes modificar cualquier campo de texto o reemplazar los documentos digitales según sea necesario. Los archivos actuales se mantendrán si no seleccionas archivos nuevos.
         </div>
 
+        {{-- Envía los cambios del expediente existente. Laravel recibe POST y @method('PUT') indica que
+             la operación actualiza el registro identificado por su id, incluidos posibles archivos nuevos. --}}
         <form action="{{ route('postulantes.update', $postulante->id_postulante) }}" method="POST" enctype="multipart/form-data" id="formEditarPostulante"
             novalidate
             data-validation-errors="{{ json_encode($errors->messages(), JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP | JSON_HEX_TAG) }}">
+            {{-- Protege la solicitud y hace que Laravel la procese como una actualización. --}}
             @csrf
             @method('PUT')
+
+            {{-- Estas marcas indican qué archivos guardados pidió quitar la persona.
+                 Si se conserva el valor 0, el servidor puede mantener el archivo actual. --}}
             <input type="hidden" name="eliminar_foto" id="eliminar_foto" value="{{ old('eliminar_foto', 0) }}">
             <input type="hidden" name="eliminar_path_ci_frontal" id="eliminar_path_ci_frontal" value="{{ old('eliminar_path_ci_frontal', 0) }}">
             <input type="hidden" name="eliminar_path_ci_reverso" id="eliminar_path_ci_reverso" value="{{ old('eliminar_path_ci_reverso', 0) }}">
             <input type="hidden" name="eliminar_path_nacimiento" id="eliminar_path_nacimiento" value="{{ old('eliminar_path_nacimiento', 0) }}">
             <input type="hidden" name="eliminar_path_diploma" id="eliminar_path_diploma" value="{{ old('eliminar_path_diploma', 0) }}">
 
-            {{-- CABECERA / FOTOGRAFÍA --}}
+            {{-- Fotografía y resumen: permite revisar la imagen actual, reemplazarla o solicitar su eliminación. --}}
             <div class="card card-outline card-primary shadow-sm mb-4">
                 <div class="card-header d-flex justify-content-between align-items-center">
                     <h3 class="card-title font-weight-bold text-primary"><i class="fas fa-camera mr-1"></i> Cabecera / Fotografía</h3>
@@ -55,6 +64,7 @@
                         <div class="col-md-4 mb-3">
                             <div class="photo-preview-box mb-2" id="photoPreview"
                                 data-existing-url="{{ $postulante->foto ? asset('storage/'.$postulante->foto) : '' }}">
+                                {{-- Muestra la fotografía guardada; si no existe, presenta un indicador vacío. --}}
                                 @if($postulante->foto)
                                     <img src="{{ asset('storage/'.$postulante->foto) }}" alt="Fotografía actual">
                                 @else
@@ -67,6 +77,7 @@
                                     <i class="fas fa-upload mr-1"></i> Cambiar fotografía (Opcional)
                                 </label>
                             </div>
+                            {{-- El campo solo envía una imagen nueva cuando se selecciona un archivo. --}}
                             <input type="file" name="fotografia" id="foto" class="d-none" accept="image/jpeg,image/png">
                             <button type="button" id="btnRemovePhoto"
                                 class="btn btn-sm btn-outline-danger btn-block mt-2 {{ $postulante->foto ? '' : 'd-none' }}">
@@ -87,7 +98,8 @@
                 </div>
             </div>
 
-            {{-- I. DATOS PERSONALES --}}
+            {{-- I. Datos personales: los valores actuales aparecen como base para la edición.
+                 old() conserva lo escrito si el servidor devuelve el formulario por un error de validación. --}}
             <div class="card card-outline card-primary shadow-sm mb-4">
                 <div class="card-header"><h3 class="card-title font-weight-bold text-primary"><i class="fas fa-address-card mr-1"></i> I. Datos Personales</h3></div>
                 <div class="card-body">
@@ -100,6 +112,7 @@
                             <label for="lugarexpedicion" class="font-weight-bold">Lugar expedición: <span class="text-danger">*</span></label>
                             <select name="lugarexpedicion" id="lugarexpedicion" class="form-control custom-select" required>
                                 <option value="">-- Seleccionar --</option>
+                                {{-- Genera las opciones de expedición y mantiene seleccionada la opción enviada o guardada. --}}
                                 @foreach(['CB','LP','SC','OR','PT','CH','TJ','BE','PD','OTRO'] as $departamento)
                                     <option value="{{ $departamento }}" @selected(old('lugarexpedicion', $postulante->lugarexpedicion) === $departamento)>{{ $departamento }}</option>
                                 @endforeach
@@ -120,7 +133,7 @@
                 </div>
             </div>
 
-            {{-- II. DATOS DE CONTACTO --}}
+            {{-- II. Datos de contacto para comunicarse con el postulante y con su persona de referencia. --}}
             <div class="card card-outline card-info shadow-sm mb-4">
                 <div class="card-header"><h3 class="card-title font-weight-bold text-info"><i class="fas fa-phone mr-1"></i> II. Datos de Contacto</h3></div>
                 <div class="card-body">
@@ -136,7 +149,7 @@
                 </div>
             </div>
 
-            {{-- III. DATOS DE EGRESO --}}
+            {{-- III. Datos de la unidad educativa y del año en que egresó el postulante. --}}
             <div class="card card-outline card-info shadow-sm mb-4">
                 <div class="card-header"><h3 class="card-title font-weight-bold text-info"><i class="fas fa-school mr-1"></i> III. Datos de Egreso</h3></div>
                 <div class="card-body">
@@ -146,6 +159,7 @@
                             <label for="caractercolegio" class="font-weight-bold">Carácter colegio: <span class="text-danger">*</span></label>
                             <select name="caractercolegio" id="caractercolegio" class="form-control custom-select" required>
                                 <option value="">-- Seleccionar --</option>
+                                {{-- Limita la selección a los tipos de unidad educativa admitidos. --}}
                                 @foreach(['Fiscal','Particular','Convenio'] as $caracter)
                                     <option value="{{ $caracter }}" @selected(old('caractercolegio', $postulante->caractercolegio) === $caracter)>{{ $caracter }}</option>
                                 @endforeach
@@ -156,7 +170,7 @@
                 </div>
             </div>
 
-            {{-- IV. DATOS DE ADMISIÓN --}}
+            {{-- IV. Datos de admisión: gestión, grupo, carrera, diploma y comprobante de esta postulación. --}}
             <div class="card card-outline card-success shadow-sm mb-4">
                 <div class="card-header"><h3 class="card-title font-weight-bold text-success"><i class="fas fa-file-alt mr-1"></i> IV. Datos de Admisión</h3></div>
                 <div class="card-body">
@@ -167,6 +181,8 @@
                             <input type="hidden" name="id_gestionacademica" value="{{ $gestionActiva->id_gestionacademica }}">
                         </div>
                         <div class="col-md-4 mb-3">
+                            {{-- Turno y paralelo se completan según la carrera y las opciones disponibles.
+                                 JavaScript recibe los valores actuales para mostrarlos al abrir la edición. --}}
                             <label for="turno" class="font-weight-bold">Turno: <span class="text-danger">*</span></label>
                             <select name="turno" id="turno" class="form-control custom-select" required disabled>
                                 <option value="">Selecciona un turno</option>
@@ -183,12 +199,14 @@
                             <label for="id_carrera" class="font-weight-bold">Carrera a postular: <span class="text-danger">*</span></label>
                             <select name="id_carrera" id="id_carrera" class="form-control custom-select" required>
                                 <option value="">-- Seleccionar carrera --</option>
+                                {{-- Recorre las carreras disponibles y conserva la carrera asociada a esta ficha. --}}
                                 @foreach($carreras ?? [] as $carrera)
                                     @php
                                         $resoluciones = $carrera->resolucionesMinisteriales();
                                     @endphp
                                     <option value="{{ $carrera->id_carrera }}" @selected(old('id_carrera', $postulante->id_carrera) == $carrera->id_carrera)>
                                         {{ $carrera->nombre }}
+                                        {{-- La resolución se muestra únicamente cuando la carrera tiene una registrada. --}}
                                         @if($resoluciones)
                                             · R.M. {{ implode(' / ', $resoluciones) }}
                                         @endif
@@ -214,7 +232,8 @@
                 </div>
             </div>
 
-            {{-- V. DOCUMENTACIÓN DIGITAL REQUERIDA --}}
+            {{-- V. Documentos digitales. No son obligatorios al editar si ya hay una copia guardada:
+                 se reemplazan solo al elegir otra imagen, y cada vista previa permite revisar el archivo actual. --}}
             <div class="card card-outline card-warning shadow-sm mb-4">
                 <div class="card-header">
                     <h3 class="card-title font-weight-bold text-warning">
@@ -227,6 +246,7 @@
                     </div>
                     <div class="row">
                         <div class="col-md-6 mb-3">
+                            {{-- Anverso de la cédula: muestra el archivo actual o permite seleccionar uno nuevo. --}}
                             <label for="path_ci_frontal" class="font-weight-bold">Carnet de identidad, anverso:</label>
                             <div class="custom-file">
                                 <input type="file" name="path_ci_frontal" id="path_ci_frontal" class="custom-file-input" accept="image/jpeg,image/png">
@@ -235,6 +255,7 @@
                             <div id="preview_ci_frontal" class="document-preview mt-3 {{ $postulante->path_ci_frontal ? '' : 'd-none' }}"
                                 data-existing-url="{{ $postulante->path_ci_frontal ? asset('storage/'.$postulante->path_ci_frontal) : '' }}"
                                 data-existing-name="{{ $postulante->path_ci_frontal ? basename($postulante->path_ci_frontal) : '' }}">
+                                {{-- Si hay un archivo, el enlace permite abrirlo aparte; si no, JavaScript podrá mostrar una vista previa nueva. --}}
                                 @if($postulante->path_ci_frontal)
                                     <a href="{{ asset('storage/'.$postulante->path_ci_frontal) }}" target="_blank" rel="noopener">
                                         <img src="{{ asset('storage/'.$postulante->path_ci_frontal) }}" class="img-fluid rounded" alt="Cédula de identidad, anverso">
@@ -255,6 +276,7 @@
                         </div>
 
                         <div class="col-md-6 mb-3">
+                            {{-- Reverso de la cédula: mantiene la misma lógica de conservación y reemplazo. --}}
                             <label for="path_ci_reverso" class="font-weight-bold">Carnet de identidad, reverso:</label>
                             <div class="custom-file">
                                 <input type="file" name="path_ci_reverso" id="path_ci_reverso" class="custom-file-input" accept="image/jpeg,image/png">
@@ -283,6 +305,7 @@
                         </div>
 
                         <div class="col-md-6 mb-3">
+                            {{-- Certificado de nacimiento: conserva el archivo existente si no se selecciona otro. --}}
                             <label for="path_nacimiento" class="font-weight-bold">Certificado de Nacimiento:</label>
                             <div class="custom-file">
                                 <input type="file" name="path_nacimiento" id="path_nacimiento" class="custom-file-input" accept="image/jpeg,image/png">
@@ -311,6 +334,7 @@
                         </div>
 
                         <div class="col-md-6 mb-3">
+                            {{-- Diploma de bachiller: permite revisar el documento guardado o reemplazarlo. --}}
                             <label for="path_diploma" class="font-weight-bold">Título / Diploma de Bachiller:</label>
                             <div class="custom-file">
                                 <input type="file" name="path_diploma" id="path_diploma" class="custom-file-input" accept="image/jpeg,image/png">
@@ -341,6 +365,7 @@
                     </div>
                 </div>
                 <div class="card-footer bg-light text-right">
+                    {{-- Actualiza el expediente con los cambios o regresa a la consulta sin enviar el formulario. --}}
                     <button type="submit" class="btn btn-success font-weight-bold mr-2 shadow-sm">
                         <i class="fas fa-sync-alt mr-1"></i> Actualizar Formulario
                     </button>
@@ -354,15 +379,18 @@
 
     </main>
 </div>
+{{-- Carga las reglas visuales compartidas y las propias de la pantalla de edición. --}}
 <link rel="stylesheet" href="{{ asset('css/postulantes/formularios.css') }}">
 <link rel="stylesheet" href="{{ asset('css/postulantes/edicion.css') }}">
 
 <script>
+    // Entrega a los scripts del formulario los errores del servidor y los valores iniciales de turno y paralelo.
     window.postulanteValidationErrors = @json($errors->messages());
     window.opcionesTurnosCarrera = @json($opcionesTurnos ?? []);
     window.turnoPostulacionInicial = @json(old('turno', $postulante->turno));
     window.paraleloPostulacionInicial = @json(old('paralelo', $postulante->paralelo));
 </script>
+{{-- Carga las alertas compartidas y los scripts que gestionan grupos y campos del postulante. --}}
 @include('partials.sweetalert-assets')
 <script src="{{ asset('js/postulantes/turnos-postulacion.js') }}"></script>
 <script src="{{ asset('js/postulantes/postulante-form.js') }}"></script>

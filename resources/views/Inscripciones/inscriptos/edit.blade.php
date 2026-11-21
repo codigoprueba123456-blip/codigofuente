@@ -7,6 +7,7 @@
 @stop
 
 @section('content')
+    {{-- Presenta los errores de validación sin perder los datos que la persona ya había ingresado. --}}
     @if ($errors->any())
         <div class="alert alert-danger">
             <strong>No se pudo guardar la ficha.</strong>
@@ -18,10 +19,12 @@
         </div>
     @endif
 
+    {{-- Actualiza una inscripción existente; el método PUT identifica que no se está creando otra. --}}
     <form method="POST" action="{{ route('inscriptos.update', $inscripcion->id_inscrito) }}">
         @csrf
         @method('PUT')
 
+        {{-- Datos personales compartidos por las inscripciones de la misma persona. --}}
         <div class="card card-outline card-primary">
             <div class="card-header">
                 <h3 class="card-title">Datos personales</h3>
@@ -84,6 +87,7 @@
             </div>
         </div>
 
+        {{-- Datos escolares, de contacto y académicos propios de esta inscripción. --}}
         <div class="card card-outline card-info">
             <div class="card-header">
                 <h3 class="card-title">Datos académicos y de contacto</h3>
@@ -120,6 +124,7 @@
                         <input id="parentescocontacto" name="parentescocontacto" class="form-control" value="{{ old('parentescocontacto', $inscripcion->parentescocontacto) }}">
                     </div>
                     <div class="col-md-4 form-group">
+                        {{-- La carrera determina el régimen y, por tanto, qué niveles se pueden seleccionar. --}}
                         <label for="id_carrera">Carrera *</label>
                         <select id="id_carrera" name="id_carrera" class="form-control" required>
                             @foreach ($carreras as $carrera)
@@ -128,6 +133,7 @@
                         </select>
                     </div>
                     <div class="col-md-4 form-group">
+                        {{-- La gestión determina el periodo académico al que pertenece esta inscripción. --}}
                         <label for="id_gestionacademica">Gestión académica *</label>
                         <select id="id_gestionacademica" name="id_gestionacademica" class="form-control" required>
                             @foreach ($gestiones as $gestion)
@@ -138,12 +144,14 @@
                         </select>
                     </div>
                     <div class="col-md-4 form-group">
+                        {{-- Los niveles se generan según el régimen de la carrera seleccionada. --}}
                         <label for="nivelinicio">Nivel de estudio *</label>
                         <select id="nivelinicio" name="nivelinicio" class="form-control" data-nivel-carrera="id_carrera" data-initial-value="{{ old('nivelinicio', $inscripcion->nivelinicio ?? 1) }}" data-placeholder="Seleccione un nivel" required>
                             <option value="">Seleccione un nivel</option>
                         </select>
                     </div>
                     <div class="col-md-4 form-group">
+                        {{-- El turno y paralelo disponibles dependen de la carrera, el nivel y los cupos vigentes. --}}
                         <label for="turno">Turno *</label>
                         <select id="turno" name="turno" class="form-control @error('turno') is-invalid @enderror" required disabled>
                             <option value="">Seleccione primero carrera y nivel</option>
@@ -167,6 +175,7 @@
                         <input type="date" id="fecha" name="fecha" class="form-control" value="{{ old('fecha', $inscripcion->fecha ? \Illuminate\Support\Carbon::parse($inscripcion->fecha)->format('Y-m-d') : '') }}" required>
                     </div>
                     <div class="col-md-4 form-group">
+                        {{-- El comprobante se conserva como dato de inscripción y no puede duplicarse en otra inscripción activa. --}}
                         <label for="deposito">Comprobante / voucher *</label>
                         <input id="deposito" name="deposito" class="form-control" value="{{ old('deposito', $inscripcion->deposito) }}" required>
                         <small class="form-text text-muted">Solo se aceptan comprobantes que no estén usados por otra inscripción activa.</small>
@@ -193,6 +202,7 @@
                         </select>
                     </div>
                 </div>
+                {{-- La edición actualiza datos compartidos, pero no carga ni reemplaza fotografías o documentos. --}}
                 <p class="text-muted mb-0"><small>Los cambios personales se reflejarán en las demás carreras del mismo estudiante. No se muestran ni modifican fotografías o documentos.</small></p>
             </div>
             <div class="card-footer">
@@ -205,6 +215,7 @@
 
     @push('js')
     <script>
+        // Pasa al selector externo los grupos disponibles y los valores que deben quedar elegidos inicialmente.
         window.opcionesTurnosInscripcionEditar = @json($opcionesTurnosCarrera);
         window.turnoInscripcionInicial = @json(old('turno', $turnoInicial));
         window.paraleloInscripcionInicial = @json(old('paralelo', $paraleloInicial));

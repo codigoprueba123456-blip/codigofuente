@@ -18,13 +18,16 @@
     <div class="row">
         <div class="col-12">
 
+            {{-- Muestra los mensajes del proceso y conserva los valores del formulario si la validación falla. --}}
             @include('partials.sweetalert-messages')
 
+            {{-- Busca a la persona y define qué postulaciones pendientes se convertirán en inscripciones.
+                 La acción de credenciales permite al servidor reutilizar una cuenta existente sin crear otra. --}}
             <form action="{{ route('estudiante_nuevo_postulacion.store') }}" method="POST" id="formPostulanteNuevo">
                 @csrf
                 <input type="hidden" name="accion_credenciales" id="accion_credenciales" value="">
 
-                {{-- BLOQUE PRINCIPAL CONECTADO: BÚSQUEDA, CARRERAS Y VOUCHER --}}
+                {{-- Busca por CI o nombre y permite decidir, carrera por carrera, cuáles se inscriben ahora. --}}
                 <div class="card card-outline card-primary shadow-sm mb-4">
                     <div class="card-header">
                         <h3 class="card-title font-weight-bold text-primary">
@@ -33,7 +36,7 @@
                     </div>
                     <div class="card-body">
                         <div class="row">
-                            {{-- 1. Barra de Búsqueda Flexible --}}
+                            {{-- Los resultados se cargan desde el servidor; el CI agrupa todas las postulaciones de una persona. --}}
                             <div class="col-md-5 mb-3">
                                 <label for="postulante_search" class="font-weight-bold">Buscar Postulante (C.I. o Nombre): <span class="text-danger">*</span></label>
                                 <div class="input-group">
@@ -77,6 +80,8 @@
                     </div>
                     <div class="card-body">
                         <div class="row text-center">
+                            {{-- Estas áreas muestran en pantalla los archivos ya guardados en la postulación seleccionada.
+                                 Aquí se consultan los documentos; no se vuelven a cargar desde este formulario. --}}
                             <div class="col-md-3 mb-3">
                                 <span class="small font-weight-bold text-dark d-block mb-1">Fotografía</span>
                                 <div id="preview_foto" class="border rounded p-2 bg-light shadow-sm" style="min-height: 110px; display: flex; align-items: center; justify-content: center;">
@@ -111,7 +116,7 @@
                     </div>
                 </div>
 
-                {{-- DATOS PERSONALES --}}
+                {{-- Datos personales que se precargan desde la postulación elegida y se envían con la inscripción. --}}
                 <div class="card card-outline card-secondary shadow-sm mb-4">
                     <div class="card-header"><h3 class="card-title font-weight-bold"><i class="fas fa-address-card mr-1"></i> 3. Datos Personales</h3></div>
                     <div class="card-body">
@@ -146,7 +151,7 @@
                     </div>
                 </div>
 
-                {{-- CONTACTO Y COLEGIO --}}
+                {{-- Información de contacto y procedencia escolar asociada a la persona postulante. --}}
                 <div class="card card-outline card-secondary shadow-sm mb-4">
                     <div class="card-header"><h3 class="card-title font-weight-bold"><i class="fas fa-phone mr-1"></i> 4. Contacto y Procedencia</h3></div>
                     <div class="card-body">
@@ -168,7 +173,7 @@
                     </div>
                 </div>
 
-                {{-- DATOS ACADÉMICOS --}}
+                {{-- Fecha, diploma, beca y gestión para crear la inscripción a partir de las postulaciones seleccionadas. --}}
                 <div class="card card-outline card-success shadow-sm mb-4">
                     <div class="card-header"><h3 class="card-title font-weight-bold text-success"><i class="fas fa-graduation-cap mr-1"></i> 5. Datos Académicos</h3></div>
                     <div class="card-body">
@@ -210,6 +215,7 @@
 
 @push('js')
     <script>
+    // Guarda temporalmente los resultados de búsqueda y el estado de la selección mientras se completa el formulario.
         let postulantesData = [];
         const searchInput = document.getElementById('postulante_search');
         const dropdownResults = document.getElementById('customDropdownResults');
@@ -227,7 +233,7 @@
         let solicitudBusquedaController = null;
         const textoBotonBusqueda = '<i class="fas fa-search mr-1"></i> Buscar';
 
-        // Prevenir que presionar ENTER envíe el formulario por accidente
+        // Evita enviar el formulario al presionar Enter mientras el cursor está en la búsqueda de postulantes.
         formPostulante?.addEventListener('keydown', function(e) {
             if (e.key === 'Enter' && document.activeElement === searchInput) {
                 e.preventDefault();
@@ -235,7 +241,8 @@
             }
         });
 
-        // Función para renderizar archivos o imágenes
+        // Muestra un archivo guardado: las imágenes se previsualizan y los demás formatos se ofrecen como enlace.
+        // Los segmentos de la ruta se codifican para que nombres con espacios u otros caracteres se abran correctamente.
         function renderizarArchivoDirecto(containerId, ruta) {
             const container = document.getElementById(containerId);
             if (!container) return;
@@ -264,6 +271,8 @@
             }
         }
 
+        // Construye una opción por cada carrera pendiente. Si se elige inscribirla, su voucher pasa a ser obligatorio;
+        // si se deja pendiente, el voucher no se envía como requisito de esta operación.
         function renderizarPostulaciones(postulaciones) {
             postulacionesContainer.replaceChildren();
 
@@ -345,6 +354,7 @@
             });
         }
 
+        // Reemplaza la lista de búsqueda por un mensaje de espera, resultado vacío o error.
         function mostrarResultadoBusqueda(mensaje, clase = 'text-muted') {
             dropdownResults.replaceChildren();
             const resultado = document.createElement('div');
@@ -354,6 +364,7 @@
             dropdownResults.style.display = 'block';
         }
 
+        // Borra selección, documentos y decisiones anteriores para no mezclar datos de dos personas distintas.
         function limpiarSeleccionPostulante() {
             currentPostulacionesCI = [];
             usuarioExistenteSeleccionado = false;
@@ -368,6 +379,8 @@
             });
         }
 
+        // Consulta nuevamente las postulaciones vigentes antes de inscribir.
+        // El identificador de solicitud y AbortController impiden que una respuesta antigua reemplace una búsqueda más reciente.
         async function buscarPostulanteActualizado() {
             const query = searchInput.value.trim();
             if (!query) {
@@ -461,7 +474,8 @@
             dropdownResults.style.display = 'none';
         });
 
-        // Al seleccionar un postulante por su C.I.
+        // Al seleccionar un CI, agrupa sus postulaciones y usa la primera como fuente de los datos personales compartidos.
+        // También detecta si ya existe un estudiante para reutilizar su ficha y evitar crear una cuenta duplicada.
         document.addEventListener('click', function(e) {
             const target = e.target.closest('.select-postulante');
             if (!target) {
@@ -473,11 +487,11 @@
 
             const ciSeleccionado = target.dataset.ci;
             
-            // Obtener todas las inscripciones/carreras asociadas a este C.I.
+            // Conserva todas las carreras del CI elegido para decidir cuáles se inscriben en esta operación.
             currentPostulacionesCI = postulantesData.filter(item => item.ci === ciSeleccionado);
             if (currentPostulacionesCI.length === 0) return;
 
-            // Tomamos el primer registro para rellenar los datos personales comunes
+            // La primera postulación sirve como fuente de los datos personales que comparten las demás.
             const p = currentPostulacionesCI[0];
             usuarioExistenteSeleccionado = Boolean(p.usuarioExistente);
             usuarioSeleccionado = p.usuario || '';
@@ -496,7 +510,7 @@
             dropdownResults.style.display = 'none';
             renderizarPostulaciones(currentPostulacionesCI);
 
-            // Rellenar demás campos del formulario
+            // Copia los datos comunes a los campos editables para que el servidor reciba el expediente completo.
             const campos = [
                 'nombre', 'primerapellido', 'segundoapellido', 'ci', 'lugarexpedicion',
                 'fechanacimiento', 'lugarnacimiento', 'nacionalidad', 'sexo', 'direccion',
@@ -514,7 +528,7 @@
                 document.getElementById('id_gestionacademica').value = p.idgestion;
             }
 
-            // Renderizar documentos
+            // Muestra en las áreas de vista previa los documentos guardados en la postulación.
             renderizarArchivoDirecto('preview_foto', p.foto);
             renderizarArchivoDirecto('preview_ci', p.pathci);
             renderizarArchivoDirecto('preview_ci_reverso', p.pathciReverso);
@@ -522,7 +536,7 @@
             renderizarArchivoDirecto('preview_dip', p.pathdip);
         });
 
-        // Botón limpiar búsqueda
+        // Reinicia la consulta y cancela cualquier solicitud pendiente para empezar con otra persona.
         btnClearSearch?.addEventListener('click', function() {
             searchInput.value = '';
             solicitudBusquedaId++;
@@ -535,6 +549,8 @@
             dropdownResults.style.display = 'none';
         });
 
+        // Antes de enviar, exige al menos una carrera y resuelve si se conservan o restablecen credenciales existentes.
+        // La confirmación reenvía el formulario una sola vez; después se deshabilita el botón para evitar duplicados.
         formPostulante?.addEventListener('submit', async function(event) {
             if (reenvioConfirmado) {
                 reenvioConfirmado = false;

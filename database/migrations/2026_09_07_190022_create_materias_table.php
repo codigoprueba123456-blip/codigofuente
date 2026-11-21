@@ -6,9 +6,13 @@ use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
 {
+    /**
+     * Crea las materias y las vincula con la carrera a la que pertenecen.
+     */
     public function up(): void
     {
         Schema::create('materia', function (Blueprint $table) {
+            // La carrera, el nivel y el número permiten ordenar la oferta académica.
             $table->id('id_materia');
             $table->string('codigo', 255)->nullable();
             $table->string('nombre', 255);
@@ -18,7 +22,7 @@ return new class extends Migration
             $table->integer('nivel')->nullable();
             $table->integer('numero')->nullable();
 
-            // Claves Foráneas
+            // Cada materia forma parte de una carrera; se elimina si se elimina esa carrera.
             $table->unsignedBigInteger('id_carrera');
             $table->foreign('id_carrera')
                   ->references('id_carrera')
@@ -29,6 +33,9 @@ return new class extends Migration
         });
     }
 
+    /**
+     * Elimina la tabla de materias al revertir esta migración.
+     */
     public function down(): void
     {
         Schema::dropIfExists('materia');

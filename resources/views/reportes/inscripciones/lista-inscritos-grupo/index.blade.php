@@ -7,5 +7,6 @@
 @stop
 
 @section('content')
+    {{-- Presenta asignaciones de estudiantes al grupo elegido dentro de la carrera, gestión y nivel indicados. --}}
     @include('reportes.inscripciones.formulario')
 @stop

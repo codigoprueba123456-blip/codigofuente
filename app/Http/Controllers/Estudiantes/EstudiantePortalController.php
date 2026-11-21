@@ -13,6 +13,11 @@ use Illuminate\View\View;
 
 class EstudiantePortalController extends Controller
 {
+    /**
+     * Muestra el historial de inscripciones y las materias de una gestión elegida.
+     * Los parámetros recibidos por URL se contrastan con las opciones del estudiante
+     * para evitar mostrar una carrera o gestión ajena a su historial.
+     */
     public function estadoInscripcion(Request $request): View
     {
         $persona = $this->personaAutenticada();
@@ -24,6 +29,8 @@ class EstudiantePortalController extends Controller
         $nivel = null;
 
         if ($persona?->estudiante) {
+            // Se conserva el historial completo, incluidas las inscripciones reemplazadas,
+            // para que el estudiante pueda reconocer los cambios de carrera.
             $inscripciones = DB::table('inscrito as i')
                 ->join('carreras as c', 'c.id_carrera', '=', 'i.id_carrera')
                 ->join('gestionacademica as ga', 'ga.id_gestionacademica', '=', 'i.id_gestionacademica')
@@ -58,6 +65,7 @@ class EstudiantePortalController extends Controller
                     'cr.resolucionministerial3 as resolucion_reemplazo3',
                 ])
                 ->map(function (object $inscripcion): object {
+                    // Añade las resoluciones al nombre para identificar formalmente la carrera.
                     $inscripcion->carrera = Carrera::formatearNombreConResolucion(
                         $inscripcion->carrera,
                         $inscripcion->resolucionministerial1,
@@ -76,6 +84,8 @@ class EstudiantePortalController extends Controller
                     return $inscripcion;
                 });
 
+            // Las opciones de consulta usan solo inscripciones vigentes; las reemplazadas
+            // permanecen arriba como parte del historial, pero no se ofrecen para selección.
             $inscripcionesVigentes = $inscripciones->whereNull('id_inscrito_reemplazo')->values();
             $carrerasPorId = Carrera::whereIn('id_carrera', $inscripcionesVigentes->pluck('id_carrera')->unique())
                 ->get()
@@ -89,6 +99,7 @@ class EstudiantePortalController extends Controller
                 $idCarrera = (int) ($carreras->first()->id_carrera ?? 0);
             }
 
+            // La gestión seleccionada debe pertenecer a la carrera escogida.
             $gestiones = GestionAcademica::query()
                 ->whereIn(
                     'id_gestionacademica',
@@ -121,6 +132,7 @@ class EstudiantePortalController extends Controller
                     ]);
 
                 if ($inscripcionSeleccionada) {
+                    // Las materias y los datos del grupo se consultan para la inscripción elegida.
                     $materias = DB::table('inscrito_materia as im')
                         ->join('materia as m', 'm.id_materia', '=', 'im.id_materia')
                         ->leftJoin('grupo as g', 'g.id_grupo', '=', 'im.id_grupo')
@@ -149,6 +161,8 @@ class EstudiantePortalController extends Controller
                         ->value('nivelinicio');
 
                     if ($nivel === null) {
+                        // Si no existe un nivel guardado para esta gestión, se estima según
+                        // la cantidad de gestiones previas de la misma carrera.
                         $nivel = DB::table('inscrito as i')
                             ->join('gestionacademica as ga', 'ga.id_gestionacademica', '=', 'i.id_gestionacademica')
                             ->where('i.id_persona', $persona->id_persona)
@@ -185,6 +199,10 @@ class EstudiantePortalController extends Controller
         ));
     }
 
+    /**
+     * Consulta los pagos vinculados a los comprobantes de inscripción del estudiante.
+     * Este método solo prepara información para mostrar; no registra ni crea pagos.
+     */
     public function historialEconomico(Request $request): View
     {
         $persona = $this->personaAutenticada();
@@ -193,6 +211,7 @@ class EstudiantePortalController extends Controller
         $carreraSeleccionada = null;
 
         if ($persona?->estudiante) {
+            // Solo se permiten carreras con inscripciones vigentes del estudiante.
             $carreras = Carrera::whereIn(
                 'id_carrera',
                 DB::table('inscrito')
@@ -209,6 +228,7 @@ class EstudiantePortalController extends Controller
                 ? $idCarrera
                 : (int) ($carreras->first()->id_carrera ?? 0);
 
+            // Se agrupan los detalles por pago para presentar un único importe y concepto.
             $detalles = DB::table('detalle')
                 ->select('id_pago')
                 ->selectRaw('SUM(monto) as monto')
@@ -222,6 +242,8 @@ class EstudiantePortalController extends Controller
                 ->selectRaw('MIN(pago.pagado) as pagado')
                 ->groupBy('pago.id_inscrito', 'pago.id_postulante');
 
+            // El historial se arma desde comprobantes existentes y se relaciona con pagos
+            // por inscripción o por postulante; aquí no se inserta ni modifica ningún pago.
             $pagos = DB::table('comprobante as cb')
                 ->join('gestionacademica as ga', 'ga.id_gestionacademica', '=', 'cb.id_gestionacademica')
                 ->join('carreras as c', 'c.id_carrera', '=', 'cb.id_carrera')
@@ -266,6 +288,9 @@ class EstudiantePortalController extends Controller
         ));
     }
 
+    /**
+     * Abre la ficha personal con los datos de la persona autenticada.
+     */
     public function fileEstudiante(): View
     {
         $persona = $this->personaAutenticada();
@@ -273,11 +298,17 @@ class EstudiantePortalController extends Controller
         return view('estudiantes.file_estudiante.index', compact('persona'));
     }
 
+    /**
+     * Valida y guarda los datos editables de contacto y antecedentes escolares.
+     * Los cambios en la persona y en su ficha de estudiante se realizan juntos.
+     */
     public function actualizarFile(Request $request): RedirectResponse
     {
         $persona = $this->personaAutenticada();
+        // Evita actualizar información de una cuenta que no tenga ficha de estudiante.
         abort_unless($persona?->estudiante, 403, 'La cuenta no está vinculada a una ficha de estudiante.');
 
+        // Los límites y opciones permitidas se validan antes de iniciar la actualización.
         $datos = $request->validate([
             'direccion' => ['required', 'string', 'max:255'],
             'telefono' => ['nullable', 'string', 'max:20'],
@@ -291,6 +322,7 @@ class EstudiantePortalController extends Controller
             'egresocolegio' => ['nullable', 'integer', 'between:1900,2100'],
         ]);
 
+        // La transacción evita guardar solo una parte de los datos si ocurre un error.
         DB::transaction(function () use ($persona, $datos): void {
             $persona->update([
                 'direccion' => $datos['direccion'],
@@ -314,6 +346,9 @@ class EstudiantePortalController extends Controller
             ->with('success', 'Tus datos se actualizaron correctamente.');
     }
 
+    /**
+     * Obtiene la persona de la sesión junto con su ficha de estudiante, si existe.
+     */
     private function personaAutenticada(): ?Persona
     {
         $idPersona = request()->user()?->id_persona;

@@ -1,3 +1,4 @@
+{{-- La configuración define encabezados y campos para todas las variedades de reporte. --}}
 <div class="table-responsive mt-4">
     <table class="table table-bordered table-striped table-hover">
         <thead class="thead-light">

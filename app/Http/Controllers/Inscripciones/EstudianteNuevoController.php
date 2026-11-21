@@ -13,12 +13,16 @@ use Illuminate\Validation\Rule;
 
 class EstudianteNuevoController extends Controller
 {
+    /**
+     * Recibe el servicio que calcula los turnos y paralelos con cupos disponibles.
+     */
     public function __construct(private DisponibilidadTurnos $disponibilidadTurnos)
     {
     }
 
     /**
-     * Muestra la vista del formulario para registrar estudiante nuevo
+     * Prepara el formulario con la gestión vigente, las carreras habilitadas y sus grupos disponibles.
+     * Solo ofrece carreras y niveles que tienen al menos una combinación de turno y paralelo disponible.
      */
     public function index()
     {
@@ -68,6 +72,11 @@ class EstudianteNuevoController extends Controller
         ));
     }
 
+    /**
+     * Busca una ficha de estudiante por CI para precargar sus datos en el formulario.
+     * Si no encuentra una ficha, devuelve null y el formulario permite ingresar los datos manualmente;
+     * al guardar, el sistema vuelve a comprobar que el CI pueda registrarse.
+     */
     public function buscar(Request $request)
     {
         $ci = preg_replace('/[^A-Za-z0-9-]/', '', (string) $request->query('ci', ''));
@@ -105,8 +114,9 @@ class EstudianteNuevoController extends Controller
     }
 
     /**
-     * Guarda el registro en la base de datos
-     * Inserta en tabla personas y luego en tabla estudiante
+     * Valida y registra una inscripción inicial, reutilizando la ficha si el CI ya pertenece a un estudiante.
+     * Para una ficha nueva guarda también los documentos requeridos; luego registra la inscripción,
+     * su comprobante y los datos de pago dentro de una transacción.
      */
     public function store(Request $request)
     {
@@ -239,6 +249,7 @@ class EstudianteNuevoController extends Controller
             'path_diploma' => 'path_diploma',
             'path_bth' => 'path_bth',
         ];
+        // Controla el tamaño conjunto de los archivos, con un límite distinto si ya existe la ficha.
         $pesoTotal = collect(array_keys($camposDocumento))
             ->filter(fn (string $campo): bool => $request->hasFile($campo))
             ->sum(fn (string $campo): int => $request->file($campo)->getSize());
@@ -252,6 +263,7 @@ class EstudianteNuevoController extends Controller
 
         $turno = isset($validated['turno']) ? (int) $validated['turno'] : null;
         $paralelo = $validated['paralelo'] ?? null;
+        // Los archivos se guardan antes de la transacción; si el registro falla, los bloques de error los eliminan.
         $archivosGuardados = [];
         try {
             foreach ($camposDocumento as $campo => $columna) {
@@ -269,6 +281,7 @@ class EstudianteNuevoController extends Controller
                 $archivosGuardados[$columna] = $ruta;
             }
 
+            // La transacción comprueba nuevamente la gestión, los grupos y los comprobantes antes de insertar.
             DB::transaction(function () use (
                 $validated,
                 $archivosGuardados,
@@ -346,6 +359,7 @@ class EstudianteNuevoController extends Controller
                     ]);
                 }
 
+                // Crea la persona solo cuando el CI todavía no está registrado.
                 if (! $idPersona) {
                     $idPersona = DB::table('personas')->insertGetId([
                     'nombre' => $validated['nombre'],
@@ -367,6 +381,7 @@ class EstudianteNuevoController extends Controller
                 ]);
                 }
 
+                // Crea la ficha académica si falta; para una ficha existente solo actualiza el certificado BTH opcional.
                 if (! DB::table('estudiante')->where('id_persona', $idPersona)->exists()) {
                     DB::table('estudiante')->insert([
                     'id_persona' => $idPersona,
@@ -409,6 +424,7 @@ class EstudianteNuevoController extends Controller
                     ['nivelinicio' => $validated['nivelinicio'], 'created_at' => $ahora, 'updated_at' => $ahora]
                 );
 
+                // Registra la inscripción y vincula su comprobante y pago a la misma operación.
                 $idInscrito = DB::table('inscrito')->insertGetId([
                     'codigo' => date('Y').$idPersona,
                     'fecha' => $validated['fecha'],
@@ -460,6 +476,7 @@ class EstudianteNuevoController extends Controller
                 ? 'La inscripción se registró usando la ficha existente del estudiante.'
                 : 'Estudiante registrado correctamente.');
         } catch (\Illuminate\Validation\ValidationException $exception) {
+            // Evita dejar archivos huérfanos si la validación transaccional detecta un conflicto.
             Storage::disk('public')->delete(array_values($archivosGuardados));
             throw $exception;
         } catch (\Throwable $exception) {
@@ -472,6 +489,9 @@ class EstudianteNuevoController extends Controller
         }
     }
 
+    /**
+     * Impide asignar a la misma persona más de una inscripción o postulación en el mismo turno y gestión.
+     */
     private function validarTurnoNoRepetido(?int $idPersona, string $ci, int $gestionId, int $turno): void
     {
         $inscritoEnElTurno = $idPersona !== null && DB::table('inscrito')

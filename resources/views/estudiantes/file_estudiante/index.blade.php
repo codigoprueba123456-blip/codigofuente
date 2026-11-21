@@ -11,11 +11,13 @@
     <div class="card-body">
         @include('partials.sweetalert-messages')
 
+        {{-- La ficha solo se presenta cuando la cuenta está vinculada a un registro de estudiante. --}}
         @if (!$persona || !$persona->estudiante)
             <div class="alert alert-warning mb-0">
                 Esta cuenta todavía no está vinculada a una ficha de estudiante.
             </div>
         @else
+            {{-- Los datos de identidad se muestran solo para lectura; los campos restantes permiten actualizar contacto y colegio. --}}
             <form action="{{ route('estudiantes.file_estudiante.update') }}" method="POST">
                 @csrf
                 @method('PUT')

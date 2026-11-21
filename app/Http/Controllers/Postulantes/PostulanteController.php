@@ -19,12 +19,21 @@ use Illuminate\View\View;
 
 class PostulanteController extends Controller
 {
+    /**
+     * Recibe los servicios para revisar las fechas de postulación y los cupos de cada grupo.
+     * Se reutilizan en las acciones del controlador para mantener las reglas en un solo lugar.
+     */
     public function __construct(
         private VentanaPostulacionPublica $ventanaPostulacion,
         private DisponibilidadTurnos $disponibilidadTurnos
     ) {
     }
 
+    /**
+     * Muestra la página pública de bienvenida y consulta por CI cuando se envía uno.
+     * Primero busca postulaciones de la gestión vigente; si no encuentra, recupera el registro histórico
+     * más reciente para precargar los datos en una nueva postulación.
+     */
     public function bienvenida(Request $request): View
     {
         $gestionActual = $this->gestionActiva();
@@ -33,14 +42,16 @@ class PostulanteController extends Controller
 
         $tutorialVideoUrl = $this->tutorialVideoUrl();
 
-        // Manejo de la búsqueda por CI dentro de la pantalla de bienvenida (Delimitado a la gestión activa)
+        // Estos valores permiten mostrar la consulta vacía cuando todavía no se buscó un CI.
         $postulanteBase = null;
         $postulaciones = collect();
         $hayHistorialAnterior = false;
 
         if ($request->filled('ci_consulta') && $gestionActual && $postulacionAbierta) {
+            // Conserva solo letras, números y guiones para comparar el CI de forma consistente.
             $ciLimpio = preg_replace('/[^A-Za-z0-9\-]/', '', $request->input('ci_consulta'));
 
+            // La búsqueda principal se limita a la gestión actual y carga carrera y gestión para la vista.
             $postulaciones = Postulante::with(['carrera', 'gestion'])
                 ->where('ci', $ciLimpio)
                 ->where('id_gestionacademica', $gestionActual->id_gestionacademica)
@@ -49,6 +60,7 @@ class PostulanteController extends Controller
             $postulanteBase = $postulaciones->first();
 
             if (! $postulanteBase) {
+                // Si no hay una postulación vigente, busca el historial para reutilizar sus datos personales.
                 $postulanteBase = $this->buscarPostulanteHistorico($ciLimpio);
                 $hayHistorialAnterior = $postulanteBase !== null;
             }
@@ -65,6 +77,11 @@ class PostulanteController extends Controller
         ));
     }
 
+    /**
+     * Prepara el formulario de una nueva postulación.
+     * Envía solo carreras con turnos disponibles y, cuando se recibe un CI,
+     * excluye las carreras ya cursadas o postuladas por esa persona.
+     */
     public function create(Request $request): View|RedirectResponse
     {
         $gestionActiva = $this->gestionActiva();
@@ -75,6 +92,7 @@ class PostulanteController extends Controller
                 ->with('error', 'No hay una gestión académica activa para iniciar el registro.');
         }
 
+        // Calcula los turnos y paralelos disponibles para cada carrera en la gestión vigente.
         $opcionesTurnos = Carrera::activas()
             ->orderBy('nombre')
             ->get()
@@ -85,6 +103,7 @@ class PostulanteController extends Controller
                 ),
             ])
             ->all();
+        // En el selector solo aparecen carreras que tienen al menos una opción de grupo disponible.
         $carreras = Carrera::activas()
             ->whereIn('id_carrera', collect($opcionesTurnos)
                 ->filter(fn (array $opciones): bool => $opciones !== [])
@@ -99,12 +118,14 @@ class PostulanteController extends Controller
         if ($ciBuscado && $gestionActiva) {
             $ciLimpio = preg_replace('/[^A-Za-z0-9\-]/', '', $ciBuscado);
 
+            // Busca primero en la gestión vigente y usa el historial solo si aún no hay registro actual.
             $postulanteBase = Postulante::where('ci', $ciLimpio)
                 ->where('id_gestionacademica', $gestionActiva->id_gestionacademica)
                 ->orderByDesc('id_postulante')
                 ->first()
                 ?? $this->buscarPostulanteHistorico($ciLimpio);
 
+            // Obtiene las carreras ya asociadas a la persona para evitar postulaciones repetidas.
             $idPersona = DB::table('personas')->where('ci', $ciLimpio)->value('id_persona');
             $carrerasAsociadas = $idPersona
                 ? $this->carrerasRegistradasPorPersona((int) $idPersona)
@@ -134,6 +155,11 @@ class PostulanteController extends Controller
         ));
     }
 
+    /**
+     * Registra una nueva postulación para la gestión activa.
+     * Si no hay una gestión vigente, vuelve a la bienvenida con un mensaje; si el registro resulta correcto,
+     * dirige a la ficha imprimible del postulante.
+     */
     public function store(Request $request): RedirectResponse
     {
         $gestionActiva = $this->gestionActiva();
@@ -151,7 +177,9 @@ class PostulanteController extends Controller
     }
 
     /**
-     * Muestra el formulario para editar a un postulante existente.
+     * Prepara la edición de una postulación de la gestión vigente.
+     * También calcula los grupos disponibles y evita mostrar carreras ya inscritas o usadas
+     * en otras postulaciones de la misma persona, sin bloquear la carrera de esta ficha.
      */
     public function edit($id): View
     {
@@ -162,6 +190,7 @@ class PostulanteController extends Controller
             abort(404);
         }
 
+        // Incluye el postulante actual al revisar la disponibilidad para conservar su grupo cuando corresponda.
         $opcionesTurnos = Carrera::activas()
             ->orderBy('nombre')
             ->get()
@@ -176,6 +205,7 @@ class PostulanteController extends Controller
         $idPersona = DB::table('personas')
             ->where('ci', $this->normalizarCi((string) $postulante->ci))
             ->value('id_persona');
+        // Las carreras del historial estudiantil y las otras postulaciones no deben duplicarse.
         $carrerasAsociadas = $idPersona
             ? $this->carrerasRegistradasPorPersona((int) $idPersona)
             : collect();
@@ -199,6 +229,10 @@ class PostulanteController extends Controller
         return view('postulantes.editar', compact('postulante', 'carreras', 'gestionActiva', 'opcionesTurnos'));
     }
 
+    /**
+     * Muestra la ficha imprimible de una postulación.
+     * Solo permite consultar registros de la gestión activa y carga sus relaciones para completar el documento.
+     */
     public function imprimir(int $id): View
     {
         $postulante = Postulante::with(['carrera', 'gestionAcademica'])->findOrFail($id);
@@ -212,7 +246,9 @@ class PostulanteController extends Controller
     }
 
     /**
-     * Actualiza los datos del postulante y procesa archivos opcionales.
+     * Actualiza una postulación existente de la gestión vigente.
+     * Los archivos son opcionales: si no se reemplazan ni se eliminan, se conserva la copia guardada.
+     * Al finalizar, dirige a la ficha actualizada para que pueda revisarse o imprimirse.
      */
     public function update(Request $request, $id): RedirectResponse
     {
@@ -229,6 +265,10 @@ class PostulanteController extends Controller
             ->route('postulantes.pdf', $postulante->id_postulante);
     }
 
+    /**
+     * Elimina una postulación de la gestión vigente cuando todavía no forma parte de una inscripción activa.
+     * Si un estudiante ya depende de esa ficha, conserva el registro y muestra el motivo del rechazo.
+     */
     public function destroy(int $id): RedirectResponse
     {
         $postulante = Postulante::findOrFail($id);
@@ -238,6 +278,7 @@ class PostulanteController extends Controller
             abort(404);
         }
 
+        // No se debe borrar una ficha que todavía está vinculada al historial activo de un estudiante.
         $inscrito = DB::table('inscrito')
             ->where('id_postulante_origen', $postulante->id_postulante)
             ->where('activo', true)
@@ -258,6 +299,11 @@ class PostulanteController extends Controller
             ->with('success', 'La ficha de postulación se eliminó correctamente.');
     }
 
+    /**
+     * Valida y registra una postulación nueva junto con sus documentos y datos de pago.
+     * Las comprobaciones de cupos y duplicados se repiten dentro de la transacción para evitar
+     * que dos envíos simultáneos ocupen el mismo lugar o registren la misma carrera.
+     */
     private function registrarPostulante(Request $request, GestionAcademica $gestion): Postulante
     {
         $request->merge(['id_gestionacademica' => $gestion->id_gestionacademica]);
@@ -284,6 +330,7 @@ class PostulanteController extends Controller
         $datos['diplomabachiller'] = $request->boolean('diplomabachiller');
 
         return DB::transaction(function () use ($datos, $gestion): Postulante {
+            // Bloquea la gestión durante la última validación para reducir conflictos entre registros simultáneos.
             DB::table('gestionacademica')
                 ->where('id_gestionacademica', $gestion->id_gestionacademica)
                 ->lockForUpdate()
@@ -301,6 +348,7 @@ class PostulanteController extends Controller
                 (int) $datos['turno']
             );
 
+            // Crea primero la ficha y luego asigna un código que incluye su identificador generado.
             $postulante = Postulante::create($datos);
             $postulante->update([
                 'codigo' => 'POST-'.now()->format('Y').'-'.str_pad(
@@ -311,6 +359,7 @@ class PostulanteController extends Controller
                 ),
             ]);
 
+            // Calcula el monto de referencia con el costo de matrícula de la carrera.
             $monto = (float) (DB::table('carreras as c')
                 ->join('instituto as i', 'i.id_instituto', '=', 'c.id_instituto')
                 ->where('c.id_carrera', $postulante->id_carrera)
@@ -324,17 +373,18 @@ class PostulanteController extends Controller
                 'created_at' => now(),
                 'updated_at' => now(),
             ]);
+            // La postulación es pública: el comprobante se vincula al postulante, sin asignar un usuario autenticado.
             DB::table('comprobante')->insert([
                 'deposito' => $postulante->deposito,
                 'fecha' => $postulante->fecha,
                 'valido' => false,
                 'id_postulante' => $postulante->id_postulante,
-                'id_usuario' => auth()->id(),
                 'id_carrera' => $postulante->id_carrera,
                 'id_gestionacademica' => $gestion->id_gestionacademica,
                 'created_at' => now(),
                 'updated_at' => now(),
             ]);
+            // Vincula el detalle del concepto con el pago creado para esta postulación.
             DB::table('detalle')->insert([
                 'concepto' => null,
                 'codigo' => $postulante->codigo,
@@ -349,6 +399,11 @@ class PostulanteController extends Controller
         });
     }
 
+    /**
+     * Valida y actualiza la información y los documentos de una postulación existente.
+     * La operación vuelve a comprobar carrera, turno y cupos dentro de una transacción,
+     * y sincroniza el comprobante con los datos que quedaron guardados en la ficha.
+     */
     private function actualizarPostulante(
         Request $request,
         Postulante $postulante,
@@ -373,6 +428,7 @@ class PostulanteController extends Controller
         $datos['diplomabachiller'] = $request->boolean('diplomabachiller');
 
         DB::transaction(function () use ($datos, $postulante, $gestion): void {
+            // Evita validar cupos con una gestión que pueda cambiar durante la actualización.
             DB::table('gestionacademica')
                 ->where('id_gestionacademica', $gestion->id_gestionacademica)
                 ->lockForUpdate()
@@ -396,6 +452,7 @@ class PostulanteController extends Controller
                 (int) $datos['turno'],
                 (int) $postulante->id_postulante
             );
+            // Guarda la ficha y mantiene el comprobante relacionado con sus datos actualizados.
             $postulante->update($datos);
             DB::table('comprobante')->where('id_postulante', $postulante->id_postulante)->update([
                 'deposito' => $postulante->deposito,
@@ -407,6 +464,10 @@ class PostulanteController extends Controller
         return $postulante;
     }
 
+    /**
+     * Valida los datos para una postulación nueva y exige los documentos que no se pueden conservar.
+     * Después verifica que el tamaño combinado de las imágenes no supere el límite permitido.
+     */
     private function validarRegistro(
         Request $request,
         GestionAcademica $gestion,
@@ -414,11 +475,11 @@ class PostulanteController extends Controller
     ): array {
         $request->merge(['id_gestionacademica' => $gestion->id_gestionacademica]);
 
-        $rules = $this->reglasComunes();
-        $rules['deposito'] = $this->reglaComprobanteUnico($gestion);
-        $rules += $this->reglasDocumentosRequeridos($postulanteExistente, $request);
+        $reglas = $this->reglasComunes();
+        $reglas['deposito'] = $this->reglaComprobanteUnico($gestion);
+        $reglas += $this->reglasDocumentosRequeridos($postulanteExistente, $request);
 
-        $datos = Validator::make($request->all(), $rules, [
+        $datos = Validator::make($request->all(), $reglas, [
             'deposito.unique' => 'El número de comprobante/depósito bancario ya ha sido utilizado en esta gestión académica. Debe utilizar un comprobante único y exclusivo por cada postulación.',
         ])->validate();
 
@@ -427,6 +488,10 @@ class PostulanteController extends Controller
         return $datos;
     }
 
+    /**
+     * Valida una edición: mantiene las reglas de los datos principales, permite omitir archivos
+     * que ya existen y no considera duplicado el comprobante de la misma postulación.
+     */
     private function validarActualizacion(
         Request $request,
         GestionAcademica $gestion,
@@ -434,11 +499,11 @@ class PostulanteController extends Controller
     ): array {
         $request->merge(['id_gestionacademica' => $gestion->id_gestionacademica]);
 
-        $rules = $this->reglasComunes($postulante->id_carrera);
-        $rules['deposito'] = $this->reglaComprobanteUnico($gestion, $postulante);
-        $rules += $this->reglasDocumentosOpcionales();
+        $reglas = $this->reglasComunes($postulante->id_carrera);
+        $reglas['deposito'] = $this->reglaComprobanteUnico($gestion, $postulante);
+        $reglas += $this->reglasDocumentosOpcionales();
 
-        $datos = Validator::make($request->all(), $rules, [
+        $datos = Validator::make($request->all(), $reglas, [
             'deposito.unique' => 'El número de comprobante/depósito bancario ya se encuentra registrado por otro postulante en esta gestión académica.',
         ])->validate();
 
@@ -447,14 +512,19 @@ class PostulanteController extends Controller
         return $datos;
     }
 
-    private function reglasComunes(?int $carreraActualId = null): array
+    /**
+     * Define las reglas compartidas para los campos personales, escolares y de admisión.
+     * En una edición permite conservar la carrera actual aunque ya no esté activa;
+     * para una postulación nueva solo acepta carreras activas.
+     */
+    private function reglasComunes(?int $idCarreraActual = null): array
     {
-        $carreraActiva = Rule::exists('carreras', 'id_carrera')
-            ->where(function ($query) use ($carreraActualId): void {
-                $query->where('activo', true);
+        $reglaCarreraValida = Rule::exists('carreras', 'id_carrera')
+            ->where(function ($consulta) use ($idCarreraActual): void {
+                $consulta->where('activo', true);
 
-                if ($carreraActualId !== null) {
-                    $query->orWhere('id_carrera', $carreraActualId);
+                if ($idCarreraActual !== null) {
+                    $consulta->orWhere('id_carrera', $idCarreraActual);
                 }
             });
 
@@ -479,25 +549,29 @@ class PostulanteController extends Controller
             'caractercolegio' => ['required', 'in:Fiscal,Particular,Convenio'],
             'egresocolegio' => ['required', 'integer', 'between:1900,2100'],
             'id_gestionacademica' => ['required', 'exists:gestionacademica,id_gestionacademica'],
-            'id_carrera' => ['required', $carreraActiva],
+            'id_carrera' => ['required', $reglaCarreraValida],
             'turno' => ['required', 'integer', 'in:1,2,3'],
             'paralelo' => ['required', 'string', 'max:20'],
             'diplomabachiller' => ['nullable', 'boolean'],
         ];
     }
 
+    /**
+     * Impide que la misma persona tenga más de una postulación en el mismo turno
+     * durante una gestión. En una edición, excluye la ficha que se está modificando.
+     */
     private function validarTurnoNoRepetido(
         string $ci,
         int $gestionId,
         int $turno,
-        ?int $postulanteExcluir = null
+        ?int $idPostulanteExcluir = null
     ): void {
         $postulaciones = Postulante::where('ci', $ci)
             ->where('id_gestionacademica', $gestionId)
             ->where('turno', $turno);
 
-        if ($postulanteExcluir !== null) {
-            $postulaciones->where('id_postulante', '!=', $postulanteExcluir);
+        if ($idPostulanteExcluir !== null) {
+            $postulaciones->where('id_postulante', '!=', $idPostulanteExcluir);
         }
 
         if ($postulaciones->exists()) {
@@ -507,12 +581,16 @@ class PostulanteController extends Controller
         }
     }
 
+    /**
+     * Construye la regla que exige un comprobante único dentro de la gestión seleccionada.
+     * Si se está editando una ficha, ignora el comprobante de esa misma ficha.
+     */
     private function reglaComprobanteUnico(
         GestionAcademica $gestion,
         ?Postulante $postulanteActual = null
     ): array {
         $regla = Rule::unique('postulante', 'deposito')
-            ->where(fn ($query) => $query->where('id_gestionacademica', $gestion->id_gestionacademica));
+            ->where(fn ($consulta) => $consulta->where('id_gestionacademica', $gestion->id_gestionacademica));
 
         if ($postulanteActual) {
             $regla->ignore($postulanteActual->id_postulante, 'id_postulante');
@@ -521,11 +599,16 @@ class PostulanteController extends Controller
         return ['required', 'string', 'max:255', $regla];
     }
 
+    /**
+     * Define validaciones para los documentos obligatorios al registrar.
+     * Un archivo existente puede conservarse; si se pidió eliminarlo, vuelve a ser obligatorio.
+     */
     private function reglasDocumentosRequeridos(
         ?Postulante $postulanteExistente,
         Request $request
     ): array
     {
+        // Relaciona cada campo de carga con el atributo del postulante y su tamaño máximo en KB.
         $documentos = [
             'fotografia' => ['foto', 150],
             'path_ci_frontal' => ['path_ci_frontal', 350],
@@ -537,6 +620,7 @@ class PostulanteController extends Controller
 
         foreach ($documentos as $campo => [$atributo, $maximo]) {
             $imagenExistente = $postulanteExistente?->$atributo;
+            // Solo se considera disponible el archivo guardado si no se marcó para eliminar.
             $imagenSeConserva = $imagenExistente && ! $request->boolean('eliminar_'.$atributo);
             $reglas[$campo] = [
                 $imagenSeConserva ? 'nullable' : 'required',
@@ -549,6 +633,10 @@ class PostulanteController extends Controller
         return $reglas + $this->reglasEliminacionDocumentos();
     }
 
+    /**
+     * Define formatos y tamaños de los archivos que pueden reemplazarse durante una edición.
+     * Todos son opcionales porque la persona puede conservar las copias actuales.
+     */
     private function reglasDocumentosOpcionales(): array
     {
         return [
@@ -560,6 +648,9 @@ class PostulanteController extends Controller
         ] + $this->reglasEliminacionDocumentos();
     }
 
+    /**
+     * Acepta las marcas enviadas por la vista para indicar qué archivos existentes se quitarán.
+     */
     private function reglasEliminacionDocumentos(): array
     {
         return [
@@ -571,6 +662,10 @@ class PostulanteController extends Controller
         ];
     }
 
+    /**
+     * Suma el tamaño de las imágenes recibidas y rechaza el envío si supera 1.550 KB.
+     * Los campos sin archivo nuevo aportan cero al total.
+     */
     private function validarPesoTotalDocumentos(Request $request): void
     {
         $camposArchivo = [
@@ -591,6 +686,10 @@ class PostulanteController extends Controller
         }
     }
 
+    /**
+     * Limpia el CI para usarlo en búsquedas y comparaciones, manteniendo letras, números y guiones.
+     * Rechaza valores vacíos o compuestos únicamente por guiones.
+     */
     private function normalizarCi(string $ci): string
     {
         $ciLimpio = preg_replace('/[^A-Za-z0-9\\-]/', '', $ci) ?? '';
@@ -604,6 +703,10 @@ class PostulanteController extends Controller
         return $ciLimpio;
     }
 
+    /**
+     * Comprueba que el depósito no esté asociado a otro comprobante de la misma gestión.
+     * La comparación no distingue mayúsculas y, al editar, excluye el comprobante propio.
+     */
     private function validarVoucherDisponible(
         string $voucher,
         GestionAcademica $gestion,
@@ -614,8 +717,8 @@ class PostulanteController extends Controller
             ->whereRaw('LOWER(deposito) = ?', [mb_strtolower(trim($voucher))]);
 
         if ($postulanteActual) {
-            $consulta->where(function ($query) use ($postulanteActual): void {
-                $query->whereNull('id_postulante')
+            $consulta->where(function ($subconsulta) use ($postulanteActual): void {
+                $subconsulta->whereNull('id_postulante')
                     ->orWhere('id_postulante', '!=', $postulanteActual->id_postulante);
             });
         }
@@ -627,6 +730,11 @@ class PostulanteController extends Controller
         }
     }
 
+    /**
+     * Evita registrar dos veces la misma carrera en una gestión y bloquea carreras
+     * que ya forman parte del historial estudiantil de la persona.
+     * Al editar, excluye la ficha actual para permitir conservar su misma carrera.
+     */
     private function validarCarreraNoRepetida(
         string $ci,
         mixed $carreraId,
@@ -642,6 +750,7 @@ class PostulanteController extends Controller
         }
 
         if (! $consulta->exists()) {
+            // Esta condición permite guardar sin cambios la misma carrera y el mismo CI al editar.
             $edicionConMismaIdentidadYCarrera = $postulanteActual
                 && $this->normalizarCi((string) $postulanteActual->ci) === $ci
                 && (int) $postulanteActual->id_carrera === (int) $carreraId;
@@ -668,6 +777,10 @@ class PostulanteController extends Controller
         throw ValidationException::withMessages(['id_carrera' => $mensaje]);
     }
 
+    /**
+     * Busca si la persona ya tiene una inscripción estudiantil en la carrera indicada.
+     * Primero valida el identificador de carrera y luego relaciona el CI con su persona.
+     */
     private function tieneHistorialEstudiantilEnCarrera(string $ci, mixed $carreraId): bool
     {
         if (! is_scalar($carreraId) || ! ctype_digit((string) $carreraId)) {
@@ -683,6 +796,10 @@ class PostulanteController extends Controller
             ->contains((int) $carreraId);
     }
 
+    /**
+     * Reúne las carreras vinculadas a la persona desde sus registros de estudiante,
+     * cursadas e inscripciones, y devuelve identificadores únicos.
+     */
     private function carrerasRegistradasPorPersona(int $idPersona): \Illuminate\Support\Collection
     {
         return DB::table('estudiante')
@@ -696,6 +813,11 @@ class PostulanteController extends Controller
             ->values();
     }
 
+    /**
+     * Prepara los documentos antes de guardar la postulación.
+     * Da prioridad al archivo nuevo, luego a la solicitud de eliminación y, si no hay ninguna,
+     * conserva el documento que ya estaba asociado al postulante.
+     */
     private function prepararDocumentos(
         Request $request,
         array $datos,
@@ -703,6 +825,7 @@ class PostulanteController extends Controller
         GestionAcademica $gestion,
         ?Postulante $postulanteExistente
     ): array {
+        // Separa los archivos por año y gestión para facilitar su organización en el almacenamiento.
         $directorio = 'postulantes/'.date('Y').'_G'.$gestion->id_gestionacademica;
         $documentos = [
             'fotografia' => ['foto', "{$directorio}/{$ci}_foto"],
@@ -714,10 +837,13 @@ class PostulanteController extends Controller
 
         foreach ($documentos as $campo => [$atributo, $rutaBase]) {
             if ($request->hasFile($campo)) {
+                // Un archivo nuevo reemplaza la ruta guardada por una copia con nombre único.
                 $datos[$atributo] = $this->guardarImagen($request->file($campo), $rutaBase);
             } elseif ($request->boolean('eliminar_'.$atributo)) {
+                // Si no se subió un reemplazo y se pidió quitarlo, guarda el atributo vacío.
                 $datos[$atributo] = null;
             } elseif ($postulanteExistente) {
+                // En los demás casos se conserva el documento de la ficha previa.
                 $datos[$atributo] = $postulanteExistente->$atributo;
             }
 
@@ -729,8 +855,13 @@ class PostulanteController extends Controller
         return $datos;
     }
 
+    /**
+     * Guarda una imagen JPG o PNG en el disco público con un nombre único.
+     * Si el formato no es compatible o el almacenamiento falla, informa el error en vez de guardar una ruta inválida.
+     */
     private function guardarImagen($archivo, string $rutaBase): string
     {
+        // La extensión se determina por el tipo real del archivo, no por el nombre recibido del navegador.
         $extension = match ($archivo->getMimeType()) {
             'image/png' => 'png',
             'image/jpeg' => 'jpg',
@@ -739,6 +870,7 @@ class PostulanteController extends Controller
             ]),
         };
 
+        // El UUID evita que una carga nueva sobrescriba el archivo de otro postulante o una copia anterior.
         $ruta = $archivo->storeAs(
             dirname($rutaBase),
             basename($rutaBase).'-'.Str::uuid().'.'.$extension,
@@ -752,6 +884,10 @@ class PostulanteController extends Controller
         return $ruta;
     }
 
+    /**
+     * Devuelve la gestión marcada como vigente y activa con el identificador más alto.
+     * Si no hay una, devuelve null para que las acciones públicas puedan detener el registro.
+     */
     private function gestionActiva(): ?GestionAcademica
     {
         return GestionAcademica::where('vigente', true)
@@ -760,6 +896,10 @@ class PostulanteController extends Controller
             ->first();
     }
 
+    /**
+     * Busca la postulación anterior más reciente para el CI indicado.
+     * Ordena por gestión, periodo e identificador para elegir un registro cuando hay varios.
+     */
     private function buscarPostulanteHistorico(string $ci): ?Postulante
     {
         return Postulante::query()
@@ -772,6 +912,10 @@ class PostulanteController extends Controller
             ->first();
     }
 
+    /**
+     * Devuelve la dirección pública del video de guía si el archivo está instalado.
+     * Si no está disponible, devuelve null para que la vista no presente un enlace roto.
+     */
     private function tutorialVideoUrl(): ?string
     {
         return is_file(public_path('videos/guia_inscripcion.mp4'))

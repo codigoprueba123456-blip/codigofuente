@@ -7,5 +7,6 @@
 @stop
 
 @section('content')
+    {{-- Presenta una fila por inscripción vigente de la carrera y gestión seleccionadas. --}}
     @include('reportes.inscripciones.formulario')
 @stop

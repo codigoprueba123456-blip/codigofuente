@@ -14,6 +14,7 @@
     </style>
 </head>
 <body>
+    {{-- El PDF usa las mismas columnas y registros ya filtrados que la vista web y la exportación Excel. --}}
     <h1>{{ $configuracion['titulo'] }}</h1>
     <div class="meta">Fecha de emisión: {{ now()->format('d/m/Y H:i') }}</div>
     <table>

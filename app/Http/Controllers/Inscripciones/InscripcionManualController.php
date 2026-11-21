@@ -14,10 +14,17 @@ use Illuminate\Validation\ValidationException;
 
 class InscripcionManualController extends Controller
 {
+    /**
+     * Recibe el servicio que determina qué grupos están abiertos y tienen cupo.
+     */
     public function __construct(private DisponibilidadTurnos $disponibilidadTurnos)
     {
     }
 
+    /**
+     * Muestra las materias de una inscripción vigente y prepara la búsqueda de estudiantes.
+     * Si se seleccionó una persona, también carga sus otras carreras activas y sus materias asignadas.
+     */
     public function index(Request $request)
     {
         $gestionActual = $this->gestionActual();
@@ -151,6 +158,10 @@ class InscripcionManualController extends Controller
         ));
     }
 
+    /**
+     * Busca estudiantes inscritos en la gestión vigente y agrupa sus inscripciones por persona.
+     * La respuesta incluye carrera, nivel, régimen y grupo para completar el selector de la vista.
+     */
     public function buscar(Request $request)
     {
         $gestionActual = $this->gestionActual();
@@ -234,6 +245,9 @@ class InscripcionManualController extends Controller
         })->values());
     }
 
+    /**
+     * Retira una materia de una inscripción y vuelve al mismo estudiante para mostrar el resultado.
+     */
     public function retirarMateria(Request $request, Inscrito $inscrito, Materia $materia)
     {
         $contexto = $this->contexto($inscrito);
@@ -253,10 +267,15 @@ class InscripcionManualController extends Controller
             ->with('success', 'La materia se retiró de esta inscripción.');
     }
 
+    /**
+     * Prepara los grupos disponibles para agregar materias a una inscripción.
+     * Si las materias existentes ya definen un turno y paralelo, mantiene esa combinación bloqueada.
+     */
     public function oferta(Request $request, Inscrito $inscrito)
     {
         $contexto = $this->contexto($inscrito);
         $estadoCombinacion = $this->estadoCombinacion($inscrito, $contexto['inscripcion']);
+        // Excluye la propia inscripción al calcular cupos y combinaciones disponibles.
         $opcionesTurnoParalelo = collect($this->disponibilidadTurnos->opciones(
             (int) $contexto['inscripcion']->id_carrera,
             (int) $contexto['inscripcion']->id_gestionacademica,
@@ -376,6 +395,9 @@ class InscripcionManualController extends Controller
         ]);
     }
 
+    /**
+     * Muestra todas las materias activas de la carrera, agrupadas por nivel y con sus grupos vigentes.
+     */
     public function materias(Inscrito $inscrito)
     {
         $contexto = $this->contexto($inscrito);
@@ -429,6 +451,10 @@ class InscripcionManualController extends Controller
         ]);
     }
 
+    /**
+     * Asigna las materias elegidas a grupos de la misma carrera, nivel, turno y paralelo.
+     * Revalida el estado y los cupos dentro de una transacción para evitar asignaciones incompatibles.
+     */
     public function guardar(Request $request, Inscrito $inscrito)
     {
         $seleccion = collect((array) $request->input('grupos', []))
@@ -446,6 +472,7 @@ class InscripcionManualController extends Controller
         $contexto = $this->contexto($inscrito);
         $idGrupos = collect($validated['grupos'])->map(fn ($id): int => (int) $id)->values();
 
+        // Bloquea la inscripción y los grupos mientras valida cupos y registra las asignaciones.
         DB::transaction(function () use ($inscrito, $contexto, $idGrupos, $validated): void {
             $inscripcionBloqueada = DB::table('inscrito')
                 ->where('id_inscrito', $inscrito->id_inscrito)
@@ -511,6 +538,7 @@ class InscripcionManualController extends Controller
                 ->all();
             $materiasElegidas = [];
 
+            // Cada materia puede tener una sola selección y el grupo debe pertenecer al periodo y nivel actuales.
             foreach ($validated['grupos'] as $idMateria => $idGrupo) {
                 $grupo = $grupos->get((int) $idGrupo);
                 if (! $grupo || (int) $grupo->id_materia !== (int) $idMateria) {
@@ -600,6 +628,10 @@ class InscripcionManualController extends Controller
             ->with('success', 'Las materias y paralelos se asignaron correctamente.');
     }
 
+    /**
+     * Cambia el turno y paralelo de una inscripción y libera los grupos de materias de la gestión actual.
+     * Las materias se conservan para que puedan asignarse nuevamente en la combinación elegida.
+     */
     public function cambiarTurno(Request $request, Inscrito $inscrito)
     {
         $validated = $request->validate([
@@ -639,6 +671,7 @@ class InscripcionManualController extends Controller
                 inscritoExcluir: (int) $inscrito->id_inscrito
             );
 
+            // Solo se liberan grupos de esta gestión; las asignaciones históricas no se modifican.
             $gruposGestionActual = DB::table('grupo')
                 ->where('id_gestionacademica', $contexto['inscripcion']->id_gestionacademica)
                 ->select('id_grupo');
@@ -664,6 +697,9 @@ class InscripcionManualController extends Controller
             ->with('success', 'Se actualizó el turno. Las materias de la gestión vigente se conservaron y quedaron listas para asignar a grupos del nuevo turno.');
     }
 
+    /**
+     * Reúne los datos de una inscripción activa de la gestión actual y sus materias seleccionadas.
+     */
     private function contexto(Inscrito $inscrito): array
     {
         $gestionActual = $this->gestionActual();
@@ -716,6 +752,9 @@ class InscripcionManualController extends Controller
         return compact('gestionActual', 'inscripcion', 'seleccionadosPorMateria');
     }
 
+    /**
+     * Devuelve la gestión vigente o, si no hay una marcada, la última registrada.
+     */
     private function gestionActual(): ?GestionAcademica
     {
         return GestionAcademica::where('vigente', true)
@@ -723,6 +762,9 @@ class InscripcionManualController extends Controller
             ->first() ?? GestionAcademica::orderByDesc('id_gestionacademica')->first();
     }
 
+    /**
+     * Extrae la letra del paralelo desde el código del grupo, cuando su formato la incluye al final.
+     */
     private function nombreParalelo(?string $codigoGrupo): ?string
     {
         if ($codigoGrupo === null) {
@@ -734,6 +776,10 @@ class InscripcionManualController extends Controller
             : $codigoGrupo;
     }
 
+    /**
+     * Determina si los grupos ya asignados fijan una combinación válida de turno y paralelo.
+     * Devuelve el estado para bloquear cambios que mezclarían grupos o contradicen la inscripción.
+     */
     private function estadoCombinacion(Inscrito $inscrito, object $inscripcion): array
     {
         $asignaciones = DB::table('inscrito_materia as im')
@@ -795,6 +841,9 @@ class InscripcionManualController extends Controller
         ];
     }
 
+    /**
+     * Convierte el número de turno en la etiqueta que se muestra en mensajes de validación.
+     */
     private function nombreTurno(int $turno): string
     {
         return [1 => 'Mañana', 2 => 'Tarde', 3 => 'Noche'][$turno] ?? 'desconocido';
