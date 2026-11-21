@@ -216,21 +216,61 @@ class AdmisionesController extends Controller
             ->paginate($perPage)
             ->appends($request->all());
 
-        // Prepara listas únicas para los selectores y normaliza los paralelos para evitar duplicados por mayúsculas.
-        $paralelos = Postulante::query()
-            ->whereNotNull('paralelo')
-            ->where('paralelo', '!=', '')
-            ->distinct()
-            ->orderBy('paralelo')
-            ->pluck('paralelo')
-            ->map(fn ($paralelo): string => mb_strtoupper(trim((string) $paralelo)))
-            ->filter()
-            ->unique()
-            ->sort()
-            ->values();
-        $carreras = Carrera::orderBy('nombre')->get();
+        // Las opciones académicas salen de carreras y grupos habilitados, no de postulantes existentes.
+        $idGestionSeleccionada = $request->filled('id_gestionacademica')
+            ? (int) $request->input('id_gestionacademica')
+            : null;
+        $idCarreraSeleccionada = $request->filled('id_carrera')
+            ? (int) $request->input('id_carrera')
+            : null;
+        $carreras = Carrera::activas()
+            ->when($idGestionSeleccionada !== null, function ($query) use ($idGestionSeleccionada): void {
+                $carrerasConGrupos = $this->gruposConfiguradosQuery($idGestionSeleccionada)
+                    ->select('m.id_carrera')
+                    ->distinct()
+                    ->pluck('m.id_carrera');
+
+                $query->whereIn('id_carrera', $carrerasConGrupos);
+            })
+            ->orderBy('nombre')
+            ->get();
         $gestiones = GestionAcademica::orderByDesc('gestion')->orderByDesc('periodo')->get();
-        $turnos = self::TURNOS;
+        $carreraSeleccionadaDisponible = $idCarreraSeleccionada !== null
+            && $carreras->contains(fn (Carrera $carrera): bool =>
+                (int) $carrera->id_carrera === $idCarreraSeleccionada
+            );
+        $gruposCarreraGestion = $idGestionSeleccionada !== null && $carreraSeleccionadaDisponible
+            ? $this->gruposConfiguradosQuery($idGestionSeleccionada, $idCarreraSeleccionada)
+            : null;
+        $turnos = $gruposCarreraGestion
+            ? (clone $gruposCarreraGestion)
+                ->whereNotNull('g.turno')
+                ->whereIn('g.turno', array_keys(self::TURNOS))
+                ->select('g.turno')
+                ->distinct()
+                ->orderBy('g.turno')
+                ->pluck('g.turno')
+                ->mapWithKeys(fn ($turno): array => [
+                    (int) $turno => self::TURNOS[(int) $turno],
+                ])
+                ->all()
+            : [];
+        $turnoSeleccionadoDisponible = $request->filled('turno')
+            && array_key_exists((int) $request->input('turno'), $turnos);
+        $paralelos = $gruposCarreraGestion && $turnoSeleccionadoDisponible
+            ? (clone $gruposCarreraGestion)
+                ->where('g.turno', (int) $request->input('turno'))
+                ->whereNotNull('g.codigo')
+                ->select('g.codigo')
+                ->distinct()
+                ->orderBy('g.codigo')
+                ->pluck('g.codigo')
+                ->map(fn (string $codigo): ?string => $this->nombreParalelo($codigo))
+                ->filter()
+                ->unique()
+                ->sort()
+                ->values()
+            : collect();
 
         // Envía a la vista los resultados, las opciones de filtro y las cifras de resumen.
         return view('admisiones.postulantes.index', compact(
@@ -244,5 +284,32 @@ class AdmisionesController extends Controller
             'conDocumentos',
             'multiplesCarrerasCount'
         ));
+    }
+
+    /**
+     * Obtiene grupos habilitados en materias y carreras activas para los filtros académicos.
+     */
+    private function gruposConfiguradosQuery(
+        ?int $idGestion = null,
+        ?int $idCarrera = null
+    ): \Illuminate\Database\Query\Builder {
+        return DB::table('grupo as g')
+            ->join('materia as m', 'm.id_materia', '=', 'g.id_materia')
+            ->join('carreras as c', 'c.id_carrera', '=', 'm.id_carrera')
+            ->where('g.activo', true)
+            ->where('m.activo', true)
+            ->where('c.activo', true)
+            ->when($idGestion !== null, fn ($query) => $query->where('g.id_gestionacademica', $idGestion))
+            ->when($idCarrera !== null, fn ($query) => $query->where('m.id_carrera', $idCarrera));
+    }
+
+    /**
+     * Normaliza el paralelo final de códigos de grupo como "MATERIA-A" o "MATERIA-AA".
+     */
+    private function nombreParalelo(string $codigo): ?string
+    {
+        return preg_match('/(?:^|[-_])([A-Z]{1,2})$/i', trim($codigo), $coincidencias)
+            ? mb_strtoupper($coincidencias[1])
+            : null;
     }
 }

@@ -10,6 +10,7 @@ use App\Models\Persona;
 use App\Models\Postulante;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Tests\TestCase;
 
@@ -110,7 +111,6 @@ class AdmisionesPostulantesCategoryFilterTest extends TestCase
             ->assertOk()
             ->assertSee('SHIFT-MORNING-A', false)
             ->assertDontSee('SHIFT-NIGHT-B', false)
-            ->assertSee('Mañana')
             ->assertSee('Paralelo');
 
         $this->get(route('admisiones.postulantes.index', [
@@ -136,6 +136,93 @@ class AdmisionesPostulantesCategoryFilterTest extends TestCase
                 'content-type',
                 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
             );
+    }
+
+    public function test_academic_filter_options_come_from_active_career_groups_even_without_applicants(): void
+    {
+        $this->withoutMiddleware(EnsureFunctionalityAccess::class);
+        $this->actingAs($this->createAdmin());
+
+        $gestionActual = GestionAcademica::create([
+            'gestion' => now()->year,
+            'periodo' => 1,
+            'regimen' => 1,
+            'vigente' => true,
+        ]);
+        $gestionAnterior = GestionAcademica::create([
+            'gestion' => now()->year - 1,
+            'periodo' => 1,
+            'regimen' => 1,
+            'vigente' => false,
+        ]);
+        $instituto = Instituto::create(['nombreinstituto' => 'Instituto de Prueba']);
+        $sistemas = Carrera::create([
+            'codigo' => 'ADM-SIS-ACTIVA',
+            'nombre' => 'Sistemas Informáticos',
+            'resolucionministerial1' => '02-10-09',
+            'resolucionministerial2' => '0637/2019',
+            'id_instituto' => $instituto->id_instituto,
+        ]);
+        $carreraInactiva = Carrera::create([
+            'codigo' => 'ADM-INACTIVA',
+            'nombre' => 'Carrera Inactiva',
+            'activo' => false,
+            'id_instituto' => $instituto->id_instituto,
+        ]);
+
+        $this->crearGrupoParaFiltro($gestionActual, $sistemas, 'SIS-MAT-B', 3);
+        $this->crearGrupoParaFiltro($gestionAnterior, $sistemas, 'SIS-MAT-C', 1);
+        $this->crearGrupoParaFiltro($gestionActual, $carreraInactiva, 'INA-MAT-A', 1);
+
+        $response = $this->get(route('admisiones.postulantes.index', [
+            'id_gestionacademica' => $gestionActual->id_gestionacademica,
+            'id_carrera' => $sistemas->id_carrera,
+            'turno' => 3,
+        ]))
+            ->assertOk()
+            ->assertSee('Sistemas Informáticos')
+            ->assertSee('02-10-09')
+            ->assertDontSee('0637/2019')
+            ->assertDontSee('Carrera Inactiva')
+            ->assertSee('No se encontraron registros de postulantes.');
+
+        preg_match('/<select name="turno"[^>]*>(.*?)<\/select>/s', $response->getContent(), $turnoSelect);
+        preg_match('/<select name="paralelo"[^>]*>(.*?)<\/select>/s', $response->getContent(), $paraleloSelect);
+
+        $this->assertArrayHasKey(1, $turnoSelect);
+        $this->assertArrayHasKey(1, $paraleloSelect);
+        $this->assertStringContainsString('Noche', $turnoSelect[1]);
+        $this->assertStringNotContainsString('Mañana', $turnoSelect[1]);
+        $this->assertStringContainsString('value="B"', $paraleloSelect[1]);
+        $this->assertStringNotContainsString('value="C"', $paraleloSelect[1]);
+        $this->assertStringNotContainsString('value="A"', $paraleloSelect[1]);
+    }
+
+    private function crearGrupoParaFiltro(
+        GestionAcademica $gestion,
+        Carrera $carrera,
+        string $codigo,
+        int $turno
+    ): void {
+        $materiaId = DB::table('materia')->insertGetId([
+            'codigo' => $codigo.'-MAT',
+            'nombre' => 'Materia '.$codigo,
+            'id_carrera' => $carrera->id_carrera,
+            'activo' => true,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        DB::table('grupo')->insert([
+            'codigo' => $codigo,
+            'turno' => $turno,
+            'abierto' => true,
+            'activo' => true,
+            'id_gestionacademica' => $gestion->id_gestionacademica,
+            'id_materia' => $materiaId,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
     }
 
     private function crearPostulante(

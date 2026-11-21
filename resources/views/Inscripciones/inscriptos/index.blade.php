@@ -67,7 +67,7 @@
             </h3>
         </div>
         <div class="card-body">
-            <form method="GET" action="{{ route('inscriptos.index') }}">
+            <form id="inscriptos-filter-form" method="GET" action="{{ route('inscriptos.index') }}">
                 <div class="row">
                     <div class="col-12 col-md-4 mb-3">
                         <label for="id_gestionacademica" class="font-weight-bold">Gestión Académica</label>
@@ -96,10 +96,12 @@
                     </div>
                     <div class="col-12 col-md-4 mb-3">
                         <label for="nivel" class="font-weight-bold">Nivel de inscripción</label>
-                        <select name="nivel" id="nivel" class="form-control custom-select" data-nivel-filtro data-initial-value="{{ request('nivel') }}">
+                        <select name="nivel" id="nivel" class="form-control custom-select">
                             <option value="">-- Todos --</option>
-                            @foreach (range(1, 6) as $nivel)
-                                <option value="{{ $nivel }}" {{ request('nivel') == $nivel ? 'selected' : '' }}>Nivel {{ $nivel }}</option>
+                            @foreach ($niveles as $nivel)
+                                <option value="{{ $nivel->valor }}" {{ request('nivel') == $nivel->valor ? 'selected' : '' }}>
+                                    {{ $nivel->etiqueta }}
+                                </option>
                             @endforeach
                         </select>
                     </div>
@@ -146,11 +148,6 @@
                             <option value="deshabilitados" {{ $estado === 'deshabilitados' ? 'selected' : '' }}>Deshabilitados / reemplazados</option>
                             <option value="todos" {{ $estado === 'todos' ? 'selected' : '' }}>Todos</option>
                         </select>
-                    </div>
-                    <div class="col-12 col-md-2 mb-3 d-flex align-items-end">
-                        <button type="submit" class="btn btn-primary btn-block">
-                            <i class="fas fa-filter mr-1"></i> Aplicar filtros
-                        </button>
                     </div>
                 </div>
             </form>
@@ -471,44 +468,30 @@
         $('#resetInscritoCredentialsUser').text(button.data('user'));
     });
 
-    // Ajusta las opciones de nivel al régimen de la carrera elegida y conserva el filtro si sigue siendo válido.
     document.addEventListener('DOMContentLoaded', function () {
-        const carrera = document.getElementById('id_carrera');
-        const nivel = document.querySelector('[data-nivel-filtro]');
-        if (!carrera || !nivel) {
+        const form = document.getElementById('inscriptos-filter-form');
+        if (!form) {
             return;
         }
 
-        const etiquetasNiveles = @json(\App\Models\Carrera::etiquetasNivelesPorRegimen());
-        let inicial = nivel.dataset.initialValue || '';
+        const dependientes = {
+            id_gestionacademica: ['id_carrera', 'nivel', 'turno', 'paralelo'],
+            id_carrera: ['nivel', 'turno', 'paralelo'],
+            nivel: ['turno', 'paralelo'],
+            turno: ['paralelo'],
+        };
 
-        function actualizarNiveles() {
-            const opcionCarrera = carrera.options[carrera.selectedIndex];
-            const regimen = opcionCarrera && opcionCarrera.dataset.regimen
-                ? opcionCarrera.dataset.regimen
-                : {{ \App\Models\Carrera::REGIMEN_ANUAL }};
-            const etiquetas = etiquetasNiveles[regimen];
-            const seleccionado = nivel.value || inicial;
-            nivel.replaceChildren(new Option('-- Todos --', ''));
-
-            if (etiquetas) {
-                Object.entries(etiquetas).forEach(function ([valor, etiqueta]) {
-                    nivel.add(new Option(etiqueta, valor));
+        form.querySelectorAll('select').forEach(function (select) {
+            select.addEventListener('change', function () {
+                (dependientes[select.name] || []).forEach(function (nombre) {
+                    const campo = form.elements.namedItem(nombre);
+                    if (campo) {
+                        campo.value = '';
+                    }
                 });
-            } else {
-                for (let valor = 1; valor <= 6; valor++) {
-                    nivel.add(new Option(`Nivel ${valor}`, valor));
-                }
-            }
-
-            if (Array.from(nivel.options).some(option => option.value === seleccionado)) {
-                nivel.value = seleccionado;
-            }
-            inicial = '';
-        }
-
-        carrera.addEventListener('change', actualizarNiveles);
-        actualizarNiveles();
+                form.submit();
+            });
+        });
     });
 </script>
 @endpush

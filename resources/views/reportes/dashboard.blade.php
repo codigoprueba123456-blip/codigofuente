@@ -47,7 +47,7 @@
         </div>
     </div>
 
-    {{-- Los filtros actualizan el resumen; la carrera es opcional y permite consultar todas las carreras. --}}
+    {{-- Cada filtro actualiza las opciones dependientes y conserva solo selecciones válidas. --}}
     <div class="card card-outline card-success">
         <div class="card-header">
             <h3 class="card-title">
@@ -59,11 +59,11 @@
         </div>
         <div class="card-body">
             <form method="GET" action="{{ route('reportes.dashboard') }}" class="form-row align-items-end">
-                <div class="form-group col-md-5">
+                <div class="form-group col-md-4">
                     <label for="id_gestionacademica">Gestión académica</label>
-                    <select name="id_gestionacademica" id="id_gestionacademica" class="form-control">
+                    <select name="id_gestionacademica" id="id_gestionacademica" class="form-control" onchange="this.form.submit()">
                         @if ($gestiones->isEmpty())
-                            <option value="">No hay gestiones disponibles</option>
+                            <option value="">No hay grupos disponibles</option>
                         @endif
                         @foreach ($gestiones as $gestion)
                             <option value="{{ $gestion->id_gestionacademica }}" @selected((string) ($filters['id_gestionacademica'] ?? '') === (string) $gestion->id_gestionacademica)>
@@ -72,9 +72,9 @@
                         @endforeach
                     </select>
                 </div>
-                <div class="form-group col-md-5">
+                <div class="form-group col-md-4">
                     <label for="id_carrera">Carrera</label>
-                    <select name="id_carrera" id="id_carrera" class="form-control">
+                    <select name="id_carrera" id="id_carrera" class="form-control" onchange="this.form.submit()">
                         <option value="">Todas las carreras</option>
                         @foreach ($carreras as $carrera)
                             <option value="{{ $carrera->id_carrera }}" @selected((string) ($filters['id_carrera'] ?? '') === (string) $carrera->id_carrera)>
@@ -83,7 +83,40 @@
                         @endforeach
                     </select>
                 </div>
-                <div class="form-group col-md-2">
+                <div class="form-group col-md-4">
+                    <label for="nivel">Año / semestre</label>
+                    <select name="nivel" id="nivel" class="form-control" onchange="this.form.submit()">
+                        <option value="">Todos los niveles disponibles</option>
+                        @foreach ($niveles as $nivel)
+                            <option value="{{ $nivel['valor'] }}" @selected(($filters['nivel'] ?? '') === $nivel['valor'])>
+                                {{ $nivel['etiqueta'] }}
+                            </option>
+                        @endforeach
+                    </select>
+                </div>
+                <div class="form-group col-md-4">
+                    <label for="turno">Turno</label>
+                    <select name="turno" id="turno" class="form-control" onchange="this.form.submit()">
+                        <option value="">Todos los turnos disponibles</option>
+                        @foreach ($turnos as $turno)
+                            <option value="{{ $turno }}" @selected(($filters['turno'] ?? '') === $turno)>
+                                {{ $turno }}
+                            </option>
+                        @endforeach
+                    </select>
+                </div>
+                <div class="form-group col-md-4">
+                    <label for="paralelo">Paralelo</label>
+                    <select name="paralelo" id="paralelo" class="form-control" onchange="this.form.submit()">
+                        <option value="">Todos los paralelos disponibles</option>
+                        @foreach ($paralelos as $paralelo)
+                            <option value="{{ $paralelo }}" @selected(($filters['paralelo'] ?? '') === $paralelo)>
+                                {{ $paralelo }}
+                            </option>
+                        @endforeach
+                    </select>
+                </div>
+                <div class="form-group col-md-4">
                     <button class="btn btn-success btn-block" type="submit">
                         <i class="fas fa-search mr-1"></i> Generar
                     </button>

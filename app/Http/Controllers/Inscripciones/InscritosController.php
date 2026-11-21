@@ -35,7 +35,21 @@ class InscritosController extends Controller
         $filters = $request->validate([
             'id_gestionacademica' => ['nullable', 'integer', 'exists:gestionacademica,id_gestionacademica'],
             'id_carrera' => ['nullable', 'integer', 'exists:carreras,id_carrera'],
-            'nivel' => ['nullable', 'integer', 'between:1,6'],
+            'nivel' => [
+                'nullable',
+                'integer',
+                'between:1,6',
+                function (string $attribute, mixed $value, \Closure $fail) use ($request): void {
+                    if (empty($request->input('id_carrera'))) {
+                        return;
+                    }
+
+                    $carrera = Carrera::find($request->input('id_carrera'));
+                    if (! $carrera || ! in_array((int) $value, Carrera::nivelesPorRegimen($carrera->regimen), true)) {
+                        $fail('El nivel no corresponde al régimen de la carrera seleccionada.');
+                    }
+                },
+            ],
             'bth' => ['nullable', 'in:0,1'],
             'traspaso_convalidacion' => ['nullable', 'in:0,1'],
             'turno' => ['nullable', 'string', 'max:30'],
@@ -104,15 +118,31 @@ class InscritosController extends Controller
             $query->whereExists(function (Builder $assignment) use ($filters): void {
                 $assignment->selectRaw('1')
                     ->from('inscrito_materia as im')
-                    ->leftJoin('grupo as gr', 'gr.id_grupo', '=', 'im.id_grupo')
+                    ->join('grupo as gr', 'gr.id_grupo', '=', 'im.id_grupo')
+                    ->join('materia as m', function ($join): void {
+                        $join->on('m.id_materia', '=', 'im.id_materia')
+                            ->on('m.id_materia', '=', 'gr.id_materia');
+                    })
                     ->whereColumn('im.id_inscrito', 'i.id_inscrito');
+
+                $assignment->whereColumn('m.id_carrera', 'i.id_carrera')
+                    ->whereColumn('gr.id_gestionacademica', 'i.id_gestionacademica');
+
+                if (! empty($filters['nivel'])) {
+                    $assignment->where('m.nivel', $filters['nivel']);
+                }
 
                 if (! empty($filters['turno'])) {
                     $assignment->where('gr.turno', $filters['turno']);
                 }
 
                 if (! empty($filters['paralelo'])) {
-                    $assignment->where('gr.codigo', $filters['paralelo']);
+                    $paralelo = $this->nombreParalelo($filters['paralelo'])
+                        ?? mb_strtoupper(trim($filters['paralelo']));
+                    $assignment->where(function (Builder $parallel) use ($paralelo): void {
+                        $parallel->whereRaw('UPPER(gr.codigo) = ?', [$paralelo])
+                            ->orWhereRaw('UPPER(gr.codigo) LIKE ?', ['%-'.$paralelo]);
+                    });
                 }
             });
         }
@@ -229,21 +259,98 @@ class InscritosController extends Controller
             $inscrito->carreras_inscritas = $carrerasPorPersonaGestion[$clave] ?? collect();
         }
 
-        $gestiones = GestionAcademica::orderByDesc('id_gestionacademica')->get();
-        $carreras = Carrera::orderBy('nombre')->get();
-        $turnos = DB::table('grupo')->whereNotNull('turno')->where('turno', '!=', '')
-            ->select('turno')->distinct()->orderBy('turno')->pluck('turno')
-            ->map(fn ($turno): object => (object) [
-                'valor' => $turno,
-                'etiqueta' => $this->etiquetaTurno($turno),
-            ]);
-        $paralelos = DB::table('grupo')->whereNotNull('codigo')->where('codigo', '!=', '')
-            ->select('codigo')->distinct()->orderBy('codigo')->pluck('codigo');
+        $gestiones = GestionAcademica::query()
+            ->orderByDesc('gestion')
+            ->orderByDesc('periodo')
+            ->get();
+        $carreras = Carrera::query()
+            ->when(
+                ! empty($filters['id_gestionacademica']),
+                function ($query) use ($filters): void {
+                    $filtrosGestion = ['id_gestionacademica' => $filters['id_gestionacademica']];
+                    $carrerasConGrupos = $this->gruposConfiguradosQuery($filtrosGestion)
+                        ->select('m.id_carrera')
+                        ->distinct()
+                        ->pluck('m.id_carrera');
+                    $carrerasInscritas = DB::table('inscrito')
+                        ->where('id_gestionacademica', $filters['id_gestionacademica'])
+                        ->select('id_carrera')
+                        ->distinct()
+                        ->pluck('id_carrera');
+
+                    $query->whereIn(
+                        'id_carrera',
+                        $carrerasConGrupos->merge($carrerasInscritas)->unique()->values()
+                    );
+                }
+            )
+            ->orderBy('nombre')
+            ->get();
+
+        $niveles = collect();
+        if (! empty($filters['id_gestionacademica']) && ! empty($filters['id_carrera'])) {
+            $carrera = $carreras->firstWhere('id_carrera', (int) $filters['id_carrera']);
+            if ($carrera) {
+                $nivelesPermitidos = Carrera::nivelesPorRegimen($carrera->regimen);
+                $filtrosCarreraGestion = array_intersect_key(
+                    $filters,
+                    array_flip(['id_gestionacademica', 'id_carrera'])
+                );
+                $niveles = $this->gruposConfiguradosQuery($filtrosCarreraGestion)
+                    ->whereNotNull('m.nivel')
+                    ->select('m.nivel')
+                    ->distinct()
+                    ->orderBy('m.nivel')
+                    ->pluck('m.nivel')
+                    ->filter(fn ($nivel): bool => in_array((int) $nivel, $nivelesPermitidos, true))
+                    ->values()
+                    ->map(fn ($nivel): object => (object) [
+                        'valor' => $nivel,
+                        'etiqueta' => Carrera::etiquetaNivel($carrera->regimen, $nivel),
+                    ]);
+            }
+        }
+
+        $filtrosGrupos = array_intersect_key(
+            $filters,
+            array_flip(['id_gestionacademica', 'id_carrera', 'nivel'])
+        );
+        $gruposPorNivel = $this->gruposConfiguradosQuery($filtrosGrupos);
+        $turnos = ! empty($filters['nivel'])
+            ? (clone $gruposPorNivel)->whereNotNull('gr.turno')
+                ->whereIn('gr.turno', [1, 2, 3])
+                ->select('gr.turno')
+                ->distinct()
+                ->orderBy('gr.turno')
+                ->pluck('gr.turno')
+                ->map(fn ($turno): object => (object) [
+                    'valor' => $turno,
+                    'etiqueta' => $this->etiquetaTurno($turno),
+                ])
+            : collect();
+        $filtrosParalelos = array_intersect_key(
+            $filters,
+            array_flip(['id_gestionacademica', 'id_carrera', 'nivel', 'turno'])
+        );
+        $paralelos = ! empty($filters['nivel']) && ! empty($filters['turno'])
+            ? $this->gruposConfiguradosQuery($filtrosParalelos)
+                ->whereNotNull('gr.codigo')
+                ->select('gr.codigo')
+                ->distinct()
+                ->orderBy('gr.codigo')
+                ->pluck('gr.codigo')
+                ->map(fn (string $codigo): ?string => $this->nombreParalelo($codigo))
+                ->filter()
+                ->unique()
+                ->sort()
+                ->values()
+            : collect();
 
         return view('Inscripciones.inscriptos.index', compact(
             'inscritos',
             'gestiones',
             'carreras',
+            'niveles',
             'turnos',
             'paralelos',
             'totalInscripciones',
@@ -755,6 +862,32 @@ class InscritosController extends Controller
     }
 
     /**
+     * Devuelve los grupos asignados a inscripciones para las opciones dependientes del listado.
+     */
+    private function gruposConfiguradosQuery(array $filters): Builder
+    {
+        return DB::table('grupo as gr')
+            ->join('materia as m', 'm.id_materia', '=', 'gr.id_materia')
+            ->join('carreras as c', 'c.id_carrera', '=', 'm.id_carrera')
+            ->when(
+                ! empty($filters['id_gestionacademica']),
+                fn (Builder $query) => $query->where('gr.id_gestionacademica', $filters['id_gestionacademica'])
+            )
+            ->when(
+                ! empty($filters['id_carrera']),
+                fn (Builder $query) => $query->where('m.id_carrera', $filters['id_carrera'])
+            )
+            ->when(
+                ! empty($filters['nivel']),
+                fn (Builder $query) => $query->where('m.nivel', $filters['nivel'])
+            )
+            ->when(
+                ! empty($filters['turno']),
+                fn (Builder $query) => $query->where('gr.turno', $filters['turno'])
+            );
+    }
+
+    /**
      * Ordena las inscripciones por turno, paralelo, nivel y fecha de registro.
      */
     private function ordenarPorTurnoYParalelo(Builder $query): Builder
@@ -790,11 +923,7 @@ class InscritosController extends Controller
             ->groupBy('id_inscrito')
             ->map(fn ($grupos) => $grupos
                 ->map(function (object $grupo): object {
-                    $partes = explode('-', trim($grupo->codigo));
-                    $ultimoSegmento = end($partes);
-                    $grupo->paralelo = is_string($ultimoSegmento) && preg_match('/^[a-z]$/i', $ultimoSegmento)
-                        ? mb_strtoupper($ultimoSegmento)
-                        : $grupo->codigo;
+                    $grupo->paralelo = $this->nombreParalelo((string) $grupo->codigo) ?? $grupo->codigo;
                     $grupo->turno_etiqueta = $this->etiquetaTurno($grupo->turno);
 
                     return $grupo;
@@ -805,6 +934,16 @@ class InscritosController extends Controller
                     mb_strtolower($grupo->paralelo),
                 ])
                 ->values());
+    }
+
+    /**
+     * Obtiene el paralelo final de códigos como "A", "MAT-101-A" o "MAT-101-AA".
+     */
+    private function nombreParalelo(string $codigo): ?string
+    {
+        return preg_match('/(?:^|-)([A-Z]{1,2})$/i', trim($codigo), $coincidencias)
+            ? mb_strtoupper($coincidencias[1])
+            : null;
     }
 
     /**

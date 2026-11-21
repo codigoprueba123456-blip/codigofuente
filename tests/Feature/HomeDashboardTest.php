@@ -78,6 +78,71 @@ class HomeDashboardTest extends TestCase
         );
     }
 
+    public function test_report_dashboard_filters_only_group_combinations_available_for_selected_management_and_career(): void
+    {
+        $fixture = $this->crearDatos();
+        $baseFilters = [
+            'id_gestionacademica' => $fixture['gestionActual']->id_gestionacademica,
+            'id_carrera' => $fixture['sistemas']->id_carrera,
+        ];
+
+        $response = $this->actingAs($fixture['admin'])->get(route('reportes.dashboard', $baseFilters));
+        $response->assertOk()
+            ->assertSee('Segundo año')
+            ->assertDontSee('Primer año')
+            ->assertDontSee('Tercer año');
+
+        $this->assertSame(
+            ['Segundo año'],
+            $response->viewData('niveles')->pluck('etiqueta')->all()
+        );
+        $this->assertEqualsCanonicalizing(
+            ['Mañana', 'Tarde', 'Noche'],
+            $response->viewData('turnos')->all()
+        );
+        $this->assertEqualsCanonicalizing(
+            ['A', 'B'],
+            $response->viewData('paralelos')->all()
+        );
+
+        $nivel = $response->viewData('niveles')->first()['valor'];
+        $filtrado = $this->actingAs($fixture['admin'])->get(route('reportes.dashboard', [
+            ...$baseFilters,
+            'nivel' => $nivel,
+            'turno' => 'Mañana',
+            'paralelo' => 'A',
+        ]));
+        $filtrado->assertOk();
+        $detalles = $filtrado->viewData('filasTabla')->where('tipo_fila', 'detalle');
+        $this->assertCount(1, $detalles);
+        $this->assertSame('A', $detalles->first()->paralelo);
+        $this->assertSame('Mañana', $detalles->first()->turno);
+        $this->assertSame(1, $filtrado->viewData('estadisticas')['inscripciones']);
+
+        $paraleloInexistente = $this->actingAs($fixture['admin'])->get(route('reportes.dashboard', [
+            ...$baseFilters,
+            'nivel' => $nivel,
+            'turno' => 'Mañana',
+            'paralelo' => 'B',
+        ]));
+        $paraleloInexistente->assertOk();
+        $this->assertArrayNotHasKey('paralelo', $paraleloInexistente->viewData('filters'));
+        $this->assertSame(['A'], $paraleloInexistente->viewData('paralelos')->all());
+
+        $carreraCambiada = $this->actingAs($fixture['admin'])->get(route('reportes.dashboard', [
+            ...$baseFilters,
+            'id_carrera' => $fixture['mecanica']->id_carrera,
+            'nivel' => $nivel,
+            'turno' => 'Tarde',
+            'paralelo' => 'B',
+        ]));
+        $carreraCambiada->assertOk();
+        $this->assertSame(['Mañana'], $carreraCambiada->viewData('turnos')->all());
+        $this->assertSame(['A'], $carreraCambiada->viewData('paralelos')->all());
+        $this->assertArrayNotHasKey('turno', $carreraCambiada->viewData('filters'));
+        $this->assertArrayNotHasKey('paralelo', $carreraCambiada->viewData('filters'));
+    }
+
     public function test_excel_export_matches_the_selected_management_and_career(): void
     {
         $fixture = $this->crearDatos();
@@ -267,7 +332,7 @@ class HomeDashboardTest extends TestCase
         $this->crearPostulante($sistemas, $gestionActual, 'POST-DASH-001', 'DASH-POS-001');
         $this->crearPostulante($administracion, $gestionAnterior, 'POST-DASH-002', 'DASH-POS-002');
 
-        return compact('admin', 'sistemas', 'gestionActual');
+        return compact('admin', 'sistemas', 'mecanica', 'gestionActual');
     }
 
     private function crearGestion(int $year, bool $vigente): GestionAcademica

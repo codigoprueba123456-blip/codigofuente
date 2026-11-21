@@ -4,7 +4,7 @@
     </div>
     <div class="card-body">
         {{-- Los campos se generan según el tipo de reporte; sus opciones dependen de la selección previa. --}}
-        <form method="GET" action="{{ route('reportes.inscripciones.index', ['reporte' => $reporte]) }}">
+        <form method="GET" action="{{ route('reportes.inscripciones.index', ['reporte' => $reporte]) }}" data-cascade-filters>
             <input type="hidden" name="generar" value="1">
             <div class="row">
                 @foreach ($configuracion['filtros'] as $filtro)
@@ -34,6 +34,22 @@
                 <i class="fas fa-search mr-1"></i> Generar reporte
             </button>
         </form>
+
+        <script>
+            document.querySelectorAll('form[data-cascade-filters]').forEach(form => {
+                const selects = Array.from(form.querySelectorAll('select'));
+
+                selects.forEach((select, index) => {
+                    select.addEventListener('change', () => {
+                        selects.slice(index + 1).forEach(dependent => {
+                            dependent.value = '';
+                        });
+                        form.querySelector('[name="generar"]').disabled = true;
+                        form.submit();
+                    });
+                });
+            });
+        </script>
 
         {{-- Las descargas reutilizan los filtros validados que produjeron la tabla. --}}
         @if ($generado)

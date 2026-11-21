@@ -154,6 +154,83 @@ class InscripcionesReportesTest extends TestCase
         $this->assertCount(2, $multicarreraReport->viewData('filas'));
     }
 
+    public function test_parallel_and_group_filters_only_offer_groups_for_the_selected_career_year_and_shift(): void
+    {
+        $fixture = $this->createReportFixture();
+        $materiaNivelInvalido = DB::table('materia')->insertGetId([
+            'codigo' => 'MAT-REPORTES-6',
+            'nombre' => 'Materia fuera de regimen',
+            'nivel' => 6,
+            'id_carrera' => $fixture['carrera']->id_carrera,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+        DB::table('grupo')->insert([
+            'codigo' => 'MAT-REPORTES-6-A',
+            'turno' => 1,
+            'id_gestionacademica' => $fixture['gestion']->id_gestionacademica,
+            'id_materia' => $materiaNivelInvalido,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+        $materiaTurnoTarde = DB::table('materia')->insertGetId([
+            'codigo' => 'MAT-REPORTES-TARDE',
+            'nombre' => 'Materia turno tarde',
+            'nivel' => 1,
+            'id_carrera' => $fixture['carrera']->id_carrera,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+        DB::table('grupo')->insert([
+            'codigo' => 'MAT-REPORTES-TARDE-C',
+            'turno' => 2,
+            'id_gestionacademica' => $fixture['gestion']->id_gestionacademica,
+            'id_materia' => $materiaTurnoTarde,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        $filters = [
+            'id_gestionacademica' => $fixture['gestion']->id_gestionacademica,
+            'id_carrera' => $fixture['carrera']->id_carrera,
+        ];
+        $parallelPage = $this->get(route('reportes.inscripciones.index', [
+            'reporte' => 'lista-inscritos-paralelo',
+            ...$filters,
+        ]));
+        $parallelPage->assertOk()
+            ->assertSee('data-cascade-filters', false)
+            ->assertSee('Primer año')
+            ->assertDontSee('Nivel 6');
+        $this->assertSame(
+            ['Primer año'],
+            $parallelPage->viewData('opciones')['niveles']->pluck('etiqueta')->all()
+        );
+
+        $turnoTarde = $this->get(route('reportes.inscripciones.index', [
+            'reporte' => 'lista-inscritos-paralelo',
+            ...$filters,
+            'nivel' => 1,
+            'turno' => 2,
+        ]));
+        $this->assertSame(
+            ['C'],
+            $turnoTarde->viewData('opciones')['paralelos']->pluck('valor')->all()
+        );
+
+        $groupPage = $this->get(route('reportes.inscripciones.index', [
+            'reporte' => 'lista-inscritos-grupo',
+            ...$filters,
+            'nivel' => 1,
+        ]));
+        $grupoIds = $groupPage->viewData('opciones')['grupos']->pluck('valor')->all();
+        $this->assertContains($fixture['grupo'], $grupoIds);
+        $this->assertNotContains(
+            DB::table('grupo')->where('codigo', 'MAT-REPORTES-6-A')->value('id_grupo'),
+            $grupoIds
+        );
+    }
+
     public function test_all_seven_reports_export_excel_and_pdf(): void
     {
         $fixture = $this->createReportFixture();

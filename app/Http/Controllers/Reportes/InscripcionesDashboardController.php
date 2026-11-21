@@ -28,8 +28,8 @@ class InscripcionesDashboardController extends Controller
 
     /**
      * Presenta el resumen de inscritos por carrera, nivel, paralelo y turno.
-     * Los permisos determinan el acceso; los filtros admitidos son la gestión
-     * académica y la carrera, con la gestión vigente como selección inicial.
+     * Los filtros se limitan a combinaciones de gestión, carrera, nivel, turno
+     * y paralelo que existen en grupos activos.
      */
     public function index(Request $request)
     {
@@ -51,7 +51,18 @@ class InscripcionesDashboardController extends Controller
         $filters = $request->validate([
             'id_gestionacademica' => ['nullable', 'integer', 'exists:gestionacademica,id_gestionacademica'],
             'id_carrera' => ['nullable', 'integer', 'exists:carreras,id_carrera'],
+            'nivel' => ['nullable', 'string', 'max:20'],
+            'turno' => ['nullable', 'string', 'max:30'],
+            'paralelo' => ['nullable', 'string', 'max:30'],
         ]);
+
+        $combinacionesGrupos = $this->combinacionesGrupos();
+        $gestionIds = $combinacionesGrupos->pluck('id_gestionacademica')->unique()->values();
+        $gestiones = GestionAcademica::query()
+            ->whereIn('id_gestionacademica', $gestionIds)
+            ->orderByDesc('gestion')
+            ->orderByDesc('periodo')
+            ->get();
 
         // Prioriza una gestión activa y vigente; si no existe, usa primero una activa
         // y finalmente la más reciente registrada para mantener un filtro inicial útil.
@@ -76,23 +87,120 @@ class InscripcionesDashboardController extends Controller
                 ->first();
         }
 
-        if (! $request->filled('id_gestionacademica') && $gestionActual) {
-            $filters['id_gestionacademica'] = $gestionActual->id_gestionacademica;
+        if (! $request->filled('id_gestionacademica')) {
+            $gestionInicial = $gestionActual && $gestionIds->contains($gestionActual->id_gestionacademica)
+                ? $gestionActual->id_gestionacademica
+                : $gestiones->first()?->id_gestionacademica;
+
+            if ($gestionInicial) {
+                $filters['id_gestionacademica'] = $gestionInicial;
+            }
+        }
+
+        $combinacionesSeleccionadas = $combinacionesGrupos
+            ->when(
+                ! empty($filters['id_gestionacademica']),
+                fn (Collection $grupos) => $grupos->where(
+                    'id_gestionacademica',
+                    (int) $filters['id_gestionacademica']
+                )
+            );
+        $carreraIds = $combinacionesSeleccionadas->pluck('id_carrera')->unique()->values();
+        $carreras = Carrera::query()
+            ->whereIn('id_carrera', $carreraIds)
+            ->orderBy('nombre')
+            ->get();
+
+        if (
+            ! empty($filters['id_carrera'])
+            && ! $carreraIds->contains((int) $filters['id_carrera'])
+        ) {
+            unset($filters['id_carrera']);
+        }
+
+        $combinacionesSeleccionadas = $combinacionesSeleccionadas
+            ->when(
+                ! empty($filters['id_carrera']),
+                fn (Collection $grupos) => $grupos->where(
+                    'id_carrera',
+                    (int) $filters['id_carrera']
+                )
+            );
+        $niveles = $combinacionesSeleccionadas
+            ->filter(fn (object $grupo): bool => $grupo->nivel !== null)
+            ->map(fn (object $grupo): array => [
+                'valor' => $this->claveNivel($grupo->regimen, $grupo->nivel),
+                'etiqueta' => Carrera::etiquetaNivel($grupo->regimen, $grupo->nivel),
+                'numero' => (int) $grupo->nivel,
+                'regimen' => Carrera::regimenEfectivo($grupo->regimen) ?? 0,
+            ])
+            ->unique('valor')
+            ->sortBy(fn (array $nivel): string => sprintf('%02d:%02d', $nivel['numero'], $nivel['regimen']))
+            ->values();
+
+        if (
+            ! empty($filters['nivel'])
+            && ! $niveles->contains(fn (array $nivel): bool => $nivel['valor'] === $filters['nivel'])
+        ) {
+            unset($filters['nivel']);
+        }
+
+        $combinacionesTurnos = $combinacionesSeleccionadas->when(
+            ! empty($filters['nivel']),
+            fn (Collection $grupos) => $grupos->filter(
+                fn (object $grupo): bool => $this->claveNivel($grupo->regimen, $grupo->nivel) === $filters['nivel']
+            )
+        );
+        $turnos = $combinacionesTurnos
+            ->sortBy(fn (object $grupo): int => (int) ($grupo->turno ?? PHP_INT_MAX))
+            ->unique('turno_etiqueta')
+            ->map(fn (object $grupo): string => $grupo->turno_etiqueta)
+            ->values();
+
+        if (
+            ! empty($filters['turno'])
+            && ! $turnos->contains($filters['turno'])
+        ) {
+            unset($filters['turno']);
+        }
+
+        $combinacionesParalelos = $combinacionesTurnos->when(
+            ! empty($filters['turno']),
+            fn (Collection $grupos) => $grupos->where('turno_etiqueta', $filters['turno'])
+        );
+        $paralelos = $combinacionesParalelos
+            ->pluck('paralelo')
+            ->unique()
+            ->sort()
+            ->values();
+
+        if (
+            ! empty($filters['paralelo'])
+            && ! $paralelos->contains($filters['paralelo'])
+        ) {
+            unset($filters['paralelo']);
         }
 
         // El detalle alimenta tanto la tabla (con subtotales) como la hoja Excel.
-        $filasDetalle = $this->filasReporte($filters);
+        $filtrosBase = array_intersect_key($filters, array_flip(['id_gestionacademica', 'id_carrera']));
+        $filasDetalle = $this->filasReporte($filtrosBase)
+            ->filter(function (object $fila) use ($filters): bool {
+                return (empty($filters['nivel'])
+                        || $this->claveNivel($fila->regimen, $fila->nivel_numero) === $filters['nivel'])
+                    && (empty($filters['turno']) || $fila->turno === $filters['turno'])
+                    && (empty($filters['paralelo']) || $fila->paralelo === $filters['paralelo']);
+            })
+            ->values();
         $filasTabla = $this->filasConTotales($filasDetalle);
+        $inscripcionesReporte = $filasDetalle
+            ->flatMap(fn (object $fila): array => array_keys($fila->inscripciones_ids))
+            ->unique();
         $estadisticas = [
-            'inscripciones' => $this->inscripcionesQuery($filters)->distinct()->count('i.id_inscrito'),
+            'inscripciones' => $inscripcionesReporte->count(),
             'carreras' => $filasDetalle->pluck('id_carrera')->unique()->count(),
             'combinaciones' => $filasDetalle->count(),
         ];
-        $gestiones = GestionAcademica::query()
-            ->orderByDesc('gestion')
-            ->orderByDesc('periodo')
-            ->get();
-        $carreras = Carrera::query()->orderBy('nombre')->get();
+
         // La descarga usa el mismo detalle filtrado que la vista, sin las filas
         // visuales de subtotal y total que se agregan para presentación.
         if ($request->input('formato') === 'excel') {
@@ -109,8 +217,46 @@ class InscripcionesDashboardController extends Controller
             'estadisticas',
             'filasTabla',
             'gestiones',
-            'carreras'
+            'carreras',
+            'niveles',
+            'turnos',
+            'paralelos'
         ));
+    }
+
+    /**
+     * Devuelve solo combinaciones ofrecidas por grupos y materias activos.
+     */
+    private function combinacionesGrupos(): Collection
+    {
+        return DB::table('grupo as gr')
+            ->join('materia as m', 'm.id_materia', '=', 'gr.id_materia')
+            ->join('carreras as c', 'c.id_carrera', '=', 'm.id_carrera')
+            ->where('gr.activo', true)
+            ->where('m.activo', true)
+            ->select(
+                'gr.id_gestionacademica',
+                'gr.codigo',
+                'gr.turno',
+                'm.nivel',
+                'c.id_carrera',
+                'c.regimen'
+            )
+            ->get()
+            ->map(function (object $grupo): object {
+                $grupo->paralelo = $this->extraerParalelo((string) $grupo->codigo);
+                $grupo->turno_etiqueta = $this->turnoEtiqueta($grupo->turno);
+
+                return $grupo;
+            });
+    }
+
+    /**
+     * Identifica el nivel junto con su régimen para distinguir años de semestres.
+     */
+    private function claveNivel(int|string|null $regimen, int|string|null $nivel): string
+    {
+        return (Carrera::regimenEfectivo($regimen) ?? 0).':'.(int) $nivel;
     }
 
     /**
@@ -260,10 +406,12 @@ class InscripcionesDashboardController extends Controller
                             'paralelo' => $paralelo,
                             'turno' => $turno,
                             'estudiantes' => [],
+                            'inscripciones' => [],
                         ];
                     }
 
                     $conteos[$clave]['estudiantes'][$registro->id_persona] = mb_strtoupper(trim((string) $registro->sexo));
+                    $conteos[$clave]['inscripciones'][$registro->id_inscrito] = true;
                 }
             }
         }
@@ -279,7 +427,8 @@ class InscripcionesDashboardController extends Controller
                 $fila['inscritos_m'] = $sexos->filter(fn (string $sexo): bool => $sexo === 'F')->count();
                 $fila['inscritos_t'] = $sexos->count();
                 $fila['estudiantes_ids'] = $fila['estudiantes'];
-                unset($fila['estudiantes']);
+                $fila['inscripciones_ids'] = $fila['inscripciones'];
+                unset($fila['estudiantes'], $fila['inscripciones']);
 
                 return (object) $fila;
             })
@@ -372,6 +521,7 @@ class InscripcionesDashboardController extends Controller
                 'paralelo' => $paralelo,
                 'turno' => $turno,
                 'estudiantes' => [],
+                'inscripciones' => [],
             ];
         }
     }

@@ -26,8 +26,8 @@ class InscripcionesReportesController extends Controller
         $formato = $request->input('formato');
         // Los filtros pasan a ser obligatorios tanto al mostrar resultados como al exportarlos.
         $generado = $request->boolean('generar') || in_array($formato, ['excel', 'pdf'], true);
-        $filtros = $this->validarFiltros($request, $configuracion, $generado);
-        $opciones = $this->opciones($request);
+        $filtros = $this->validarFiltros($request, $configuracion, $generado, $reporte);
+        $opciones = $this->opciones($request, $reporte);
         $filas = collect();
 
         if ($generado) {
@@ -193,7 +193,7 @@ class InscripcionesReportesController extends Controller
      * En la pantalla inicial son opcionales; al generar una tabla o exportación,
      * los campos declarados para ese tipo de reporte son obligatorios.
      */
-    private function validarFiltros(Request $request, array $configuracion, bool $generado): array
+    private function validarFiltros(Request $request, array $configuracion, bool $generado, string $reporte): array
     {
         $rules = [
             'generar' => ['nullable', 'boolean'],
@@ -205,29 +205,82 @@ class InscripcionesReportesController extends Controller
         foreach ($configuracion['filtros'] as $filtro) {
             $required = $generado ? 'required' : 'nullable';
             $rules[$filtro['name']] = match ($filtro['name']) {
-                'id_gestionacademica' => [$required, 'integer', 'exists:gestionacademica,id_gestionacademica'],
-                'id_carrera' => [$required, 'integer', 'exists:carreras,id_carrera'],
+                'id_gestionacademica' => [
+                    $required,
+                    'integer',
+                    'exists:gestionacademica,id_gestionacademica',
+                    function (string $attribute, mixed $value, \Closure $fail) use ($generado, $reporte): void {
+                        if ($generado && ! $this->registrosDisponibles($reporte)
+                            ->where('id_gestionacademica', $value)
+                            ->exists()) {
+                            $fail('No hay datos disponibles para la gestión seleccionada en este reporte.');
+                        }
+                    },
+                ],
+                'id_carrera' => [
+                    $required,
+                    'integer',
+                    'exists:carreras,id_carrera',
+                    function (string $attribute, mixed $value, \Closure $fail) use ($request, $generado, $reporte): void {
+                        if (! $generado) {
+                            return;
+                        }
+
+                        $existe = $this->registrosDisponibles($reporte)
+                            ->where('id_gestionacademica', $request->input('id_gestionacademica'))
+                            ->where('id_carrera', $value)
+                            ->exists();
+
+                        if (! $existe) {
+                            $fail('La carrera no tiene datos en la gestión seleccionada para este reporte.');
+                        }
+                    },
+                ],
                 'nivel' => [
                     $required,
                     'integer',
                     'min:1',
-                    Rule::exists('materia', 'nivel')->where('id_carrera', $request->input('id_carrera')),
+                    function (string $attribute, mixed $value, \Closure $fail) use ($request, $generado): void {
+                        if (! $generado) {
+                            return;
+                        }
+
+                        $carrera = Carrera::find($request->input('id_carrera'));
+                        $nivelPermitido = $carrera
+                            && in_array((int) $value, Carrera::nivelesPorRegimen($carrera->regimen), true);
+                        $nivelDisponible = $this->gruposFiltroQuery($request)
+                            ->where('m.nivel', $value)
+                            ->exists();
+
+                        if (! $nivelPermitido || ! $nivelDisponible) {
+                            $fail('El nivel no tiene grupos disponibles para la gestión y carrera seleccionadas.');
+                        }
+                    },
                 ],
-                'turno' => [$required, 'integer', Rule::in([1, 2, 3])],
+                'turno' => [
+                    $required,
+                    'integer',
+                    Rule::in([1, 2, 3]),
+                    function (string $attribute, mixed $value, \Closure $fail) use ($request, $generado): void {
+                        if ($generado && ! $this->gruposFiltroQuery($request)
+                            ->where('m.nivel', $request->input('nivel'))
+                            ->where('gr.turno', $value)
+                            ->exists()) {
+                            $fail('No hay grupos para el turno seleccionado con los demás filtros indicados.');
+                        }
+                    },
+                ],
                 'paralelo' => [
                     $required,
                     'string',
-                    'regex:/^[A-D]$/i',
+                    'regex:/^[A-Z]{1,2}$/i',
                     function (string $attribute, mixed $value, \Closure $fail) use ($request, $generado): void {
                         if (! $generado) {
                             return;
                         }
 
                         $paralelo = strtoupper((string) $value);
-                        $query = DB::table('grupo as gr')
-                            ->join('materia as m', 'm.id_materia', '=', 'gr.id_materia')
-                            ->where('gr.id_gestionacademica', $request->input('id_gestionacademica'))
-                            ->where('m.id_carrera', $request->input('id_carrera'))
+                        $query = $this->gruposFiltroQuery($request)
                             ->where('m.nivel', $request->input('nivel'))
                             ->where('gr.turno', $request->input('turno'))
                             ->where(function (Builder $query) use ($paralelo): void {
@@ -240,18 +293,64 @@ class InscripcionesReportesController extends Controller
                         }
                     },
                 ],
-                'id_grupo' => [$required, 'integer', 'exists:grupo,id_grupo'],
+                'id_grupo' => [
+                    $required,
+                    'integer',
+                    'exists:grupo,id_grupo',
+                    function (string $attribute, mixed $value, \Closure $fail) use ($request, $generado): void {
+                        if ($generado && ! $this->gruposFiltroQuery($request)
+                            ->where('m.nivel', $request->input('nivel'))
+                            ->where('gr.id_grupo', $value)
+                            ->exists()) {
+                            $fail('El grupo no corresponde a la gestión, carrera y nivel seleccionados.');
+                        }
+                    },
+                ],
                 'gestion' => [
                     $required,
                     'integer',
                     Rule::exists('gestionacademica', 'gestion')
                         ->where('periodo', $request->input('periodo')),
+                    function (string $attribute, mixed $value, \Closure $fail) use ($request, $generado): void {
+                        if (! $generado) {
+                            return;
+                        }
+
+                        $existe = DB::table('inscrito as i')
+                            ->join('gestionacademica as ga', 'ga.id_gestionacademica', '=', 'i.id_gestionacademica')
+                            ->where('i.activo', true)
+                            ->whereNull('i.id_inscrito_reemplazo')
+                            ->where('ga.gestion', $value)
+                            ->where('ga.periodo', $request->input('periodo'))
+                            ->exists();
+
+                        if (! $existe) {
+                            $fail('No hay inscripciones disponibles para la gestión y periodo seleccionados.');
+                        }
+                    },
                 ],
                 'periodo' => [
                     $required,
                     'integer',
                     Rule::exists('gestionacademica', 'periodo')
                         ->where('gestion', $request->input('gestion')),
+                    function (string $attribute, mixed $value, \Closure $fail) use ($request, $generado): void {
+                        if (! $generado) {
+                            return;
+                        }
+
+                        $existe = DB::table('inscrito as i')
+                            ->join('gestionacademica as ga', 'ga.id_gestionacademica', '=', 'i.id_gestionacademica')
+                            ->where('i.activo', true)
+                            ->whereNull('i.id_inscrito_reemplazo')
+                            ->where('ga.gestion', $request->input('gestion'))
+                            ->where('ga.periodo', $value)
+                            ->exists();
+
+                        if (! $existe) {
+                            $fail('No hay inscripciones disponibles para la gestión y periodo seleccionados.');
+                        }
+                    },
                 ],
                 default => [$required],
             };
@@ -265,9 +364,12 @@ class InscripcionesReportesController extends Controller
      * grupos y paralelos se acotan por gestión, carrera, nivel y turno cuando aplica;
      * los periodos se acotan por la gestión numérica seleccionada.
      */
-    private function opciones(Request $request): array
+    private function opciones(Request $request, string $reporte): array
     {
+        $registros = $this->registrosDisponibles($reporte);
+        $gestionIds = (clone $registros)->distinct()->pluck('id_gestionacademica');
         $gestiones = DB::table('gestionacademica')
+            ->whereIn('id_gestionacademica', $gestionIds)
             ->orderByDesc('gestion')
             ->orderByDesc('periodo')
             ->get(['id_gestionacademica', 'gestion', 'periodo'])
@@ -275,7 +377,16 @@ class InscripcionesReportesController extends Controller
                 'valor' => $gestion->id_gestionacademica,
                 'etiqueta' => 'Gestión '.$gestion->gestion.' - Periodo '.$gestion->periodo,
             ]);
+
+        $carreraIds = (clone $registros)
+            ->when(
+                $request->filled('id_gestionacademica'),
+                fn (Builder $query) => $query->where('id_gestionacademica', $request->input('id_gestionacademica'))
+            )
+            ->distinct()
+            ->pluck('id_carrera');
         $carreras = Carrera::query()
+            ->whereIn('id_carrera', $carreraIds)
             ->orderBy('nombre')
             ->get()
             ->map(function (Carrera $carrera): object {
@@ -288,67 +399,162 @@ class InscripcionesReportesController extends Controller
                         : ''),
                 ];
             });
-        $materias = DB::table('materia')
-            ->when($request->filled('id_carrera'), fn (Builder $query) => $query->where('id_carrera', $request->input('id_carrera')));
-        $niveles = (clone $materias)->whereNotNull('nivel')->distinct()->orderBy('nivel')->pluck('nivel')
-            ->map(fn ($nivel): object => (object) ['valor' => $nivel, 'etiqueta' => 'Nivel '.$nivel]);
-        $grupos = DB::table('grupo as gr')
-            ->join('materia as m', 'm.id_materia', '=', 'gr.id_materia')
-            ->when($request->filled('id_gestionacademica'), fn (Builder $query) => $query->where('gr.id_gestionacademica', $request->input('id_gestionacademica')))
-            ->when($request->filled('id_carrera'), fn (Builder $query) => $query->where('m.id_carrera', $request->input('id_carrera')))
-            ->when($request->filled('nivel'), fn (Builder $query) => $query->where('m.nivel', $request->input('nivel')))
-            ->when($request->filled('turno'), fn (Builder $query) => $query->where('gr.turno', $request->input('turno')))
-            ->orderBy('gr.codigo')
-            ->orderBy('m.nombre')
-            ->get(['gr.id_grupo', 'gr.codigo', 'gr.turno', 'm.nivel', 'm.nombre as materia']);
-        $grupos = $grupos->map(function (object $grupo): object {
-            $turno = [1 => 'Mañana', 2 => 'Tarde', 3 => 'Noche'][$grupo->turno] ?? 'Sin turno';
-            $grupo->valor = $grupo->id_grupo;
-            $grupo->etiqueta = $grupo->codigo.' - '.$grupo->materia.' (Nivel '.$grupo->nivel.', '.$turno.')';
 
-            return $grupo;
-        });
+        $gruposBase = collect();
+        $niveles = collect();
+        $turnos = collect();
+        $paralelos = collect();
+        $grupos = collect();
 
-        $turnos = DB::table('grupo')
-            ->whereNotNull('turno')
+        if (in_array($reporte, ['lista-inscritos-paralelo', 'lista-inscritos-grupo'], true)) {
+            $gruposBase = $this->gruposFiltroQuery($request)
+                ->orderBy('gr.codigo')
+                ->orderBy('m.nombre')
+                ->get([
+                    'gr.id_grupo',
+                    'gr.codigo',
+                    'gr.turno',
+                    'gr.id_gestionacademica',
+                    'm.nivel',
+                    'm.id_carrera',
+                    'm.nombre as materia',
+                    'c.regimen',
+                ])
+                ->filter(fn (object $grupo): bool => $grupo->nivel !== null
+                    && in_array(
+                        (int) $grupo->nivel,
+                        Carrera::nivelesPorRegimen($grupo->regimen),
+                        true
+                    ))
+                ->values();
+
+            $niveles = $gruposBase
+                ->groupBy('nivel')
+                ->map(function ($gruposNivel, $nivel): object {
+                    $regimenes = $gruposNivel
+                        ->map(fn (object $grupo): int => Carrera::regimenEfectivo($grupo->regimen) ?? 0)
+                        ->unique()
+                        ->values();
+                    $etiqueta = $regimenes->count() === 1
+                        ? Carrera::etiquetaNivel($regimenes->first(), $nivel)
+                        : 'Nivel '.$nivel;
+
+                    return (object) ['valor' => $nivel, 'etiqueta' => $etiqueta];
+                })
+                ->sortBy('valor')
+                ->values();
+
+            $gruposNivel = $request->filled('nivel')
+                ? $gruposBase->where('nivel', $request->input('nivel'))->values()
+                : $gruposBase;
+            $turnos = $gruposNivel
+                ->whereNotNull('turno')
+                ->sortBy('turno')
+                ->unique('turno')
+                ->map(fn (object $grupo): object => (object) [
+                    'valor' => $grupo->turno,
+                    'etiqueta' => [1 => 'Mañana', 2 => 'Tarde', 3 => 'Noche'][$grupo->turno] ?? $grupo->turno,
+                ])
+                ->values();
+            $gruposTurno = $request->filled('turno')
+                ? $gruposNivel->where('turno', $request->input('turno'))->values()
+                : $gruposNivel;
+            $paralelos = $gruposTurno
+                ->map(fn (object $grupo): ?string => $this->nombreParalelo((string) $grupo->codigo))
+                ->filter()
+                ->unique()
+                ->sort()
+                ->values()
+                ->map(fn (string $paralelo): object => (object) [
+                    'valor' => $paralelo,
+                    'etiqueta' => $paralelo,
+                ]);
+            $grupos = $gruposNivel
+                ->map(function (object $grupo): object {
+                    $turno = [1 => 'Mañana', 2 => 'Tarde', 3 => 'Noche'][$grupo->turno] ?? 'Sin turno';
+                    $grupo->valor = $grupo->id_grupo;
+                    $grupo->etiqueta = $grupo->codigo.' - '.$grupo->materia.' ('
+                        .Carrera::etiquetaNivel($grupo->regimen, $grupo->nivel).', '.$turno.')';
+
+                    return $grupo;
+                })
+                ->values();
+        }
+
+        $inscripcionesPeriodo = DB::table('inscrito as i')
+            ->join('gestionacademica as ga', 'ga.id_gestionacademica', '=', 'i.id_gestionacademica')
+            ->where('i.activo', true)
+            ->whereNull('i.id_inscrito_reemplazo');
+        $gestionesNumericas = (clone $inscripcionesPeriodo)
+            ->select('ga.gestion')
             ->distinct()
-            ->orderBy('turno')
-            ->pluck('turno')
-            ->map(fn ($turno): object => (object) [
-                'valor' => $turno,
-                'etiqueta' => [1 => 'Mañana', 2 => 'Tarde', 3 => 'Noche'][$turno] ?? $turno,
-            ]);
-
-        $paralelos = DB::table('grupo as gr')
-            ->join('materia as m', 'm.id_materia', '=', 'gr.id_materia')
-            ->when($request->filled('id_gestionacademica'), fn (Builder $query) => $query->where('gr.id_gestionacademica', $request->input('id_gestionacademica')))
-            ->when($request->filled('id_carrera'), fn (Builder $query) => $query->where('m.id_carrera', $request->input('id_carrera')))
-            ->when($request->filled('nivel'), fn (Builder $query) => $query->where('m.nivel', $request->input('nivel')))
-            ->when($request->filled('turno'), fn (Builder $query) => $query->where('gr.turno', $request->input('turno')))
-            ->whereNotNull('gr.codigo')
-            ->pluck('gr.codigo')
-            ->map(fn (string $codigo): ?string => $this->nombreParalelo($codigo))
-            ->filter()
-            ->unique()
-            ->sort()
-            ->values()
-            ->map(fn (string $paralelo): object => (object) ['valor' => $paralelo, 'etiqueta' => $paralelo]);
-
-        $gestionesNumericas = DB::table('gestionacademica')
-            ->select('gestion')
-            ->distinct()
-            ->orderByDesc('gestion')
-            ->pluck('gestion')
+            ->orderByDesc('ga.gestion')
+            ->pluck('ga.gestion')
             ->map(fn ($gestion): object => (object) ['valor' => $gestion, 'etiqueta' => $gestion]);
-        $periodos = DB::table('gestionacademica')
-            ->when($request->filled('gestion'), fn (Builder $query) => $query->where('gestion', $request->input('gestion')))
-            ->select('periodo')
+        $periodos = (clone $inscripcionesPeriodo)
+            ->when($request->filled('gestion'), fn (Builder $query) => $query->where('ga.gestion', $request->input('gestion')))
+            ->select('ga.periodo')
             ->distinct()
-            ->orderBy('periodo')
-            ->pluck('periodo')
+            ->orderBy('ga.periodo')
+            ->pluck('ga.periodo')
             ->map(fn ($periodo): object => (object) ['valor' => $periodo, 'etiqueta' => $periodo]);
 
         return compact('gestiones', 'carreras', 'niveles', 'turnos', 'paralelos', 'grupos', 'gestionesNumericas', 'periodos');
+    }
+
+    /**
+     * Limita gestión y carrera a registros que el reporte puede mostrar.
+     */
+    private function registrosDisponibles(string $reporte): Builder
+    {
+        if ($reporte === 'lista-postulantes') {
+            return DB::table('postulante as po')
+                ->select('po.id_gestionacademica', 'po.id_carrera');
+        }
+
+        if (in_array($reporte, ['lista-inscritos-paralelo', 'lista-inscritos-grupo'], true)) {
+            return DB::table('grupo as gr')
+                ->join('materia as m', 'm.id_materia', '=', 'gr.id_materia')
+                ->select('gr.id_gestionacademica', 'm.id_carrera');
+        }
+
+        $query = DB::table('inscrito as i')
+            ->where('i.activo', true)
+            ->whereNull('i.id_inscrito_reemplazo')
+            ->select('i.id_gestionacademica', 'i.id_carrera');
+
+        if ($reporte === 'lista-inscritos-multicarrera') {
+            $query->whereExists(function (Builder $subquery): void {
+                $subquery->selectRaw('1')
+                    ->from('inscrito as otra')
+                    ->whereColumn('otra.id_persona', 'i.id_persona')
+                    ->whereColumn('otra.id_gestionacademica', 'i.id_gestionacademica')
+                    ->where('otra.activo', true)
+                    ->whereNull('otra.id_inscrito_reemplazo')
+                    ->groupBy('otra.id_persona', 'otra.id_gestionacademica')
+                    ->havingRaw('COUNT(DISTINCT otra.id_carrera) > 1');
+            });
+        }
+
+        return $query;
+    }
+
+    /**
+     * Consulta grupos vinculados a la gestión y carrera seleccionadas.
+     */
+    private function gruposFiltroQuery(Request $request): Builder
+    {
+        return DB::table('grupo as gr')
+            ->join('materia as m', 'm.id_materia', '=', 'gr.id_materia')
+            ->join('carreras as c', 'c.id_carrera', '=', 'm.id_carrera')
+            ->when(
+                $request->filled('id_gestionacademica'),
+                fn (Builder $query) => $query->where('gr.id_gestionacademica', $request->input('id_gestionacademica'))
+            )
+            ->when(
+                $request->filled('id_carrera'),
+                fn (Builder $query) => $query->where('m.id_carrera', $request->input('id_carrera'))
+            );
     }
 
     /**
@@ -479,11 +685,11 @@ class InscripcionesReportesController extends Controller
 
     /**
      * Obtiene la letra final de paralelo en códigos como "A" o "MAT-101-A".
-     * Devuelve null si el código no termina en una letra A-D reconocida.
+     * Devuelve null si el código no termina en una letra reconocida.
      */
     private function nombreParalelo(string $codigo): ?string
     {
-        return preg_match('/(?:^|-)([A-D])$/i', trim($codigo), $coincidencias)
+        return preg_match('/(?:^|-)([A-Z]{1,2})$/i', trim($codigo), $coincidencias)
             ? strtoupper($coincidencias[1])
             : null;
     }

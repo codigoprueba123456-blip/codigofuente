@@ -58,7 +58,7 @@
                 <div class="row mb-3">
                     <div class="col-md-4">
                         <label for="id_gestionacademica" class="font-weight-bold">Gestión Académica:</label>
-                        <select name="id_gestionacademica" id="id_gestionacademica" class="form-control" onchange="this.form.submit()">
+                        <select name="id_gestionacademica" id="id_gestionacademica" class="form-control" onchange="this.form.id_carrera.value=''; this.form.turno.value=''; this.form.paralelo.value=''; this.form.submit()">
                             <option value="">-- Todas las Gestiones --</option>
                             @foreach ($gestiones as $g)
                                 <option value="{{ $g->id_gestionacademica }}" {{ request('id_gestionacademica') == $g->id_gestionacademica ? 'selected' : '' }}>
@@ -69,15 +69,12 @@
                     </div>
                     <div class="col-md-4">
                         <label for="id_carrera" class="font-weight-bold">Carrera:</label>
-                        <select name="id_carrera" id="id_carrera" class="form-control" onchange="this.form.submit()">
+                        <select name="id_carrera" id="id_carrera" class="form-control" onchange="this.form.turno.value=''; this.form.paralelo.value=''; this.form.submit()">
                             <option value="">-- Todas las Carreras --</option>
-                            {{-- Incluye la resolución ministerial en el nombre cuando la carrera cuenta con una. --}}
+                            {{-- El primer campo guarda la resolución principal de la carrera. --}}
                             @foreach ($carreras as $c)
-                                @php
-                                    $resoluciones = $c->resolucionesMinisteriales();
-                                @endphp
                                 <option value="{{ $c->id_carrera }}" {{ request('id_carrera') == $c->id_carrera ? 'selected' : '' }}>
-                                    {{ $c->nombre . ($resoluciones ? ' · R.M. ' . implode(' / ', $resoluciones) : '') }}
+                                    {{ \App\Models\Carrera::formatearNombreConResolucion($c->nombre, $c->resolucionministerial1, null, null) }}
                                 </option>
                             @endforeach
                         </select>
@@ -92,7 +89,7 @@
                     </div>
                     <div class="col-md-4">
                         <label for="turno" class="font-weight-bold">Turno:</label>
-                        <select name="turno" id="turno" class="form-control" onchange="this.form.submit()">
+                        <select name="turno" id="turno" class="form-control" onchange="this.form.paralelo.value=''; this.form.submit()" @disabled(empty($turnos))>
                             <option value="">-- Todos los turnos --</option>
                             @foreach ($turnos as $valor => $nombre)
                                 <option value="{{ $valor }}" {{ request('turno') == $valor ? 'selected' : '' }}>
@@ -103,7 +100,7 @@
                     </div>
                     <div class="col-md-4">
                         <label for="paralelo" class="font-weight-bold">Paralelo:</label>
-                        <select name="paralelo" id="paralelo" class="form-control" onchange="this.form.submit()">
+                        <select name="paralelo" id="paralelo" class="form-control" onchange="this.form.submit()" @disabled($paralelos->isEmpty())>
                             <option value="">-- Todos los paralelos --</option>
                             @foreach ($paralelos as $paralelo)
                                 <option value="{{ $paralelo }}" {{ mb_strtoupper(request('paralelo', '')) === $paralelo ? 'selected' : '' }}>
