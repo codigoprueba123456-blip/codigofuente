@@ -8,6 +8,10 @@ use Illuminate\Database\Seeder;
 
 class InstitucionalSeeder extends Seeder
 {
+    /**
+     * Crea o actualiza el instituto de prueba y enlaza las autoridades disponibles.
+     * Busca primero un empleado demo y luego uno de prueba como respaldo para Rector y Director Académico.
+     */
     public function run(): void
     {
         $directorId = Empleado::query()

@@ -26,7 +26,7 @@ class Materia extends Model
     ];
 
     /**
-     * Filtra materias habilitadas para selección académica.
+     * Restringe la consulta a materias activas para altas, programación y selección curricular.
      */
     public function scopeActivas($query)
     {
@@ -34,7 +34,7 @@ class Materia extends Model
     }
 
     /**
-     * Obtiene la carrera propietaria de esta materia.
+     * Relaciona la materia con la carrera cuyo plan curricular la contiene.
      */
     public function carrera()
     {
@@ -42,7 +42,7 @@ class Materia extends Model
     }
 
     /**
-     * Obtiene los grupos programados para esta materia.
+     * Devuelve los grupos en los que esta materia se programa a través de las gestiones académicas.
      */
     public function grupos()
     {
@@ -50,7 +50,8 @@ class Materia extends Model
     }
 
     /**
-     * Obtiene las materias que deben cursarse antes que esta materia.
+     * Devuelve materias que deben aprobarse antes de cursar esta materia.
+     * La tabla pivote registra esta materia como id_materia y cada requisito como id_prerequisito.
      */
     public function prerequisitos()
     {
@@ -65,7 +66,8 @@ class Materia extends Model
     }
 
     /**
-     * Obtiene las materias que tienen esta materia como prerrequisito.
+     * Devuelve materias posteriores cuyo requisito es esta materia.
+     * Usa las mismas filas pivote en dirección inversa para consultar dependencias curriculares.
      */
     public function materiasDependientes()
     {

@@ -40,6 +40,12 @@ class AcademicoSeeder extends Seeder
         'TOPOGRAFIA Y GEODESIA',
     ];
 
+    /**
+     * Prepara instituto y portal, carga el catálogo académico y gestiones de referencia,
+     * y agrega datos de demostración para calendario e historial de cursado.
+     * Termina normalizando el catálogo al deshabilitar versiones anteriores y retirar carreras
+     * fuera de la lista permitida, junto con sus dependencias en entornos no productivos.
+     */
     public function run(): void
     {
         $this->call([
@@ -377,6 +383,11 @@ class AcademicoSeeder extends Seeder
 
     }
 
+    /**
+     * Compara las carreras existentes con las listas permitidas por nombre y código vigente.
+     * Activa las versiones vigentes, desactiva versiones anteriores y, fuera de producción,
+     * elimina las carreras ajenas al catálogo con sus registros dependientes.
+     */
     private function limpiarCarrerasFueraDeLista(): void
     {
         $nombresPermitidos = array_map(fn (string $nombre): string => $this->normalizarNombreCarrera($nombre), self::NOMBRES_CARRERAS_PERMITIDAS);
@@ -425,6 +436,17 @@ class AcademicoSeeder extends Seeder
         }
     }
 
+    /**
+     * Reúne y elimina los datos académicos y financieros vinculados a carreras obsoletas.
+     * El método se invoca desde la transacción de limpiarCarrerasFueraDeLista().
+     * Primero reúne IDs dependientes de materias, grupos, postulaciones, inscripciones y personas;
+     * después elimina comprobantes, pagos, detalles, relaciones curriculares y los registros raíz.
+     * Conserva personas que tengan un rol distinto de estudiante o un registro laboral y devuelve
+     * cantidades eliminadas para el resumen del seeder.
+     *
+     * @param array<int, int> $carreraIds IDs de carreras que salieron del catálogo permitido.
+     * @return array{carreras: int, materias: int, estudiantes: int, postulantes: int}
+     */
     private function eliminarDependenciasDeCarreras(array $carreraIds): array
     {
         $materiaIds = DB::table('materia')->whereIn('id_carrera', $carreraIds)->pluck('id_materia')->all();
@@ -524,6 +546,9 @@ class AcademicoSeeder extends Seeder
         ];
     }
 
+    /**
+     * Normaliza nombres para comparar el catálogo sin diferencias por acentos, mayúsculas o espacios extremos.
+     */
     private function normalizarNombreCarrera(string $nombre): string
     {
         return mb_strtoupper(trim(Str::ascii($nombre)));

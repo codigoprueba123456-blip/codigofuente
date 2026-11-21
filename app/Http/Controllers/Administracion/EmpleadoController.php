@@ -20,7 +20,9 @@ use Illuminate\Validation\ValidationException;
 class EmpleadoController extends Controller
 {
     /**
-     * Lista empleados y aplica la búsqueda sobre su código y datos de contacto/personales.
+     * Lista empleados con sus personas y documentos precargados para evitar consultas por fila.
+     * El parámetro q busca coincidencias parciales en el código laboral y en datos personales
+     * o de contacto; los resultados se entregan a la tabla de Administración.
      */
     public function index(Request $request)
     {
@@ -45,7 +47,8 @@ class EmpleadoController extends Controller
     }
 
     /**
-     * Prepara el formulario de alta con los roles que se pueden asignar.
+     * Carga solo roles activos para evitar asignar un rol deshabilitado a un empleado nuevo.
+     * Devuelve el formulario de alta con esas opciones.
      */
     public function create()
     {
@@ -55,8 +58,9 @@ class EmpleadoController extends Controller
     }
 
     /**
-     * Crea la persona, el registro laboral, los documentos y las credenciales de forma atómica.
-     * Devuelve al navegador el comprobante PDF con el username y contraseña generados.
+     * Valida todos los campos y crea persona, empleado, documentos, usuario y cuenta en una transacción.
+     * El username sigue la secuencia anual compartida y la contraseña se almacena como hash.
+     * Una vez confirmado el guardado, genera un PDF con las credenciales iniciales en texto legible.
      */
     public function store(Request $request)
     {
@@ -144,7 +148,8 @@ class EmpleadoController extends Controller
     }
 
     /**
-     * Carga el empleado, sus documentos, su cuenta y los roles válidos para editarlo.
+     * Busca el empleado y sus documentos, además de su usuario y cuenta vinculada.
+     * Ofrece roles activos y conserva el rol actual aunque esté inactivo para no perder la selección.
      */
     public function edit($id)
     {
@@ -160,8 +165,9 @@ class EmpleadoController extends Controller
     }
 
     /**
-     * Actualiza datos personales, laborales, documentos y cuenta, preservando los archivos anteriores
-     * que no fueron reemplazados y la contraseña cuando no se solicita un cambio.
+     * Actualiza los datos personales y laborales y reemplaza solo los documentos enviados.
+     * Los archivos nuevos sustituyen a los anteriores después de guardarse; si no se envía contraseña,
+     * conserva el hash existente al sincronizar usuario y cuenta.
      */
     public function update(Request $request, $id)
     {
@@ -235,7 +241,8 @@ class EmpleadoController extends Controller
     }
 
     /**
-     * Habilita o deshabilita al empleado, impidiendo que el usuario actual se quite su propio acceso.
+     * Cambia el estado laboral validando que activo sea booleano.
+     * Rechaza deshabilitar al empleado autenticado para que no se retire su propio acceso.
      */
     public function cambiarEstado(Request $request, $id)
     {
@@ -255,8 +262,9 @@ class EmpleadoController extends Controller
     }
 
     /**
-     * Define las reglas compartidas para el alta y edición, permitiendo conservar IDs existentes
-     * al validar valores únicos y el rol que ya tiene el empleado.
+     * Centraliza la validación para crear y editar una ficha de empleado.
+     * Los identificadores existentes se excluyen de las reglas únicas y el rol actual se admite
+     * aunque haya sido deshabilitado, mientras no se intente asignarlo a otra persona.
      */
     private function rules(?int $personaId = null, ?int $usuarioId = null, ?int $rolActual = null): array
     {

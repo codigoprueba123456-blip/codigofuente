@@ -13,7 +13,8 @@ use Illuminate\Support\Facades\Storage;
 class InstitutoController extends Controller
 {
     /**
-     * Muestra la configuración institucional y los empleados disponibles para asignar autoridades.
+     * Recupera la configuración institucional (o un modelo vacío si aún no existe).
+     * Carga empleados con persona asociada y los ordena por nombre para asignar Rector y Director Académico.
      */
     public function index()
     {
@@ -32,8 +33,9 @@ class InstitutoController extends Controller
     }
 
     /**
-     * Valida y guarda los datos del instituto y sincroniza el creditaje de sus carreras.
-     * Tras guardar correctamente, elimina el logo anterior si se reemplazó o se pidió quitarlo.
+     * Valida datos institucionales, autoridades y archivos antes de guardar la configuración.
+     * Persiste los datos y recalcula los creditajes de todas las carreras en una transacción;
+     * después elimina el logo anterior solo si se reemplazó o se solicitó quitarlo.
      */
     public function update(Request $request, CareerCreditageService $creditage)
     {

@@ -12,7 +12,8 @@ use Illuminate\Database\Eloquent\Collection;
 class InicioInscripcionController extends Controller
 {
     /**
-     * Muestra el resumen de gestiones, grupos, carreras y materias disponibles.
+     * Resume los periodos registrados y cuenta carreras y materias activas junto con grupos existentes.
+     * También identifica la gestión habilitada más reciente para que la vista indique si admite programación.
      */
     public function index()
     {
@@ -36,7 +37,9 @@ class InicioInscripcionController extends Controller
     }
 
     /**
-     * Organiza los grupos y actividades de una gestión por carrera y estado de habilitación.
+     * Carga una gestión y sus grupos con materia, carrera y cantidad de inscritos.
+     * Agrupa los datos por carrera, agrega carreras activas sin grupos, separa activas/inactivas
+     * por resolución y consulta las actividades del periodo para construir el resumen de gestión.
      */
     public function gestion(int $gestionId)
     {
@@ -109,7 +112,9 @@ class InicioInscripcionController extends Controller
     }
 
     /**
-     * Agrupa los grupos de una carrera por paralelo y turno dentro de la gestión seleccionada.
+     * Filtra grupos de la carrera dentro de la gestión y los agrupa por paralelo y turno.
+     * Calcula cantidades de materias, grupos y turnos y expone si la gestión se puede editar o programar.
+     * Si no hay grupos para esa combinación, responde 404 en vez de mostrar una página vacía.
      */
     public function carrera(int $gestionId, int $carreraId)
     {
@@ -161,7 +166,8 @@ class InicioInscripcionController extends Controller
     }
 
     /**
-     * Filtra los grupos de una carrera por paralelo y turno y los organiza por materia.
+     * Selecciona solo los grupos del paralelo y turno indicados y los agrupa por materia.
+     * Ordena materias por nivel y nombre, y marca si la gestión seleccionada permite editar grupos.
      */
     public function paralelo(int $gestionId, int $carreraId, string $paralelo, int $turno)
     {
@@ -202,7 +208,9 @@ class InicioInscripcionController extends Controller
     }
 
     /**
-     * Muestra los grupos correspondientes a una materia en el paralelo y turno indicados.
+     * Restringe los grupos a la gestión, carrera, paralelo, turno y materia solicitados.
+     * Usa el primer resultado para obtener la materia y entrega el conjunto completo a la vista;
+     * una combinación sin registros produce 404.
      */
     public function materia(
         int $gestionId,
@@ -240,7 +248,9 @@ class InicioInscripcionController extends Controller
     }
 
     /**
-     * Obtiene grupos de una gestión cuya materia pertenece a la carrera solicitada.
+     * Consulta grupos de la gestión cuya materia pertenece a la carrera indicada.
+     * Precarga materia y cantidad de inscritos y ordena por código para reutilizar el mismo conjunto
+     * en las pantallas de carrera, paralelo y materia.
      */
     private function gruposDeCarrera(GestionAcademica $gestion, Carrera $carrera): Collection
     {
@@ -254,7 +264,8 @@ class InicioInscripcionController extends Controller
     }
 
     /**
-     * Formatea las resoluciones ministeriales para mostrarlas como etiqueta de carrera.
+     * Convierte las resoluciones guardadas de la carrera en una etiqueta uniforme para agrupar la lista.
+     * Si no hay resoluciones válidas, devuelve un texto explícito en lugar de una etiqueta vacía.
      */
     private function etiquetaResolucion(Carrera $carrera): string
     {
@@ -266,7 +277,8 @@ class InicioInscripcionController extends Controller
     }
 
     /**
-     * Extrae el paralelo del sufijo de una letra del código de grupo, si existe.
+     * Interpreta el último segmento del código de grupo como paralelo cuando contiene una sola letra.
+     * Devuelve esa letra en mayúscula; si el código usa otro formato, conserva el código íntegro.
      */
     private function nombreParalelo(string $codigo): string
     {

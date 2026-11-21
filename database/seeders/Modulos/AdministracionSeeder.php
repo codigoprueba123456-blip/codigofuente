@@ -67,7 +67,8 @@ class AdministracionSeeder extends Seeder
     ];
 
     /**
-     * Sincroniza recursos del menú y luego asegura las cuentas de prueba y sus permisos.
+     * Obtiene el menú configurado, registra sus URLs como recursos y ejecuta la carga idempotente.
+     * Las cuentas de demostración y los permisos de cada rol quedan sincronizados con esa misma lista.
      */
     public function run(): void
     {
@@ -77,7 +78,9 @@ class AdministracionSeeder extends Seeder
     }
 
     /**
-     * Crea o actualiza las cuentas de prueba y sincroniza los permisos definidos para cada rol.
+     * Asegura personas, roles, fichas laborales/estudiantiles y credenciales de las cuentas de prueba.
+     * Después enlaza recursos según el rol y crea los roles adicionales sin cuentas asociadas.
+     * Usa updateOrCreate/firstOrCreate para que repetir el seeder no duplique esos registros.
      */
     private function seedDemoAccounts(array $menuItems): void
     {
@@ -241,7 +244,8 @@ class AdministracionSeeder extends Seeder
     }
 
     /**
-     * Devuelve el menú de funcionalidades y usa el menú AdminLTE si no hay uno personalizado.
+     * Devuelve el menú de funcionalidades cuando está configurado.
+     * Usa el menú de AdminLTE como respaldo para que la sincronización funcione en ambos entornos.
      */
     private function menuItems(): array
     {
@@ -251,7 +255,9 @@ class AdministracionSeeder extends Seeder
     }
 
     /**
-     * Reemplaza los permisos del rol por los recursos requeridos y falla si falta una URL configurada.
+     * Determina las URLs permitidas para el rol y reemplaza sus asociaciones actuales.
+     * Los roles de acceso completo reciben todas las URLs del menú; otros usan su lista explícita.
+     * Falla de forma visible si falta una URL o si el recurso no fue sincronizado.
      */
     private function syncRoleResources(Rol $role, array $menuItems): void
     {
@@ -285,7 +291,8 @@ class AdministracionSeeder extends Seeder
     }
 
     /**
-     * Extrae URLs navegables del menú de forma recursiva y elimina duplicados.
+     * Recorre enlaces del menú y de sus submenús, descartando encabezados y elementos decorativos.
+     * Devuelve rutas normalizadas y únicas para usarlas al sincronizar permisos.
      */
     private function menuResourceUrls(array $items): array
     {
@@ -306,7 +313,8 @@ class AdministracionSeeder extends Seeder
     }
 
     /**
-     * Conserva el username numérico existente o genera el siguiente correlativo del año actual.
+     * Conserva el username de empleado si ya cumple año actual más cuatro dígitos.
+     * Si no, consulta el mayor correlativo de users para el año y genera el siguiente username.
      */
     private function employeeUsername(Persona $persona): string
     {
@@ -327,7 +335,8 @@ class AdministracionSeeder extends Seeder
     }
 
     /**
-     * Conserva un username numérico existente; si no existe, busca un número libre en users y cuenta.
+     * Conserva un username estudiantil numérico válido o calcula uno nuevo para el año actual.
+     * Revisa users y cuenta para encontrar el correlativo mayor y verifica que el nuevo valor no esté ocupado.
      */
     private function studentUsername(Persona $persona): string
     {
@@ -342,6 +351,8 @@ class AdministracionSeeder extends Seeder
         $usernames = User::where('usuario', 'like', $year.'%')
             ->pluck('usuario')
             ->merge(Cuenta::where('usuario', 'like', $year.'%')->pluck('usuario'));
+        // El username puede existir en cualquiera de las dos tablas de credenciales; se toma el máximo
+        // correlativo válido para no reutilizar números aunque solo aparezca en cuenta.
         $lastNumber = $usernames->reduce(
             static function (int $current, string $username) use ($pattern): int {
                 return preg_match($pattern, $username, $matches)

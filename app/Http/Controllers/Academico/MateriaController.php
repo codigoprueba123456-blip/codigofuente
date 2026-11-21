@@ -17,7 +17,8 @@ use RuntimeException;
 class MateriaController extends Controller
 {
     /**
-     * Lista materias con prerrequisitos y carrera, con filtros opcionales por nombre, código y carrera.
+     * Consulta materias junto con carrera y prerrequisitos para construir la tabla del plan.
+     * Aplica q sobre nombre/código y el filtro id_carrera por separado, y carga carreras para el selector.
      */
     public function index()
     {
@@ -38,7 +39,8 @@ class MateriaController extends Controller
     }
 
     /**
-     * Prepara el alta con carreras y materias activas disponibles para relacionar.
+     * Carga carreras activas y materias activas que pueden usarse como prerrequisitos.
+     * Devuelve ambas colecciones al formulario de creación.
      */
     public function create()
     {
@@ -49,7 +51,8 @@ class MateriaController extends Controller
     }
 
     /**
-     * Muestra la pantalla de importación para la carrera indicada.
+     * Resuelve la carrera por su identificador y abre el formulario de carga de plan.
+     * Si no existe, Eloquent interrumpe la acción con una respuesta 404.
      */
     public function importForm($id)
     {
@@ -59,8 +62,10 @@ class MateriaController extends Controller
     }
 
     /**
-     * Importa materias en dos pasadas para poder resolver prerrequisitos por código.
-     * La transacción garantiza que filas y relaciones se guarden todas o ninguna.
+     * Valida el archivo, convierte su contenido a filas y persiste las materias de la carrera.
+     * Una primera pasada crea/actualiza todas las materias y una segunda enlaza prerrequisitos por código,
+     * permitiendo referencias a filas posteriores; cualquier fila o referencia inválida revierte todo.
+     * Al confirmar, recalcula el creditaje y redirige al plan con el total de registros importados.
      */
     public function import(Request $request, $id, PlanEstudiosImporter $importer, CareerCreditageService $creditage)
     {
@@ -153,7 +158,8 @@ class MateriaController extends Controller
     }
 
     /**
-     * Valida y crea una materia junto con sus prerrequisitos y actualiza el creditaje de la carrera.
+     * Valida la materia y que carrera, nivel y prerrequisitos correspondan al régimen seleccionado.
+     * Guarda la materia, sincroniza sus relaciones y recalcula el creditaje curricular en una transacción.
      */
     public function store(Request $request, CareerCreditageService $creditage)
     {
@@ -203,7 +209,9 @@ class MateriaController extends Controller
     }
 
     /**
-     * Carga la materia, sus prerrequisitos y las opciones válidas para modificarla.
+     * Busca la materia con sus prerrequisitos actuales y arma las opciones de carrera y materias.
+     * Conserva disponible la carrera y los prerrequisitos seleccionados aunque estén inactivos,
+     * y excluye la propia materia para impedir una autorreferencia desde el formulario.
      */
     public function edit($id)
     {
@@ -226,7 +234,9 @@ class MateriaController extends Controller
     }
 
     /**
-     * Actualiza datos y prerrequisitos; si cambia de carrera, recalcula el creditaje de ambas.
+     * Valida campos y relaciones dentro de la carrera de destino, incluyendo el régimen del nivel.
+     * Actualiza la materia y reemplaza sus prerrequisitos en una transacción; luego recalcula el
+     * creditaje de la carrera anterior y, si hubo traslado, también el de la nueva.
      */
     public function update(Request $request, $id, CareerCreditageService $creditage)
     {
@@ -288,7 +298,8 @@ class MateriaController extends Controller
     }
 
     /**
-     * Cambia el estado de la materia y actualiza el reparto de creditaje de su carrera.
+     * Valida el nuevo estado de la materia y lo guarda junto con el recálculo de la carrera.
+     * El servicio solo distribuye creditaje entre materias curriculares que permanecen activas.
      */
     public function cambiarEstado(Request $request, $id, CareerCreditageService $creditage)
     {

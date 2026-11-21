@@ -441,7 +441,11 @@ class EstudianteNuevoController extends Controller
                     'updated_at' => $ahora,
                 ]);
 
-                $monto = $this->montoInscripcion((int) $validated['id_carrera']);
+                $monto = $this->montoInscripcion(
+                    (int) $validated['id_carrera'],
+                    (int) $validated['id_gestionacademica'],
+                    (int) $validated['nivelinicio']
+                );
                 $idPago = DB::table('pago')->insertGetId([
                     'concepto' => null,
                     'monto' => $monto,

@@ -11,7 +11,8 @@ class Recurso extends Model
     protected $fillable = ['nombre', 'urlpattern'];
 
     /**
-     * Obtiene los roles que reciben acceso a esta URL mediante la tabla de privilegios.
+     * Relaciona el recurso/ruta con los roles autorizados a acceder a él.
+     * La tabla privilegio funciona como pivote y permite varios roles por recurso y viceversa.
      */
     public function roles()
     {

@@ -560,7 +560,11 @@ class EstudianteNuevoPostulacionController extends Controller
                                 'updated_at' => $ahora,
                             ]);
                     } else {
-                        $monto = $this->montoInscripcion((int) $postulante->id_carrera);
+                        $monto = $this->montoInscripcion(
+                            (int) $postulante->id_carrera,
+                            (int) $gestionId,
+                            1
+                        );
                         $idPago = DB::table('pago')->insertGetId([
                             'concepto' => null,
                             'monto' => $monto,

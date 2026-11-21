@@ -15,7 +15,9 @@ use Illuminate\Validation\ValidationException;
 class AsignacionDocenteController extends Controller
 {
     /**
-     * Lista grupos con filtros de gestión, carrera o búsqueda y carga docentes asignados/disponibles.
+     * Carga catálogos y consulta grupos con materia, carrera y docente precargados.
+     * Permite filtrar por gestión, carrera o texto de grupo/materia/docente y prepara la lista
+     * de empleados que puede mostrarse como opciones de asignación.
      */
     public function index(Request $request)
     {
@@ -50,7 +52,8 @@ class AsignacionDocenteController extends Controller
     }
 
     /**
-     * Busca el grupo solicitado y prepara docentes permitidos para la nueva asignación.
+     * Resuelve el grupo indicado por id_grupo y verifica que todos sus componentes estén habilitados.
+     * Carga docentes activos y conserva al docente actual si ya existe una asignación.
      */
     public function create(Request $request)
     {
@@ -62,7 +65,8 @@ class AsignacionDocenteController extends Controller
     }
 
     /**
-     * Prepara la edición de la asignación actual después de comprobar que el grupo se pueda asignar.
+     * Busca el grupo por ID y bloquea la edición si gestión, grupo, materia o carrera están inactivos.
+     * Devuelve el formulario con la lista de docentes permitidos y el docente actual.
      */
     public function edit($id)
     {
@@ -74,7 +78,8 @@ class AsignacionDocenteController extends Controller
     }
 
     /**
-     * Asigna o quita el docente de un grupo después de validar empleado y estado académico.
+     * Valida que el grupo siga siendo asignable y que la persona elegida sea empleado activo.
+     * Un docente actual inactivo puede conservarse; enviar id_persona vacío quita la asignación.
      */
     public function asignar(Request $request, $id)
     {
@@ -98,7 +103,8 @@ class AsignacionDocenteController extends Controller
     }
 
     /**
-     * Devuelve empleados activos y conserva en la lista a cualquier docente ya asignado.
+     * Construye las opciones del selector desde empleados activos ordenados por apellido y nombre.
+     * Une a esa lista los IDs ya asignados para que una relación existente pueda conservarse o cambiarse.
      */
     private function docentes(array $actuales = [])
     {
@@ -120,7 +126,8 @@ class AsignacionDocenteController extends Controller
     }
 
     /**
-     * Rechaza asignaciones en una gestión deshabilitada o en grupos, materias o carreras inactivos.
+     * Comprueba todas las condiciones académicas necesarias antes de abrir o guardar una asignación.
+     * La gestión debe estar activa y vigente, y grupo, materia y carrera deben estar activos.
      */
     private function ensureAssignable(Grupo $grupo): void
     {

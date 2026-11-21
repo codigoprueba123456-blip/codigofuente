@@ -26,7 +26,8 @@ class Actividad extends Model
     ];
 
     /**
-     * Obtiene la gestión académica a la que pertenece la actividad.
+     * Relaciona la actividad con el periodo que determina cuándo se organiza y administra.
+     * Usa explícitamente id_gestionacademica porque el nombre de la clave no sigue la convención estándar.
      */
     public function gestionAcademica()
     {
@@ -34,7 +35,8 @@ class Actividad extends Model
     }
 
     /**
-     * Obtiene el recurso asociado por el campo de funcionalidad heredado.
+     * Resuelve la funcionalidad única antigua almacenada directamente en actividad.funcionalidad.
+     * Se conserva para leer registros previos; las nuevas actividades usan funcionalidades().
      */
     public function funcionalidadRecurso()
     {
@@ -42,7 +44,8 @@ class Actividad extends Model
     }
 
     /**
-     * Obtiene todos los recursos que la actividad habilita actualmente.
+     * Relaciona todas las secciones habilitadas por esta actividad mediante la tabla pivote actual.
+     * A diferencia de funcionalidadRecurso(), admite varias funcionalidades por evento.
      */
     public function funcionalidades()
     {
@@ -57,7 +60,8 @@ class Actividad extends Model
     }
 
     /**
-     * Obtiene las carreras que forman parte de la audiencia de la actividad.
+     * Relaciona las carreras seleccionadas como audiencia del evento.
+     * La tabla pivote permite que una actividad sea visible para una o varias carreras.
      */
     public function carreras()
     {
@@ -65,7 +69,8 @@ class Actividad extends Model
     }
 
     /**
-     * Obtiene los usuarios seleccionados explícitamente como audiencia.
+     * Relaciona las cuentas seleccionadas directamente como audiencia del evento.
+     * Se utiliza junto con carreras() para distinguir audiencia individual de audiencia por carrera.
      */
     public function usuarios()
     {
@@ -73,7 +78,9 @@ class Actividad extends Model
     }
 
     /**
-     * Limita la consulta a actividades activas generales, dirigidas al usuario o a sus carreras.
+     * Aplica el filtro de visibilidad para usuarios no administradores.
+     * Incluye solo eventos activos de audiencia general, eventos dirigidos directamente al usuario
+     * y eventos asignados a alguna carrera que el usuario cursa.
      */
     public function scopeVisibleTo(Builder $query, User $user): Builder
     {

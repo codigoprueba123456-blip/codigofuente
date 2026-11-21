@@ -14,7 +14,8 @@ use Illuminate\Validation\ValidationException;
 class RolController extends Controller
 {
 	/**
-	 * Lista roles con sus recursos y filtra por nombre de rol o nombre de recurso.
+	 * Recupera roles junto con sus permisos y admite una búsqueda parcial por nombre de rol o recurso.
+	 * Entrega la colección completa a la vista de administración de roles.
 	 */
 	public function index(Request $request)
 	{
@@ -31,7 +32,8 @@ class RolController extends Controller
 	}
 
 	/**
-	 * Sincroniza las URLs del menú y prepara los recursos que se pueden asignar al rol.
+	 * Asegura que el catálogo de recursos refleje el menú actual y carga el menú agrupador.
+	 * La vista usa ambas fuentes para mostrar permisos por módulo y enlaces independientes.
 	 */
 	public function create()
 	{
@@ -43,7 +45,8 @@ class RolController extends Controller
 	}
 
 	/**
-	 * Valida el nombre y los recursos seleccionados, crea el rol y enlaza sus permisos.
+	 * Valida el nombre único y los IDs de recursos, crea el rol y sincroniza sus permisos.
+	 * Una lista vacía es válida y deja el nuevo rol sin recursos asignados.
 	 */
 	public function store(Request $request)
 	{
@@ -62,7 +65,8 @@ class RolController extends Controller
 	}
 
 	/**
-	 * Carga el rol con sus permisos y prepara el catálogo para cambiar esas asignaciones.
+	 * Busca el rol con sus recursos actuales y sincroniza el catálogo antes de mostrar el formulario.
+	 * La vista puede comparar los permisos guardados con los que ofrece actualmente el menú.
 	 */
 	public function edit($id)
 	{
@@ -75,7 +79,8 @@ class RolController extends Controller
 	}
 
 	/**
-	 * Actualiza el nombre y reemplaza por completo la lista de recursos asignados.
+	 * Valida el nombre excluyendo el propio rol de la regla de unicidad y valida cada recurso.
+	 * Reemplaza la lista de permisos completa; si no se envían recursos, revoca todas las asociaciones.
 	 */
 	public function update(Request $request, $id)
 	{
@@ -102,7 +107,8 @@ class RolController extends Controller
 	}
 
 	/**
-	 * Cambia el estado del rol y evita que el usuario actual deshabilite su propio rol.
+	 * Cambia el estado del rol según un booleano y bloquea la desactivación del rol propio.
+	 * Esto evita que la cuenta actual pierda su autorización mientras administra roles.
 	 */
 	public function cambiarEstado(Request $request, $id)
 	{

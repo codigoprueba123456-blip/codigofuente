@@ -6,6 +6,7 @@ use App\Models\Carrera;
 use App\Models\GestionAcademica;
 use App\Models\Instituto;
 use App\Models\Persona;
+use App\Models\TarifaMatricula;
 use App\Models\User;
 use App\Services\Inscripciones\DisponibilidadTurnos;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -56,6 +57,12 @@ class EstudianteNuevoTurnosTest extends TestCase
         $carreraAnterior = $this->createCarrera($instituto, 'NEW-STUDENT-HISTORY');
         $carreraDestino = $this->createCarrera($instituto, 'NEW-STUDENT-DESTINATION');
         $carreraAlternativa = $this->createCarrera($instituto, 'NEW-STUDENT-ALTERNATIVE');
+        TarifaMatricula::create([
+            'id_gestionacademica' => $gestion->id_gestionacademica,
+            'id_carrera' => $carreraDestino->id_carrera,
+            'nivel' => 1,
+            'monto' => 765.50,
+        ]);
         $this->createGrupo($carreraDestino, $gestion, 1, 1, 'A');
         $this->createGrupo($carreraDestino, $gestion, 2, 3, 'B');
         $this->createGrupo($carreraAlternativa, $gestion, 1, 1, 'A');
@@ -100,6 +107,15 @@ class EstudianteNuevoTurnosTest extends TestCase
             'id_gestionacademica' => $gestion->id_gestionacademica,
             'turno' => 1,
             'paralelo' => 'A',
+        ]);
+        $inscrito = DB::table('inscrito')
+            ->where('id_persona', $persona->id_persona)
+            ->where('id_carrera', $carreraDestino->id_carrera)
+            ->where('id_gestionacademica', $gestion->id_gestionacademica)
+            ->first();
+        $this->assertDatabaseHas('pago', [
+            'id_inscrito' => $inscrito->id_inscrito,
+            'monto' => '765.50',
         ]);
         $this->assertSame(
             29,

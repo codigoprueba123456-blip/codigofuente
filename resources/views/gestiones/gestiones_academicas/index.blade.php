@@ -97,6 +97,9 @@
                                     </span>
                                 </td>
                                 <td class="text-nowrap">
+                                    <a href="{{ route('admin.gestionacademica.tarifas.index', $item->id_gestionacademica) }}" class="btn btn-outline-success btn-sm" title="Configurar tarifas de matrícula" aria-label="Configurar tarifas de matrícula">
+                                        <i class="fas fa-money-bill-wave"></i>
+                                    </a>
                                     <a href="{{ route('admin.gestionacademica.edit', $item->id_gestionacademica) }}" class="btn btn-outline-primary btn-sm" aria-label="Editar gestión">
                                         <i class="fas fa-edit"></i>
                                     </a>

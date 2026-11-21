@@ -14,7 +14,9 @@ use Illuminate\Validation\ValidationException;
 class GrupoController extends Controller
 {
     /**
-     * Lista grupos filtrados por gestión y carrera, agrupándolos por nivel para mostrarlos.
+     * Valida filtros y carga las opciones de gestión y carrera para la página de grupos.
+     * Solo consulta grupos cuando ambos filtros están presentes; luego los agrupa por nivel
+     * de materia para presentar una tabla ordenada por bloques.
      */
     public function index(Request $request)
     {
@@ -43,7 +45,8 @@ class GrupoController extends Controller
     }
 
     /**
-     * Prepara la programación masiva usando la gestión habilitada más reciente y carreras activas.
+     * Busca la gestión habilitada más reciente y ofrece carreras activas para programación.
+     * Si no hay gestión vigente y activa, findOrFail detiene el flujo en lugar de crear grupos sin periodo.
      */
     public function programar(Request $request)
     {
@@ -57,7 +60,9 @@ class GrupoController extends Controller
     }
 
     /**
-     * Crea un grupo para cada materia activa del nivel elegido en la gestión habilitada.
+     * Obtiene la gestión habilitada más reciente y valida carrera, nivel y datos compartidos del grupo.
+     * Crea un grupo por cada materia activa del nivel, genera códigos disponibles y devuelve al listado
+     * con el número de grupos creados; si no existen materias, informa el error sin escribir registros.
      */
     public function store(Request $request)
     {
@@ -108,7 +113,9 @@ class GrupoController extends Controller
     }
 
     /**
-     * Carga el grupo y permite elegir materias activas, manteniendo disponible la materia actual.
+     * Busca grupo y materia, y verifica que la gestión de origen siga habilitada.
+     * Carga gestiones editables y materias activas de carreras activas, conservando la materia asignada
+     * aunque haya sido deshabilitada para no obligar a reemplazarla al editar otros campos.
      */
     public function edit($id)
     {
@@ -129,7 +136,9 @@ class GrupoController extends Controller
     }
 
     /**
-     * Actualiza un grupo solo si las gestiones y las nuevas asignaciones siguen habilitadas.
+     * Comprueba que origen y destino sean gestiones habilitadas antes de actualizar el grupo.
+     * Si cambia la materia, verifica además que materia y carrera de destino estén activas;
+     * finalmente conserva los filtros de gestión y carrera en la redirección.
      */
     public function update(Request $request, $id)
     {
@@ -154,7 +163,8 @@ class GrupoController extends Controller
     }
 
     /**
-     * Cambia el estado del grupo y vuelve a la lista con los filtros de gestión y carrera.
+     * Valida y cambia el estado activo del grupo sin alterar materia, docente ni gestión.
+     * La redirección conserva los filtros asociados al grupo para volver al mismo contexto.
      */
     public function cambiarEstado(Request $request, $id)
     {
@@ -172,7 +182,9 @@ class GrupoController extends Controller
     }
 
     /**
-     * Construye la consulta de grupos con sus relaciones y aplica los filtros recibidos.
+     * Arma la consulta reutilizable con materia y docente precargados.
+     * Filtra opcionalmente por gestión, carrera y texto en código de grupo o datos de materia,
+     * y ordena por código antes de que la acción solicitante ejecute la consulta.
      */
     private function query(Request $request)
     {
@@ -195,7 +207,9 @@ class GrupoController extends Controller
     }
 
     /**
-     * Valida la carrera, el nivel permitido por su régimen y los datos del grupo nuevo.
+     * Define las reglas de programación masiva para carrera activa y nivel propio de su régimen.
+     * También limita capacidad, turno y estado; el ID de gestión no se acepta del formulario,
+     * porque la acción asigna la gestión habilitada del servidor.
      */
     private function rules(Request $request): array
     {
@@ -218,7 +232,8 @@ class GrupoController extends Controller
     }
 
     /**
-     * Valida la edición; permite conservar la materia actual aunque ahora esté inactiva.
+     * Define campos editables y mantiene la materia actual como excepción si está inactiva.
+     * La comprobación de que una nueva materia y su carrera estén activas se completa en update().
      */
     private function updateRules(Grupo $grupo): array
     {
@@ -240,7 +255,8 @@ class GrupoController extends Controller
     }
 
     /**
-     * Genera un código a partir del código de materia y busca un sufijo libre entre los grupos.
+     * Construye el código del grupo usando el código de materia y una letra derivada del índice.
+     * Si el código ya existe en cualquier gestión, avanza por los sufijos hasta encontrar uno libre.
      */
     private function buildGrupoCodigo(int $index, Materia $materia): string
     {
@@ -261,7 +277,8 @@ class GrupoController extends Controller
     }
 
     /**
-     * Impide modificar el grupo si su gestión académica está deshabilitada.
+     * Exige que la gestión asociada esté activa y vigente antes de editar el grupo.
+     * Lanza un error de validación sobre id_gestionacademica para regresar al formulario con contexto.
      */
     private function ensureEnabled(int $idGestion): void
     {

@@ -10,7 +10,8 @@ use Illuminate\Http\Request;
 class RecursoController extends Controller
 {
     /**
-     * Sincroniza los enlaces actuales del menú con el catálogo y lista los recursos resultantes.
+     * Actualiza primero el catálogo desde los enlaces del menú y luego lista los recursos ordenados.
+     * Esta sincronización permite que las pantallas de roles vean las rutas vigentes de la aplicación.
      */
     public function index()
     {
@@ -21,7 +22,8 @@ class RecursoController extends Controller
     }
 
     /**
-     * Sincroniza el menú antes de mostrar la vista para que el catálogo de recursos esté al día.
+     * Sincroniza el menú antes de mostrar el formulario de recurso.
+     * La vista de alta puede así seleccionar o consultar rutas que ya forman parte de la navegación.
      */
     public function create()
     {
@@ -31,7 +33,8 @@ class RecursoController extends Controller
     }
 
     /**
-     * Crea o actualiza el recurso identificado por su URL normalizada.
+     * Valida el nombre y patrón URL, elimina barras externas y guarda el recurso por URL única.
+     * Si la ruta ya existe, actualiza su nombre en vez de crear un duplicado.
      */
     public function store(Request $request)
     {

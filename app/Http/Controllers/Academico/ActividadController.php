@@ -18,7 +18,9 @@ use App\Support\MenuResourceSync;
 class ActividadController extends Controller
 {
     /**
-     * Lista actividades por gestión o nombre y restringe los resultados según el usuario actual.
+     * Carga gestiones para los filtros y consulta las actividades ordenadas por fecha de inicio.
+     * Aplica coincidencia parcial por nombre y, salvo para administradores, filtra por audiencia
+     * usando el scope del modelo antes de entregar ambos conjuntos a la vista.
      */
     public function index(Request $request)
     {
@@ -39,7 +41,8 @@ class ActividadController extends Controller
     }
 
     /**
-     * Prepara el formulario con gestiones, carreras, usuarios y recursos seleccionables.
+     * Prepara el alta limitando las gestiones a las habilitadas y las carreras a las activas.
+     * También obtiene usuarios elegibles y recursos de menú que el calendario puede habilitar.
      */
     public function create(Request $request)
     {
@@ -53,7 +56,9 @@ class ActividadController extends Controller
     }
 
     /**
-     * Valida y crea una actividad, sincronizando en una transacción su audiencia y recursos.
+     * Valida fechas, gestión, audiencia y recursos antes de crear la actividad.
+     * Guarda el registro, sus vínculos de audiencia y sus funcionalidades juntos para evitar
+     * que una falla deje la actividad creada con permisos incompletos.
      */
     public function store(Request $request)
     {
@@ -73,7 +78,9 @@ class ActividadController extends Controller
     }
 
     /**
-     * Carga la actividad y restaura sus selecciones de audiencia y funcionalidades para editar.
+     * Busca actividad y relaciones actuales, y bloquea la edición si su gestión no está habilitada.
+     * Conserva carreras, usuarios y funcionalidades existentes en las opciones del formulario,
+     * incluso si una opción dejó de estar disponible para nuevas asignaciones.
      */
     public function edit($id)
     {
@@ -109,7 +116,9 @@ class ActividadController extends Controller
     }
 
     /**
-     * Actualiza actividad, audiencia y recursos, después de comprobar las gestiones involucradas.
+     * Valida la actividad y comprueba tanto la gestión de origen como la de destino.
+     * En una transacción actualiza los datos principales, limpia el vínculo de funcionalidad heredado
+     * y sincroniza los vínculos actuales de audiencia y recursos.
      */
     public function update(Request $request, $id)
     {
@@ -131,7 +140,8 @@ class ActividadController extends Controller
     }
 
     /**
-     * Habilita o deshabilita la actividad sin modificar su audiencia ni sus fechas.
+     * Cambia únicamente el indicador activo de la actividad.
+     * Preserva audiencia, fechas y funcionalidades, y vuelve a la lista filtrada por su gestión.
      */
     public function cambiarEstado(Request $request, $id)
     {
@@ -148,7 +158,9 @@ class ActividadController extends Controller
     }
 
     /**
-     * Define las reglas de actividad, audiencia, carreras, usuarios y recursos permitidos.
+     * Centraliza la validación del formulario de alta y edición.
+     * Acepta carreras y usuarios actuales aunque ya no cumplan la regla para nuevas selecciones,
+     * pero excluye de las funcionalidades las rutas de reportes y del portal estudiantil.
      */
     private function rules(?Actividad $actividad = null): array
     {
@@ -194,7 +206,8 @@ class ActividadController extends Controller
     }
 
     /**
-     * Lista usuarios que pueden ser audiencia y conserva a los que ya estaban seleccionados.
+     * Devuelve usuarios ordenados por username para el selector de audiencia específica.
+     * Excluye empleados inactivos en altas, pero conserva a quienes ya estaban ligados al editar.
      */
     private function usuariosDisponibles(?Actividad $actividad = null)
     {
@@ -214,7 +227,8 @@ class ActividadController extends Controller
     }
 
     /**
-     * Define los mensajes personalizados de validación para las fechas de la actividad.
+     * Proporciona mensajes legibles para reglas que no deben mostrar el texto técnico de Laravel.
+     * Actualmente explica el error cuando la fecha final precede a la fecha inicial.
      */
     private function messages(): array
     {
@@ -224,7 +238,9 @@ class ActividadController extends Controller
     }
 
     /**
-     * Sincroniza las relaciones de visibilidad de acuerdo con la audiencia seleccionada.
+     * Persiste los vínculos de audiencia que determinan quién puede ver la actividad.
+     * Solo conserva carreras para audiencia por carrera, solo usuarios para audiencia individual
+     * y elimina ambos conjuntos cuando la actividad es general.
      */
     private function syncVisibility(Actividad $actividad, array $validated): void
     {
@@ -235,7 +251,8 @@ class ActividadController extends Controller
     }
 
     /**
-     * Indica si el usuario puede consultar actividades sin filtrar por audiencia.
+     * Delega al modelo User la comprobación de privilegio administrativo.
+     * Un usuario nulo o no autenticado se considera no administrador.
      */
     private function isAdministrator(?User $user): bool
     {
@@ -243,7 +260,8 @@ class ActividadController extends Controller
     }
 
     /**
-     * Exige que la gestión exista y esté habilitada antes de asociarle una actividad.
+     * Comprueba que la gestión exista y esté activa y vigente antes de usarla.
+     * En caso contrario agrega un error de validación al campo de gestión del formulario.
      */
     private function ensureEnabled(int $idGestion): void
     {
@@ -256,8 +274,9 @@ class ActividadController extends Controller
     }
 
     /**
-     * Sincroniza el menú y devuelve recursos habilitables en calendario, excluyendo administración,
-     * reportes y secciones propias del portal de estudiantes.
+     * Actualiza primero el catálogo desde el menú y luego selecciona recursos válidos para calendario.
+     * Omite rutas administrativas, de reportes, dashboard, calendario/gestiones y portal estudiantil,
+     * para que una actividad no exponga secciones fuera de este flujo.
      */
     private function funcionalidades()
     {

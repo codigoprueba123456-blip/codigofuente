@@ -10,7 +10,9 @@ use Smalot\PdfParser\Parser as PdfParser;
 class PlanEstudiosImporter
 {
     /**
-     * Lee un plan de estudios y selecciona el lector PDF o de hoja de cálculo según la extensión.
+     * Selecciona el lector a partir de la extensión original del archivo y devuelve filas normalizadas.
+     * PDF usa extracción y reconstrucción de texto; Excel/CSV detecta encabezados de columnas.
+     * Formatos que no cumplan la estructura esperada producen RuntimeException descriptivo.
      */
     public function rows(UploadedFile $file): array
     {
@@ -20,7 +22,8 @@ class PlanEstudiosImporter
     }
 
     /**
-     * Detecta los encabezados de las primeras diez filas y convierte las filas siguientes al formato común.
+     * Carga la hoja activa, busca una columna de nombre entre sus primeras diez filas y mapea el resto.
+     * La fila detectada se usa para calcular números de fila comprensibles en mensajes de error.
      */
     private function spreadsheetRows(UploadedFile $file): array
     {
@@ -46,7 +49,9 @@ class PlanEstudiosImporter
     }
 
     /**
-     * Extrae líneas de un PDF, detecta niveles y reconstruye materias incluso si sus datos ocupan varias líneas.
+     * Extrae el texto del PDF y prepara sus líneas antes de reconocer materias en formatos tabulares o multilínea.
+     * Mantiene el nivel del último encabezado encontrado, reconstruye nombre/horas/creditaje/estado,
+     * y lanza un error si una materia o el documento completo no pueden interpretarse.
      */
     private function pdfRows(UploadedFile $file): array
     {
@@ -122,7 +127,8 @@ class PlanEstudiosImporter
     }
 
     /**
-     * Interpreta una materia que aparece completa en una sola línea del PDF, o devuelve null si no coincide.
+     * Intenta interpretar una fila compacta que contiene código, nombre y columnas en la misma línea.
+     * Devuelve null para que el lector pruebe el formato multilínea; si coincide, normaliza nivel y prerrequisitos.
      */
     private function inlinePdfRow(string $line, ?int $nivelActual): ?array
     {
@@ -161,7 +167,8 @@ class PlanEstudiosImporter
     }
 
     /**
-     * Une líneas consecutivas cuando el extractor PDF separó el código de materia en dos partes.
+     * Repara códigos partidos por salto de línea cuando el primer fragmento termina en guion.
+     * Consume ambos fragmentos como uno solo para que la detección posterior identifique el código completo.
      */
     private function joinBrokenCodes(array $lines): array
     {
@@ -183,7 +190,8 @@ class PlanEstudiosImporter
     }
 
     /**
-     * Reconoce encabezados de nivel como "Primer año" o "Semestre 2" y devuelve su número.
+     * Normaliza un encabezado PDF y reconoce ordinales o etiquetas numéricas de año/semestre/nivel.
+     * Devuelve null para líneas que no describen un nivel, lo que permite conservar el nivel actual.
      */
     private function pdfLevelLabel(string $line): ?int
     {
@@ -202,7 +210,9 @@ class PlanEstudiosImporter
     }
 
     /**
-     * Resuelve nombres alternativos de columnas, omite filas vacías y normaliza cada fila importada.
+     * Asocia encabezados alternativos con campos canónicos y localiza el índice de cada columna.
+     * Omite filas sin nombre, normaliza filas válidas y anota el número original si alguna falla;
+     * exige al menos una fila con nombre de materia para aceptar el archivo.
      */
     private function mapRows(array $rawRows, array $headers, int $firstDataRow = 2): array
     {
@@ -260,7 +270,8 @@ class PlanEstudiosImporter
     }
 
     /**
-     * Convierte una fila de archivo a los campos estándar y valida nivel, carácter curricular y prerrequisitos.
+     * Convierte una fila leída desde Excel, CSV o PDF al contrato común del importador.
+     * Normaliza valores opcionales, interpreta el nivel y estado curricular y extrae códigos de prerrequisitos.
      */
     private function normalizedRow(array $row): array
     {
@@ -287,7 +298,8 @@ class PlanEstudiosImporter
     }
 
     /**
-     * Convierte números o nombres ordinales de nivel a un entero; devuelve null si no puede reconocerlos.
+     * Convierte dígitos o palabras ordinales en el número de nivel correspondiente.
+     * Primero busca una secuencia numérica; luego compara ordinales en español y devuelve null si no reconoce el texto.
      */
     private function parseLevel(string $value): ?int
     {
@@ -319,7 +331,8 @@ class PlanEstudiosImporter
     }
 
     /**
-     * Interpreta los valores admitidos para el campo curricular y rechaza cualquier otro texto.
+     * Convierte etiquetas aceptadas de sí/no, true/false o 1/0 al booleano curricular.
+     * Un campo vacío se interpreta como curricular por compatibilidad; cualquier otro texto se rechaza.
      */
     private function parseBoolean(mixed $value): bool
     {
@@ -338,7 +351,8 @@ class PlanEstudiosImporter
     }
 
     /**
-     * Extrae códigos de materia del texto de prerrequisitos, los convierte a mayúsculas y quita duplicados.
+     * Extrae del texto los códigos con formato de materia, sin exigir un separador concreto entre ellos.
+     * Convierte los códigos a mayúsculas y conserva una sola copia de cada código.
      */
     private function parsePrerequisites(string $value): array
     {
@@ -351,7 +365,8 @@ class PlanEstudiosImporter
     }
 
     /**
-     * Normaliza un valor vacío a null y convierte coma decimal a punto.
+     * Limpia el valor de una celda y representa campos vacíos como null.
+     * Cambia coma decimal por punto para que horas y creditajes puedan validarse numéricamente.
      */
     private function value(mixed $value): ?string
     {
@@ -360,7 +375,8 @@ class PlanEstudiosImporter
     }
 
     /**
-     * Normaliza encabezados eliminando acentos, espacios y signos para facilitar su comparación.
+     * Convierte encabezados a minúsculas sin diacríticos ni signos de puntuación.
+     * El resultado compacto permite comparar alias aunque el archivo use espacios o abreviaturas.
      */
     private function header(string $value): string
     {
@@ -374,7 +390,8 @@ class PlanEstudiosImporter
     }
 
     /**
-     * Determina si una línea contiene las columnas clave que identifican el encabezado de una tabla.
+     * Distingue el encabezado de una tabla PDF buscando código, nombre/materia y nivel/horas.
+     * Las líneas que cumplen esos criterios se omiten como datos y no se interpretan como una asignatura.
      */
     private function looksLikeHeader(string $line): bool
     {

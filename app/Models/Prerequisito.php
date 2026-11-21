@@ -19,7 +19,7 @@ class Prerequisito extends Pivot
     ];
 
     /**
-     * Obtiene la materia que declara el prerrequisito.
+     * Relaciona la fila pivote con la materia cuyo plan declara el requisito.
      */
     public function materia(): BelongsTo
     {
@@ -27,7 +27,7 @@ class Prerequisito extends Pivot
     }
 
     /**
-     * Obtiene la materia que debe haberse aprobado previamente.
+     * Resuelve id_prerequisito a la materia que debe aprobarse antes de cursar la materia principal.
      */
     public function materiaPrerequisito(): BelongsTo
     {

@@ -29,7 +29,8 @@ class User extends Authenticatable
     ];
 
     /**
-     * Devuelve el hash almacenado en password para la autenticación de Laravel.
+     * Devuelve la columna password que Laravel debe verificar durante el inicio de sesión.
+     * El valor almacenado es un hash; nunca contiene la contraseña legible.
      */
     public function getAuthPassword()
     {
@@ -37,8 +38,8 @@ class User extends Authenticatable
     }
 
     /**
-     * Expone el nombre completo de la persona; usa la relación cargada o consulta la base de datos
-     * y, si no hay persona asociada, recurre al username.
+     * Resuelve el atributo virtual name que esperan AdminLTE y otros componentes de autenticación.
+     * Reutiliza persona si ya fue precargada para evitar otra consulta; si falta el vínculo devuelve username.
      */
     public function getNameAttribute()
     {
@@ -56,7 +57,7 @@ class User extends Authenticatable
     }
 
     /**
-     * Obtiene la persona propietaria de esta cuenta de acceso.
+     * Relaciona el usuario autenticable con la persona que contiene sus datos personales.
      */
     public function persona()
     {
@@ -64,7 +65,7 @@ class User extends Authenticatable
     }
 
     /**
-     * Obtiene la cuenta de rol principal usada por las vistas que esperan una sola cuenta.
+     * Proporciona la cuenta de rol principal para pantallas heredadas que esperan una sola relación.
      */
     public function cuenta()
     {
@@ -72,7 +73,7 @@ class User extends Authenticatable
     }
 
     /**
-     * Obtiene todas las cuentas de rol asociadas al usuario.
+     * Devuelve todos los vínculos usuario-rol cuando una persona puede tener más de una cuenta.
      */
     public function cuentas(): HasMany
     {
@@ -80,7 +81,8 @@ class User extends Authenticatable
     }
 
     /**
-     * Obtiene las carreras en las que el estudiante está registrado.
+     * Relaciona las carreras cursadas por la persona mediante su historial de cursado.
+     * El conjunto se usa, por ejemplo, para filtrar actividades dirigidas a carreras.
      */
     public function carreras()
     {
@@ -88,8 +90,9 @@ class User extends Authenticatable
     }
 
     /**
-     * Decide si el usuario puede acceder a una ruta: aplica reglas especiales al portal estudiantil
-     * y, para otros usuarios, comprueba los recursos de sus roles activos.
+     * Comprueba acceso a una ruta normalizada usando estado laboral, identidad y recursos de roles.
+     * Los estudiantes solo pueden entrar al portal estudiantil si tienen ficha y rol exclusivamente estudiantil;
+     * otros usuarios no acceden a ese portal y requieren un recurso coincidente en algún rol activo.
      */
     public function tieneAccesoA($url)
     {
@@ -128,8 +131,9 @@ class User extends Authenticatable
     }
 
     /**
-     * Reconoce administradores por su rol activo y mantiene compatibilidad con cuentas heredadas
-     * que todavía no tienen roles asociados.
+     * Reconoce al administrador mediante roles activos y contempla identidades antiguas sin cuentas/roles.
+     * Si hay roles pero ninguno es administrador, no usa las reglas heredadas para elevar privilegios;
+     * cualquier empleado inactivo queda excluido desde el inicio.
      */
     public function isAdministrator(): bool
     {
@@ -156,7 +160,8 @@ class User extends Authenticatable
     }
 
     /**
-     * Obtiene nombres normalizados de los roles activos del usuario.
+     * Carga roles activos, descarta vínculos sin nombre y normaliza alias históricos para comparaciones.
+     * El resultado se reutiliza en las comprobaciones de acceso y administrador.
      */
     private function roleNames(): Collection
     {
@@ -170,7 +175,7 @@ class User extends Authenticatable
     }
 
     /**
-     * Considera activo a quien no es empleado o tiene un registro laboral habilitado.
+     * Permite acceso a personas que no son empleados y exige activo=true a quienes sí lo son.
      */
     public function isActive(): bool
     {
@@ -179,7 +184,7 @@ class User extends Authenticatable
     }
 
     /**
-     * Obtiene el registro laboral de la persona, cuando existe.
+     * Relaciona el usuario con su ficha de empleado, usada para evaluar si su acceso sigue activo.
      */
     public function empleado()
     {
@@ -187,7 +192,7 @@ class User extends Authenticatable
     }
 
     /**
-     * Alias usado por los filtros de menú para consultar permisos de acceso.
+     * Mantiene el nombre de API que usan los filtros de menú y delega toda la decisión en tieneAccesoA().
      */
     public function canAccess($path)
     {
@@ -195,7 +200,8 @@ class User extends Authenticatable
     }
 
     /**
-     * Normaliza nombres de roles y alias históricos para comparar permisos de manera uniforme.
+     * Convierte el rol a minúsculas y sustituye alias heredados como admin/alumno por nombres canónicos.
+     * La normalización evita que diferencias de idioma o mayúsculas cambien las reglas de acceso.
      */
     private function normalizeRole(string $role): string
     {

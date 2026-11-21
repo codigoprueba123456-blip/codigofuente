@@ -15,7 +15,8 @@ use Barryvdh\DomPDF\Facade\Pdf;
 class UserController extends Controller
 {
     /**
-     * Lista cuentas y permite buscar por username, datos de persona o nombre del rol.
+     * Lista usuarios con persona, cuenta y rol precargados para la tabla de administración.
+     * El término search se compara parcialmente con username, nombre, apellidos, email y rol.
      */
     public function index(Request $request)
     {
@@ -37,7 +38,9 @@ class UserController extends Controller
     }
 
     /**
-     * Método reservado para el formulario de alta; actualmente no prepara una vista.
+     * Mantiene la acción convencional del controlador, aunque el alta independiente no está implementada.
+     * La interfaz actual no muestra un formulario de creación de usuarios; las credenciales se generan
+     * al crear un empleado o al procesar otros flujos que vinculan una persona.
      */
     public function create()
     {
@@ -45,7 +48,8 @@ class UserController extends Controller
     }
 
     /**
-     * Crea credenciales para una persona existente y transmite un PDF con la contraseña inicial.
+     * Valida que la persona exista y aún no tenga usuario, genera username correlativo y contraseña.
+     * Guarda el hash en users y entrega un PDF con la contraseña inicial para su distribución.
      */
     public function store(Request $request)
     {
@@ -88,9 +92,8 @@ class UserController extends Controller
     }
 
     /**
-     */
-    /**
-     * Genera una nueva contraseña, sincroniza sus hashes en users y cuenta y entrega el comprobante PDF.
+     * Genera una contraseña nueva y actualiza dentro de una transacción los hashes de users y cuenta.
+     * Luego arma los datos de identificación y rol y transmite el comprobante PDF al navegador.
      */
     public function regenerarCredenciales($id_persona)
     {
@@ -129,7 +132,8 @@ class UserController extends Controller
     }
 
     /**
-     * Carga la cuenta y ofrece roles activos, además del rol actual si está deshabilitado.
+     * Busca usuario, persona y cuenta, y carga los roles que se pueden seleccionar.
+     * Incluye el rol ya asignado aunque esté inactivo para permitir conservarlo al editar otros datos.
      */
     public function edit($id_persona)
     {
@@ -144,7 +148,8 @@ class UserController extends Controller
     }
 
     /**
-     * Actualiza email, username y rol; crea la cuenta asociada si todavía no existe.
+     * Valida unicidad de email y username y admite el rol actual aunque esté desactivado.
+     * Actualiza persona y usuario; modifica la cuenta existente o la crea cuando falta el vínculo.
      */
     public function update(Request $request, $id_persona)
     {

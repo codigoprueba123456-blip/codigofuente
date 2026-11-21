@@ -10,7 +10,8 @@ use Illuminate\Validation\ValidationException;
 class GestionAcademicaController extends Controller
 {
     /**
-     * Lista gestiones ordenadas por año y periodo, con búsqueda opcional por esos identificadores.
+     * Busca gestiones por año, periodo o identificador cuando se recibe el parámetro buscar.
+     * Ordena desde el año más reciente y entrega los registros a la tabla de administración.
      */
     public function index(Request $request)
     {
@@ -32,7 +33,7 @@ class GestionAcademicaController extends Controller
     }
 
     /**
-     * Muestra el formulario vacío para registrar una gestión académica.
+     * Muestra el formulario de alta; la validación y persistencia se realizan en store().
      */
     public function create()
     {
@@ -40,7 +41,8 @@ class GestionAcademicaController extends Controller
     }
 
     /**
-     * Valida y guarda una gestión nueva con sus fechas, régimen y estado inicial.
+     * Aplica las reglas comunes de periodo, régimen, evaluación y fechas y crea la gestión.
+     * Tras guardar, vuelve al listado y muestra una notificación de éxito.
      */
     public function store(Request $request)
     {
@@ -52,7 +54,8 @@ class GestionAcademicaController extends Controller
     }
 
     /**
-     * Busca la gestión solicitada y la entrega al formulario de edición.
+     * Busca la gestión por su ID y entrega sus datos actuales al formulario de edición.
+     * Si el registro no existe, Laravel responde con 404.
      */
     public function edit($id)
     {
@@ -62,7 +65,8 @@ class GestionAcademicaController extends Controller
     }
 
     /**
-     * Actualiza los datos de la gestión y rechaza marcar como vigente una gestión inactiva.
+     * Valida y actualiza datos de periodo y estado de vigencia de una gestión existente.
+     * Impide que una gestión deshabilitada se marque vigente hasta volver a habilitarla.
      */
     public function update(Request $request, $id)
     {
@@ -82,7 +86,8 @@ class GestionAcademicaController extends Controller
     }
 
     /**
-     * Cambia el estado de habilitación; al deshabilitar la gestión también elimina su vigencia.
+     * Cambia el estado activo recibido y mantiene la vigencia solo al habilitar la gestión.
+     * Deshabilitarla elimina su vigencia; volver a habilitarla no la marca vigente automáticamente.
      */
     public function cambiarEstado(Request $request, $id)
     {
@@ -101,7 +106,8 @@ class GestionAcademicaController extends Controller
     }
 
     /**
-     * Define los campos y límites aceptados al crear o actualizar una gestión.
+     * Comparte reglas de validación entre alta y edición.
+     * Limita el año y el régimen, permite fechas vacías y exige que fin no anteceda a inicio.
      */
     private function rules(): array
     {
@@ -117,7 +123,7 @@ class GestionAcademicaController extends Controller
     }
 
     /**
-     * Proporciona mensajes legibles para errores de validación propios de las fechas.
+     * Traduce a texto claro la regla cronológica entre fechas de inicio y finalización.
      */
     private function messages(): array
     {

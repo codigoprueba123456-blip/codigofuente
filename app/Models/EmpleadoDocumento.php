@@ -18,7 +18,8 @@ class EmpleadoDocumento extends Model
     protected $fillable = ['id_persona', 'tipo', 'ruta'];
 
     /**
-     * Traduce el número de campo del formulario al tipo de documento almacenado.
+     * Convierte el índice 1-4 del arreglo de archivos del formulario en el tipo persistido.
+     * Para un índice desconocido genera una etiqueta genérica en lugar de fallar.
      */
     public static function tipoParaSlot(int $slot): string
     {
@@ -26,7 +27,7 @@ class EmpleadoDocumento extends Model
     }
 
     /**
-     * Devuelve la etiqueta que debe mostrarse para el campo de documento seleccionado.
+     * Proporciona el texto visible del campo reutilizando el mismo catálogo de tipos almacenados.
      */
     public static function nombreParaSlot(int $slot): string
     {
@@ -34,7 +35,7 @@ class EmpleadoDocumento extends Model
     }
 
     /**
-     * Obtiene el empleado al que pertenece este documento.
+     * Relaciona el documento con el empleado usando id_persona como clave en ambos modelos.
      */
     public function empleado()
     {

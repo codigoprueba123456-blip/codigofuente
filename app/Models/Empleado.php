@@ -15,7 +15,8 @@ class Empleado extends Model
     protected $casts = ['activo' => 'boolean'];
 
     /**
-     * Filtra los registros laborales que están habilitados.
+     * Restringe una consulta a empleados habilitados.
+     * Se usa para seleccionar responsables y docentes sin excluir registros históricos de otras consultas.
      */
     public function scopeActivos($query)
     {
@@ -23,7 +24,7 @@ class Empleado extends Model
     }
 
     /**
-     * Obtiene los datos personales vinculados al registro laboral.
+     * Relaciona el registro laboral con la persona que conserva identidad y datos de contacto.
      */
     public function persona()
     {
@@ -31,7 +32,8 @@ class Empleado extends Model
     }
 
     /**
-     * Obtiene los documentos adjuntos al expediente de este empleado.
+     * Devuelve los documentos asociados a la persona empleada.
+     * Cada fila guarda la categoría del documento y su ruta en el almacenamiento público.
      */
     public function documentos(): HasMany
     {

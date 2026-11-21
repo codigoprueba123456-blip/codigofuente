@@ -16,7 +16,7 @@ class Instituto extends Model
     ];
 
     /**
-     * Obtiene el empleado asignado como rector del instituto.
+     * Relaciona id_rector con el empleado que ocupa la autoridad de Rector.
      */
     public function rector(): BelongsTo
     {
@@ -24,7 +24,7 @@ class Instituto extends Model
     }
 
     /**
-     * Obtiene el empleado asignado como director académico del instituto.
+     * Relaciona id_directoracademico con el empleado responsable del área académica.
      */
     public function directorAcademico(): BelongsTo
     {

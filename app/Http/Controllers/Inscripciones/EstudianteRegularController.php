@@ -514,7 +514,11 @@ class EstudianteRegularController extends Controller
                     'updated_at' => $ahora,
                 ]);
 
-                $monto = $this->montoInscripcion($idCarrera);
+                $monto = $this->montoInscripcion(
+                    $idCarrera,
+                    (int) $gestionActual->id_gestionacademica,
+                    $nivelActual
+                );
                 $idPago = DB::table('pago')->insertGetId([
                     'concepto' => null,
                     'monto' => $monto,

@@ -359,11 +359,12 @@ class PostulanteController extends Controller
                 ),
             ]);
 
-            // Calcula el monto de referencia con el costo de matrícula de la carrera.
-            $monto = (float) (DB::table('carreras as c')
-                ->join('instituto as i', 'i.id_instituto', '=', 'c.id_instituto')
-                ->where('c.id_carrera', $postulante->id_carrera)
-                ->value(DB::raw('COALESCE(c.creditajematricula, 0) * COALESCE(i.preciocredito, 0)')) ?? 0);
+            // Una nueva postulación inicia en el primer nivel de la carrera.
+            $monto = $this->montoInscripcion(
+                (int) $postulante->id_carrera,
+                (int) $gestion->id_gestionacademica,
+                1
+            );
             $idPago = DB::table('pago')->insertGetId([
                 'concepto' => null,
                 'monto' => $monto,

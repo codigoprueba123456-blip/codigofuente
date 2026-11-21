@@ -29,7 +29,9 @@ class GestionAcademica extends Model
     ];
 
     /**
-     * Construye la etiqueta corta según el régimen: anual, semestral o periodo no estándar.
+     * Genera el identificador legible usado en selectores y encabezados.
+     * Los periodos anuales usan formato I{año}A; los dos semestres usan I/II{año}S;
+     * otros valores de periodo se muestran con una etiqueta descriptiva genérica.
      */
     public function getEtiquetaAttribute(): string
     {
@@ -47,7 +49,8 @@ class GestionAcademica extends Model
     }
 
     /**
-     * Filtra gestiones que están habilitadas y marcadas como vigentes.
+     * Limita la consulta a gestiones simultáneamente activas y vigentes.
+     * Una gestión que cumpla solo uno de esos estados no debe aparecer en operaciones disponibles.
      */
     public function scopeHabilitadas($query)
     {
@@ -55,7 +58,7 @@ class GestionAcademica extends Model
     }
 
     /**
-     * Obtiene las actividades asociadas a esta gestión académica.
+     * Relaciona los eventos del calendario cuyo campo id_gestionacademica apunta a este periodo.
      */
     public function actividades()
     {
@@ -63,10 +66,19 @@ class GestionAcademica extends Model
     }
 
     /**
-     * Obtiene los grupos programados para esta gestión académica.
+     * Relaciona los grupos académicos programados para este periodo.
      */
     public function grupos()
     {
         return $this->hasMany(Grupo::class, 'id_gestionacademica');
+    }
+
+    /**
+     * Relaciona las tarifas configuradas dentro de esta gestión.
+     * Cada registro puede corresponder a una carrera completa (nivel cero) o a un nivel específico.
+     */
+    public function tarifasMatricula()
+    {
+        return $this->hasMany(TarifaMatricula::class, 'id_gestionacademica', 'id_gestionacademica');
     }
 }

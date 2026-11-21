@@ -61,7 +61,13 @@ class ItSaCurriculumSeeder extends Seeder
         ],
     ];
 
-    // Curricula are based on the official career pages linked from https://itsa.edu.bo/518-2/.
+    /**
+     * Carga materias de demostración para carreras del catálogo y la gestión vigente.
+     * Para cada carrera crea o actualiza materias por nivel, calcula creditajes y prerrequisitos;
+     * al final programa grupos con turnos/paralelos definidos en GRUPOS_POR_CARRERA.
+     *
+     * Las materias de referencia se basan en las páginas oficiales indicadas en la fuente.
+     */
     public function run(): void
     {
         $gestion = GestionAcademica::query()
@@ -223,6 +229,11 @@ class ItSaCurriculumSeeder extends Seeder
         }
     }
 
+    /**
+     * Crea o actualiza los grupos de materias curriculares según el mapa de carrera, nivel,
+     * paralelo y turno. Si un código ya pertenece a otra materia, prueba el prefijo DEMO-
+     * y falla si ese código alternativo también está ocupado; desactiva paralelos fuera del mapa.
+     */
     private function seedGroups(Carrera $career, int $gestionId): void
     {
         $subjects = Materia::query()
@@ -288,6 +299,11 @@ class ItSaCurriculumSeeder extends Seeder
         }
     }
 
+    /**
+     * Calcula el creditaje total como precio institucional por diez y lo asigna a admisión y matrícula.
+     * Divide ese total entre las materias curriculares de la carrera y distribuye el sobrante
+     * en el orden consultado para que la suma de créditos quede exacta.
+     */
     private function assignCareerCredits(Carrera $career): void
     {
         $institute = Instituto::findOrFail($career->id_instituto);
@@ -321,6 +337,11 @@ class ItSaCurriculumSeeder extends Seeder
         }
     }
 
+    /**
+     * Identifica series curriculares por nombres terminados en I, II o III y enlaza sus requisitos.
+     * Cada materia II depende de la I del nivel anterior y cada III de la II del nivel anterior;
+     * syncWithoutDetaching conserva prerrequisitos que ya estaban asociados.
+     */
     private function seedSequentialPrerequisites(Carrera $career): void
     {
         $subjects = Materia::query()

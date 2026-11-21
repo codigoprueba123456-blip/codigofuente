@@ -13,7 +13,7 @@ class Rol extends Model
     protected $casts = ['activo' => 'boolean'];
 
     /**
-     * Filtra roles habilitados para asignación.
+     * Restringe una consulta a roles activos para asignarlos a usuarios o cuentas nuevas.
      */
     public function scopeActivos($query)
     {
@@ -21,7 +21,8 @@ class Rol extends Model
     }
 
     /**
-     * Obtiene las funcionalidades autorizadas para este rol.
+     * Relaciona el rol con los recursos que autorizan rutas de la aplicación.
+     * La asignación se persiste en la tabla pivote privilegio.
      */
     public function recursos()
     {
@@ -29,7 +30,7 @@ class Rol extends Model
     }
 
     /**
-     * Obtiene las cuentas de usuario que tienen asignado este rol.
+     * Devuelve las cuentas que usan este rol y heredan sus permisos.
      */
     public function cuentas()
     {
@@ -37,7 +38,8 @@ class Rol extends Model
     }
 
     /**
-     * Comprueba si el rol permite una URL después de quitar barras iniciales y finales.
+     * Normaliza la ruta quitando barras externas y comprueba su coincidencia exacta en los recursos.
+     * Una ruta vacía se considera permitida porque no representa un recurso restringido.
      */
     public function tieneRecurso($url)
     {

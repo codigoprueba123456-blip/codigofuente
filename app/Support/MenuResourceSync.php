@@ -7,7 +7,8 @@ use App\Models\Recurso;
 class MenuResourceSync
 {
     /**
-     * Sincroniza recursos desde el menú indicado o desde la configuración activa de navegación.
+     * Actualiza el catálogo de recursos desde el menú recibido o la configuración de navegación.
+     * Si no se entrega un menú, prioriza functionality.menu y usa adminlte.menu como alternativa.
      */
     public static function sync(?array $items = null): void
     {
@@ -15,7 +16,8 @@ class MenuResourceSync
     }
 
     /**
-     * Recorre el menú y sus submenús, creando o actualizando los recursos para cada enlace válido.
+     * Visita entradas del menú y submenús para mantener un recurso por URL navegable.
+     * Omite encabezados, enlaces vacíos y el marcador '#'; updateOrCreate evita duplicar rutas.
      */
     private static function syncItems(array $items): void
     {

@@ -25,7 +25,8 @@ class Grupo extends Model
     ];
 
     /**
-     * Filtra los grupos que están habilitados.
+     * Restringe una consulta a grupos activos, independientemente de que acepten nuevas inscripciones.
+     * El estado abierto se consulta por separado cuando se valida disponibilidad.
      */
     public function scopeActivos($query)
     {
@@ -33,7 +34,7 @@ class Grupo extends Model
     }
 
     /**
-     * Obtiene la gestión académica en la que se programó el grupo.
+     * Relaciona el grupo con el periodo académico durante el que se ofrece.
      */
     public function gestionAcademica()
     {
@@ -41,7 +42,7 @@ class Grupo extends Model
     }
 
     /**
-     * Obtiene la materia a la que corresponde este grupo.
+     * Relaciona el grupo con la materia que se dicta en su paralelo y turno.
      */
     public function materia()
     {
@@ -49,7 +50,7 @@ class Grupo extends Model
     }
 
     /**
-     * Obtiene a la persona asignada como docente del grupo.
+     * Relaciona id_persona con la persona que figura como docente del grupo.
      */
     public function docente()
     {
@@ -57,7 +58,8 @@ class Grupo extends Model
     }
 
     /**
-     * Obtiene las inscripciones de estudiantes asociadas al grupo, con fechas de vínculo.
+     * Relaciona el grupo con sus inscripciones de estudiantes mediante inscrito_materia.
+     * Incluye timestamps de la tabla pivote para conservar cuándo se vinculó cada inscripción.
      */
     public function inscritos()
     {

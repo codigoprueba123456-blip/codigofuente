@@ -19,6 +19,7 @@ use App\Http\Controllers\Academico\AsignacionDocenteController;
 use App\Http\Controllers\Academico\CarreraController;
 use App\Http\Controllers\Academico\GestionAcademicaController;
 use App\Http\Controllers\Academico\GrupoController;
+use App\Http\Controllers\Academico\TarifaMatriculaController;
 // INICIO: Módulo temporal de organización del proceso de inscripción.
 use App\Http\Controllers\Academico\InicioInscripcionController;
 // FIN: Módulo temporal de organización del proceso de inscripción.
@@ -48,7 +49,7 @@ Route::get('/reportes/dashboard', [InscripcionesDashboardController::class, 'ind
 
 // Estas rutas internas requieren sesión y permiso para el recurso asociado a cada URL.
 Route::middleware(['auth', 'resource.access'])->group(function () {
-// Administración: configuración del instituto y gestión de empleados, usuarios, roles y recursos.
+// Administración: configuración institucional y mantenimiento de empleados, usuarios, roles y recursos.
 Route::get('/admin/instituto', [InstitutoController::class, 'index'])->name('admin.instituto.index')->middleware('auth');
 Route::put('/admin/instituto', [InstitutoController::class, 'update'])->name('admin.instituto.update')->middleware('auth');
 Route::get('/admin/empleados', [EmpleadoController::class, 'index'])->name('admin.empleados.index')->middleware('auth');
@@ -70,7 +71,7 @@ Route::patch('/admin/roles/{id}/estado', [RolController::class, 'cambiarEstado']
 Route::get('/admin/recursos', [RecursoController::class, 'index'])->name('admin.recursos.index')->middleware('auth');
 Route::get('/admin/recursos/create', [RecursoController::class, 'create'])->name('admin.recursos.create')->middleware('auth');
 Route::post('/admin/recursos/create', [RecursoController::class, 'store'])->name('admin.recursos.store')->middleware('auth');
-// Planes de estudio: mantenimiento de carreras y materias, incluida la importación de planes.
+// Planes de estudio: catálogo de carreras, materias, prerrequisitos e importación curricular.
 Route::get('/planes/carreras', [CarreraController::class, 'index'])->name('planes.carreras.index')->middleware('auth');
 Route::get('/planes/carreras/create', [CarreraController::class, 'create'])->name('planes.carreras.create')->middleware('auth');
 Route::post('/planes/carreras/create', [CarreraController::class, 'store'])->name('planes.carreras.store')->middleware('auth');
@@ -85,7 +86,7 @@ Route::post('/planes/materias', [MateriaController::class, 'store'])->name('plan
 Route::get('/planes/materias/{id}/edit', [MateriaController::class, 'edit'])->name('planes.materias.edit')->middleware('auth');
 Route::put('/planes/materias/{id}', [MateriaController::class, 'update'])->name('planes.materias.update')->middleware('auth');
 Route::patch('/planes/materias/{id}/estado', [MateriaController::class, 'cambiarEstado'])->name('planes.materias.estado')->middleware('auth');
-// Consulta jerárquica de la oferta académica: gestión, carrera, paralelo/turno y materia.
+// Consulta jerárquica de la oferta: cada ruta baja de gestión a carrera, paralelo/turno y materia.
 Route::get('/planes/gestiones/inicio-inscripcion', [InicioInscripcionController::class, 'index'])
     ->name('inicio_inscripcion.index');
 Route::get('/planes/gestiones/inicio-inscripcion/{gestionId}', [InicioInscripcionController::class, 'gestion'])
@@ -108,13 +109,18 @@ Route::get('/planes/gestiones/inicio-inscripcion/{gestionId}/carreras/{carreraId
     ->whereNumber('turno')
     ->whereNumber('materiaId')
     ->name('inicio_inscripcion.materia');
-// Gestiones académicas: configuración de periodos, calendario de actividades y grupos.
+// Gestiones académicas: periodos, calendario, grupos, tarifas por periodo y asignación docente.
 Route::get('/planes/gestiones', [GestionAcademicaController::class, 'index'])->name('admin.gestionacademica.index')->middleware('auth');
 Route::get('/planes/gestiones/create', [GestionAcademicaController::class, 'create'])->name('admin.gestionacademica.create')->middleware('auth');
 Route::post('/planes/gestiones', [GestionAcademicaController::class, 'store'])->name('admin.gestionacademica.store')->middleware('auth');
 Route::get('/planes/gestiones/{id}/edit', [GestionAcademicaController::class, 'edit'])->name('admin.gestionacademica.edit')->middleware('auth');
 Route::put('/planes/gestiones/{id}', [GestionAcademicaController::class, 'update'])->name('admin.gestionacademica.update')->middleware('auth');
 Route::patch('/planes/gestiones/{id}/estado', [GestionAcademicaController::class, 'cambiarEstado'])->name('admin.gestionacademica.estado')->middleware('auth');
+// Las cuatro rutas permiten consultar, guardar/reemplazar, editar o eliminar tarifas de la gestión.
+Route::get('/planes/gestiones/{id}/tarifas-matricula', [TarifaMatriculaController::class, 'index'])->name('admin.gestionacademica.tarifas.index')->middleware('auth');
+Route::post('/planes/gestiones/{id}/tarifas-matricula', [TarifaMatriculaController::class, 'store'])->name('admin.gestionacademica.tarifas.store')->middleware('auth');
+Route::put('/planes/gestiones/{id}/tarifas-matricula/{tarifaId}', [TarifaMatriculaController::class, 'update'])->name('admin.gestionacademica.tarifas.update')->middleware('auth');
+Route::delete('/planes/gestiones/{id}/tarifas-matricula/{tarifaId}', [TarifaMatriculaController::class, 'destroy'])->name('admin.gestionacademica.tarifas.destroy')->middleware('auth');
 Route::get('/planes/calendario', [ActividadController::class, 'index'])->name('admin.actividad.index')->middleware('auth');
 Route::get('/planes/calendario/create', [ActividadController::class, 'create'])->name('admin.actividad.create')->middleware('auth');
 Route::post('/planes/calendario', [ActividadController::class, 'store'])->name('admin.actividad.store')->middleware('auth');

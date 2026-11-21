@@ -10,7 +10,9 @@ use Illuminate\Support\Facades\DB;
 class CareerCreditageService
 {
     /**
-     * Recalcula en una transacción los creditajes de una carrera y de sus materias curriculares activas.
+     * Ejecuta el recálculo de una carrera dentro de una transacción.
+     * Agrupa la actualización de los valores de la carrera y la distribución entre materias,
+     * de modo que un error no deje guardada una distribución parcial.
      */
     public function syncCareer(Carrera $carrera): void
     {
@@ -18,7 +20,8 @@ class CareerCreditageService
     }
 
     /**
-     * Recalcula todas las carreras del instituto después de cambiar su precio por crédito.
+     * Recorre en orden estable todas las carreras del instituto y recalcula sus importes y materias.
+     * La transacción incluye el lote completo para no dejar algunas carreras con el precio anterior.
      */
     public function syncInstitute(Instituto $instituto): void
     {
@@ -32,7 +35,10 @@ class CareerCreditageService
     }
 
     /**
-     * Aplica los importes manuales o automáticos de la carrera y distribuye el total entre sus materias.
+     * Obtiene el precio por crédito institucional y determina los creditajes de admisión y matrícula.
+     * Cada campo manual puede sobrescribir por separado el valor automático; el total curricular se
+     * reparte entre materias curriculares activas, mientras las no curriculares quedan sin creditaje.
+     * Los sobrantes de la división se asignan en orden de nivel, número e identificador.
      */
     private function recalculate(Carrera $carrera): void
     {

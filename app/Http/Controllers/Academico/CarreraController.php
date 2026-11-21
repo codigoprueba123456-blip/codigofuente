@@ -14,7 +14,8 @@ use Illuminate\Validation\Rule;
 class CarreraController extends Controller
 {
     /**
-     * Lista carreras con sus responsables y permite filtrar por código, nombre o resolución.
+     * Consulta carreras junto con instituto y jefe de carrera para evitar cargas posteriores por fila.
+     * Si se proporciona q, busca coincidencias parciales en código, nombre y las tres resoluciones.
      */
     public function index(Request $request)
     {
@@ -33,7 +34,8 @@ class CarreraController extends Controller
     }
 
     /**
-     * Prepara los datos institucionales y los jefes de carrera para el formulario de alta.
+     * Renderiza el alta con el instituto configurado y empleados elegibles como jefes de carrera.
+     * Los datos comunes de selección se construyen en formData().
      */
     public function create()
     {
@@ -41,8 +43,9 @@ class CarreraController extends Controller
     }
 
     /**
-     * Valida y crea una carrera asociada al instituto configurado; sincroniza el creditaje
-     * y revierte ambos cambios si falla cualquier paso.
+     * Valida datos de carrera y exige que exista primero la configuración del instituto.
+     * Crea la carrera, asigna el instituto y recalcula sus creditajes en una transacción única;
+     * al terminar vuelve al catálogo con un mensaje de resultado.
      */
     public function store(Request $request, CareerCreditageService $creditage)
     {
@@ -68,7 +71,8 @@ class CarreraController extends Controller
     }
 
     /**
-     * Carga la carrera y prepara las opciones del formulario, incluyendo al jefe actual.
+     * Busca la carrera solicitada o responde 404 y carga los datos de las listas del formulario.
+     * Pasa el jefe actual a formData() para que siga disponible aunque se haya desactivado.
      */
     public function edit($id)
     {
@@ -80,7 +84,9 @@ class CarreraController extends Controller
     }
 
     /**
-     * Actualiza la carrera y recalcula sus valores de creditaje en la misma transacción.
+     * Valida la edición conservando la unicidad propia de la carrera y el jefe ya asignado.
+     * Actualiza la carrera y recalcula los importes derivados dentro de una transacción para
+     * mantener consistentes los campos automáticos y el plan curricular.
      */
     public function update(Request $request, $id, CareerCreditageService $creditage)
     {
@@ -104,7 +110,8 @@ class CarreraController extends Controller
     }
 
     /**
-     * Cambia únicamente el estado de habilitación de la carrera.
+     * Valida y cambia solo el estado activo; no modifica datos académicos ni creditajes.
+     * Devuelve a la lista de carreras con una notificación del nuevo estado.
      */
     public function cambiarEstado(Request $request, $id)
     {
@@ -120,8 +127,9 @@ class CarreraController extends Controller
     }
 
     /**
-     * Devuelve el instituto y los empleados activos que pueden ser jefes; conserva también
-     * al jefe actual aunque haya dejado de estar activo para no perder la selección al editar.
+     * Construye las opciones compartidas por los formularios de alta y edición.
+     * Incluye el instituto configurado y empleados activos; al editar añade al jefe actual aun
+     * inactivo para conservar la relación existente hasta que el usuario decida cambiarla.
      */
     private function formData(?int $jefeActual = null): array
     {
@@ -135,8 +143,9 @@ class CarreraController extends Controller
     }
 
     /**
-     * Construye reglas comunes para alta y edición, permitiendo excluir de la validación única
-     * la carrera actual y mantener al jefe asignado aunque esté inactivo.
+     * Define validaciones compartidas para identidad, régimen, nivel, resoluciones y creditaje manual.
+     * En edición excluye la carrera de la regla única y permite conservar al jefe actual inactivo;
+     * los demás jefes deben seguir siendo empleados activos.
      */
     private function rules(?int $id = null, ?int $jefeActual = null): array
     {

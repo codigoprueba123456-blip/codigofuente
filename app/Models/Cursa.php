@@ -19,7 +19,7 @@ class Cursa extends Model
     ];
 
     /**
-     * Obtiene a la persona asociada al historial de cursado.
+     * Relaciona el registro de cursado con el estudiante al que corresponde.
      */
     public function persona()
     {
@@ -27,7 +27,7 @@ class Cursa extends Model
     }
 
     /**
-     * Obtiene la carrera en la que se registra el nivel de inicio.
+     * Relaciona el registro con la carrera y permite consultar el nivel en que inició.
      */
     public function carrera()
     {
